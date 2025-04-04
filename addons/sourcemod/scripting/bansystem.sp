@@ -13,10 +13,10 @@
 			G L O B A L   V A R S
 *****************************************************************/
 
-#define DEBUG 		0
-#define DEBUG_SQL 	0
-#define DEBUG_API 	0
-#define DEBUG_MENU 	0
+#define DEBUG 		1
+#define DEBUG_SQL 	1
+#define DEBUG_API 	1
+#define DEBUG_MENU 	1
 #define PATCH_DEBUG	"logs/BanSystem.log"
 
 #define PLUGIN_VERSION	"1.0"
