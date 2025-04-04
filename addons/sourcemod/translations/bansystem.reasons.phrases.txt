@@ -1,0 +1,98 @@
+"Phrases"
+{
+    "#ERR"
+    {
+        "en" "Error in translation"
+        "es" "Error en la traduccion"
+    }
+    "#CHEAT_MULTIHACK"
+    {
+        "en" "Cheat Multihack"
+        "es" "Trampa Multihack"
+    }
+    "#CHEAT_AIMBOT"
+    {
+        "en" "Cheat - Aimbot"
+        "es" "Trampa - Aimbot"
+    }
+    "#CHEAT_SPEED"
+    {
+        "en" "Cheat - SpeedHack"
+        "es" "Trampa - SpeedHack"
+    }
+    "#CHEAT_WALL"
+    {
+        "en" "Cheat - WallHack"
+        "es" "Trampa - WallHack"
+    }
+    "#EXPLOIT_BUG"
+    {
+        "en" "Exploit - Bugs"
+        "es" "Exploit - Bugs"
+    }
+    "#EXPLOIT_GLITCH"
+    {
+        "en" "Exploit - Glitch"
+        "es" "Exploit - Glitch"
+    }
+    "#TROLL_TEAMKILL"
+    {
+        "en" "Troll - Team Killing"
+        "es" "Trol - Matar al Equipo"
+    }
+    "#TROLL_SUICIDE"
+    {
+        "en" "Troll - Suicide"
+        "es" "Trol - Suicidio"
+    }
+    "#TROLL_SABOTAGE"
+    {
+        "en" "Troll - Sabotage"
+        "es" "Trol - Sabotaje"
+    }
+    "#BEHAVIOR_DOXING"
+    {
+        "en" "Behavior - Doxing"
+        "es" "Conducta - Doxing"
+    }
+    "#BEHAVIOR_HARASSMENT"
+    {
+        "en" "Behavior - Harassment"
+        "es" "Conducta - Acoso"
+    }
+    "#BEHAVIOR_ANTISPORTSMANSHIP"
+    {
+        "en" "Behavior - Unsportsmanlike"
+        "es" "Conducta - Antideportiva"
+    }
+    "#BEHAVIOR_DISRESPECTFULLY"
+    {
+        "en" "Behavior - Disrespectful"
+        "es" "Conducta - Irrespetuoso"
+    }
+    "#BEHAVIOR_INSULTS"
+    {
+        "en" "Behavior Insults"
+        "es" "Conducta Insultos"
+    }
+    "#BEHAVIOR_MIC"
+    {
+        "en" "Behavior - Mic Spam"
+        "es" "Conducta - Spam de Mic"
+    }
+    "#BEHAVIOR_CHAT"
+    {
+        "en" "Behavior - Chat Spam"
+        "es" "Conducta - Spam de Chat"
+    }
+    "#IMPORT_LALO"
+    {
+        "en" "Imported - Lalo HLZ"
+        "es" "Importado - Lalo HLZ"
+    }
+    "#IMPORT_CENTER"
+    {
+        "en" "Imported - l4d2Center"
+        "es" "Importado - l4d2Center"
+    }
+}

@@ -1,0 +1,484 @@
+"Phrases"
+{
+	"Prefix"
+	{
+		"en"		"[{olive}BanSystem{default}]"
+		"es"		"[{olive}BanSystem{default}]"
+	}
+
+	"Use"
+	{
+		"en"		"Use"
+		"es"		"Uso"
+	}
+
+	"AuthIdError"
+	{
+		"#format"	"{1:s}"
+		"en"		"The steamid ({red}{1}{default}) is invalid."
+		"es"		"El steamid ({red}{1}{default}) es inválido."
+	}
+
+	"IpAddressError"
+	{
+		"#format"	"{1:s}"
+		"en"		"The ip address ({red}{1}{default}) is invalid."
+		"es"		"La dirección ip ({red}{1}{default}) es inválida."
+	}
+	
+	"SQLError"
+	{
+		"en"		"SQL {red}error{default}"
+		"es"		"SQL {red}error{default}"
+	}
+
+	"BlockAccessPerm"
+	{
+		"en"		"You have a permanent access ban"
+		"es"		"Usted tiene una prohibición de acceso permanente"
+	}
+
+	"BlockAccessTemp"
+	{
+		"#format"	"{1:s}"
+		"en"		"You have a temporary access ban.\nExpires: {1} UTC"
+		"es"		"Usted tiene una prohibición de acceso temporal.\nExpira: {1} UTC"
+	}
+
+	"BlockAccessTempNoDate"
+	{
+		"en"		"You have a temporary access ban."
+		"es"		"Usted tiene una prohibición de acceso temporal."
+	}
+
+	"BanAccessSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"Access ban granted to {green}{1}{default}."
+		"es"		"Prohibición de acceso concedida a {green}{1}{default}."
+	}
+
+	"BannedAccess"
+	{
+		"en"		"You received an access ban.\nRead your console for more information"
+		"es"		"Usted recibió una prohibición de acceso.\nLea su consola para más información"
+	}
+
+	"BannedComm"
+	{
+		"en"		"You received a {red}communication ban{default}.\n{green}Read your console{default} for more information"
+		"es"		"Usted recibió una {red}prohibición de comunicación{default}.\n{green}Lea su consola{default} para más información"
+	}
+
+	"BannedAccessConsoleTitle"
+	{
+		"en"		"You received an access ban"
+		"es"		"Usted recibió prohibición de acceso"
+	}
+
+	"BannedCommConsoleTitle"
+	{
+		"en"		"You received a communication ban"
+		"es"		"Usted recibió prohibición de comunicación"
+	}
+
+	"BannedConsoleEject"
+	{
+		"#format"	"{1:s}"
+		"en"		"Ejected by: {1}"
+		"es"		"Ejecutado por: {1}"
+	}
+
+	"BannedConsoleLength"
+	{
+		"#format"	"{1:s}"
+		"en"		"Duration: {1}"
+		"es"		"Duración: {1}"
+	}
+
+	"BannedConsoleReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"Reason: {1}"
+		"es"		"Razón: {1}"
+	}
+
+	"BannedConsoleTypecomm"
+	{
+		"#format"	"{1:s}"
+		"en"		"Type: {1}"
+		"es"		"Tipo: {1}"
+	}
+
+	"BanCommSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"Communication ban granted to {green}{1}{default}."
+		"es"		"Prohibición de comunicación concedida a {green}{1}{default}."
+	}
+
+	"BanMicSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"Mic ban granted to {green}{1}{default}."
+		"es"		"Prohibición de mic concedida a {green}{1}{default}."
+	}
+
+	"BanChatSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"Chat ban granted to {green}{1}{default}."
+		"es"		"Prohibición de chat concedida a {green}{1}{default}."
+	}
+
+	"NoBanInfo"
+	{
+		"#format"	"{1:s}"
+		"en"		"No ban information found for {red}{1}{default}."
+		"es"		"No se encontró información de prohibición para {red}{1}{default}."
+	}
+
+	"TitleInfo"
+	{
+		"en"		"Information"
+		"es"		"Información"
+	}
+
+	"InfoPlayerName"
+	{
+		"en"		"Player name"
+		"es"		"Nombre del jugador"
+	}
+
+	"InfoIpAddress"
+	{
+		"en"		"IP address"
+		"es"		"Dirección IP"
+	}
+
+	"InfoLength"
+	{
+		"en"		"Length"
+		"es"		"Duración"
+	}
+
+	"InfoReason"
+	{
+		"en"		"Reason"
+		"es"		"Razón"
+	}
+
+	"InfonedBy"
+	{
+		"en"		"Banned by"
+		"es"		"Prohibido por"
+	}
+	
+	"InfoTimestamp"
+	{
+		"en"		"Timestamp"
+		"es"		"Marca de tiempo"
+	}
+
+	"Permanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"Month"
+	{
+		"en"		"month"
+		"es"		"mes"
+	}
+
+	"Months"
+	{
+		"en"		"months"
+		"es"		"meses"
+	}
+
+	"Week"
+	{
+		"en"		"week"
+		"es"		"semana"
+	}
+
+	"Weeks"
+	{
+		"en"		"weeks"
+		"es"		"semanas"
+	}
+
+	"Day"
+	{
+		"en"		"day"
+		"es"		"día"
+	}
+
+	"Days"
+	{
+		"en"		"days"
+		"es"		"días"
+	}
+
+	"Hour"
+	{
+		"en"		"hour"
+		"es"		"hora"
+	}
+
+	"Hours"
+	{
+		"en"		"hours"
+		"es"		"horas"
+	}
+
+	"Minute"
+	{
+		"en"		"minute"
+		"es"		"minuto"
+	}
+
+	"Minutes"
+	{
+		"en"		"minutes"
+		"es"		"minutos"
+	}
+
+	"InfoPrinted"
+	{
+		"en"		"Information printed in the {green}console{default}"
+		"es"		"Información impresa en la {green}consola{default}"
+	}
+
+	"AttemptAccess"
+	{
+		"#format"	"{1:N},{2:s}"
+		"en"		"Attempt to access the server"
+		"es"		"El usuario {green}{1}{default}({green}{2}{default}) {red}intentó acceder al servidor{default}."
+	}
+
+	"UnbanAccessSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"The ban to {green}{1}{default} was removed."
+		"es"		"{blue}Se eliminó la prohibición{default} a {green}{1}{default}."
+	}
+
+	"UnbanCommSuccess"
+	{
+		"#format"	"{1:s}"
+		"en"		"The communication ban to {green}{1}{default} was removed."
+		"es"		"{blue}Se eliminó la prohibición de comunicación{default} a {green}{1}{default}."
+	}
+
+	"UnbanError"
+	{
+		"en"		"Error while trying to unban the player."
+		"es"		"Error al intentar desprohibir al jugador."
+	}
+
+	"UnbanErrorNoUser"
+	{
+		"en"		"Error while trying to unban the player. The player {green}does not{default} have a ban."
+		"es"		"{red}Error{default} al intentar desprohibir al jugador. El jugador {green}no{default} tiene una prohibición."
+	}
+
+	"NoMatchingClient"
+	{
+		"en"		"No client found."
+		"es"		"No se encontró ningún cliente."
+	}
+
+	"MenuCommTitle"
+	{
+		"en"		"Communication ban"
+		"es"		"Prohibición de comunicación"
+	}
+
+	"MenuTargetsTitle"
+	{
+		"en"		"Select the target"
+		"es"		"Jugadores Disponibles"
+	}
+
+	"MenuAllDesc"
+	{
+		"en"		"Microphone and Chat"
+		"es"		"Micrófono y el Chat"
+	}
+
+	"MenuMicDesc"
+	{
+		"en"		"Only microphone"
+		"es"		"Solo Micrófono"
+	}
+
+	"MenuChatDesc"
+	{
+		"en"		"Only chat"
+		"es"		"Solo el chat"
+	}
+	
+	"InvalidCommType"
+	{
+		"en"		"Invalid communication type"
+		"es"		"Tipo de comunicación inválido"
+	}
+	
+	"TypeCommAll"
+	{
+		"en"		"mic and chat"
+		"es"		"Micrófono y Chat"
+	}
+
+	"TypeCommMic"
+	{
+		"en"		"mic"
+		"es"		"Micrófono"
+	}
+
+	"TypeCommChat"
+	{
+		"en"		"chat"
+		"es"		"Chat"
+	}
+
+	"BannedCommChat"
+	{
+		"en"		"You have a chat ban"
+		"es"		"Usted tiene prohibido usar el chat"
+	}
+
+	"AlreadyCommBanned"
+	{
+		"en"		"The player {green}already{default} has a communication ban."
+		"es"		"El jugador {green}ya{default} tiene una prohibición de comunicación."
+	}
+
+	"AlreadyAccessBanned"
+	{
+		"en"		"The player {green}already{default} has an access ban."
+		"es"		"El jugador {green}ya{default} tiene una prohibición de acceso."
+	}
+
+	"YouUnbanCommSuccess"
+	{
+		"en"		"The communication ban was {blue}removed{default}."
+		"es"		"Tu prohibición de comunicación fue {blue}eliminada{default}."
+	}
+
+	"UnbanCommNotFound"
+	{
+		"#format"	"{1:s}"
+		"en"		"The player {green}{1}{default} {red}does not{default} have a communication ban."
+		"es"		"El usuario {green}{1}{default} {red}no{default} tiene una prohibición de comunicación."
+	}
+
+	"UnbanAccessNotFound"
+	{
+		"#format"	"{1:s}"
+		"en"		"The player {green}{1}{default} {red}does not{default} have an access ban."
+		"es"		"El usuario {green}{1}{default} {red}no{default} tiene una prohibición de acceso."
+	}
+
+	"CustomReason"
+	{
+		"en"		"Custom reason"
+		"es"		"Razón personalizada"
+	}
+
+	"NoTargetsRemoveComm"
+	{
+		"en"		"No targets to remove the communication ban."
+		"es"		"No hay objetivos para eliminar la prohibición de comunicación."
+	}
+
+	"localUnbanComm"
+	{
+		"#format"	"{1:t},{2:N}"
+		"en"		"Removed the ban {green}{1}{default} to {blue}{2}{default}."
+		"es"		"Se elimino la prohibición {green}{1}{default} para {blue}{2}{default}."
+	}
+
+	"ListBanComm"
+	{
+		"en"		"List of players is in your {green}console{default}"
+		"es"		"La lista de jugadores esta en su {green}consola{default}"
+	}
+
+	"NoCommBans"
+	{
+		"en"		"There are no communication bans."
+		"es"		"No hay prohibiciones de comunicación."
+	}
+
+	"ErrorSectionName"
+	{
+		"en"		"Error in obtaining the reason"
+		"es"		"Error en la obtención de la razón"
+	}
+
+	"Ban Time"
+	{
+		"en"		"Ban time"
+		"es"		"Tiempo de prohibición"
+	}
+
+	"NoUsersFound"
+	{
+		"en"		"No users found"
+		"es"		"No se encontraron usuarios"
+	}
+
+	"LocalcacheCleared"
+	{
+		"en"		"Local cache {blue}cleared{default}"
+		"es"		"Cache local {blue}borrada{default}"
+	}
+
+	"LocalCachePlayerFound"
+	{
+		"#format"	"{1:s}"
+		"en"		"Player ({red}{1}{default}) found in local cache."
+		"es"		"Jugador ({red}{1}{default}) encontrado en la cache local."
+	}
+
+	"LocalCachePlayerNotFound"
+	{
+		"#format"	"{1:s}"
+		"en"		"Player ({red}{1}{default}) not found in local cache."
+		"es"		"Jugador ({red}{1}{default}) no encontrado en la cache local."
+	}
+
+	"CacheCleared"
+	{
+		"en"		"Cache {blue}cleared{default}"
+		"es"		"Cache {blue}borrada{default}"
+	}
+
+	"CacheAlreadyEmpty"
+	{
+		"en"		"Cache {red}already empty{default}"
+		"es"		"Cache {red}ya vacía{default}"
+	}
+
+	"CodeList"
+	{
+		"en"		"Code list"
+		"es"		"Lista de códigos"
+	}
+
+	"CodeNote"
+	{
+		"en"		"Note: You must add the # at the beginning of the code."
+		"es"		"Nota: Debes agregar el # al principio del código."
+	}
+
+	"Code"
+	{
+		"en"		"Code"
+		"es"		"Código"
+	}
+}
