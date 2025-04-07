@@ -34,7 +34,7 @@ Action aRegAccessCmd(int iClient, int iArgs)
 		{
 			CReplyToCommand(iClient, "%t %t: sm_ban <#userid|name|\"steamid\"> <minutes|0> [reason|#CODE]", "Prefix", "Use");
 
-			if (!g_kvReasons.JumpToKey("Communication", false))
+			if (!g_kvReasons.JumpToKey("Access", false))
 				return Plugin_Handled;
 
 			
