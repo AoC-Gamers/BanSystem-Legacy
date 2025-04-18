@@ -370,7 +370,7 @@ void vCheckCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 
     iClient = GetClientOfUserId(iUserId);
 
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         logErrorSQL(dbDataBase, szError, "vCheckCacheCallback");
         return;
@@ -488,7 +488,7 @@ void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 	pCheckAuthId.ReadString(szAuthId, sizeof(szAuthId));
 	delete pCheckAuthId;
 
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vCheckAuthIdCallback");
         g_ePunished[iClient].m_eComms = kNone;

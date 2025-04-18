@@ -126,7 +126,7 @@ void vRemoveAccessCallback(Database dbDataBase, DBResultSet rsResult, const char
 	else
 		iAdmin = SERVER_INDEX;
 
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vRemoveAccessCallback");
 		delete rsResult;
@@ -204,7 +204,7 @@ void vInfoCallback(Database dbDataBase, DBResultSet rsResult, const char[] szErr
 	delete pInfoIp;
 	
 	SetCmdReplySource(eRsCmd);
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
 		logErrorSQL(dbDataBase, szError, "vInfoCallback");
@@ -307,7 +307,7 @@ void vInfoSteamIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 	delete pInfoIp;
 	
 	SetCmdReplySource(eRsCmd);
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
 		logErrorSQL(dbDataBase, szError, "vInfoSteamIdCallback");
@@ -387,7 +387,7 @@ void vInfoIpCallback(Database dbDataBase, DBResultSet rsResult, const char[] szE
 	delete pInfoIp;
 	
 	SetCmdReplySource(eRsCmd);
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
 		logErrorSQL(dbDataBase, szError, "vInfoIpCallback");
@@ -844,7 +844,7 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 
 	LogDebug("[vRegAccessCallback] iUserIdAdmin: %d | iAdmin: %d | iUserIdTarget: %d | iTarget: %d | szTargetAuthId: %s | iLength: %d | szReason: %s | szTargetName: %s" , iUserIdAdmin, iAdmin, iUserIdTarget, iTarget, szTargetAuthId, iLength, szReason, szTargetName);
 	
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		if (StrContains(szError, "Duplicate entry", false) != -1)
 		{
@@ -944,7 +944,7 @@ void vAttemptAccess(int iClient, const char[] szAuthId)
 
 void vAttemptAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         logErrorSQL(dbDataBase, szError, "vAttemptAccessCallback");
 		delete rsResult;

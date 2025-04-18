@@ -134,7 +134,7 @@ void vCacheListCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
         iClient = GetClientOfUserId(iUserId);
 
     SetCmdReplySource(eRsCmd);
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheListCallback");
@@ -197,7 +197,7 @@ void vCacheClearCallback(Database dbDataBase, DBResultSet rsResult, const char[]
         iClient = GetClientOfUserId(iUserId);
 
     SetCmdReplySource(eRsCmd);
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheClearCallback");
@@ -265,7 +265,7 @@ void vCacheSteamIdCallback(Database dbDataBase, DBResultSet rsResult, const char
         iClient = GetClientOfUserId(iUserId);
 
     SetCmdReplySource(eRsCmd);
-    if (rsResult == null)
+    if (rsResult == null || szError[0])
     {
         CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheSteamIdCallback");
