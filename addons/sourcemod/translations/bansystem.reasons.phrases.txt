@@ -35,6 +35,11 @@
         "en" "Exploit - Glitch"
         "es" "Exploit - Glitch"
     }
+    "#EXPLOIT_FAKELAG"
+    {
+        "en" "Exploit - FakeLag"
+        "es" "Exploit - FakeLag"
+    }
     "#TROLL_TEAMKILL"
     {
         "en" "Troll - Team Killing"

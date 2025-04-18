@@ -325,7 +325,7 @@ void vRemoveCommCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 		strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
 	}
 
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vRemoveCommCallback");
 		return;
@@ -987,7 +987,7 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 
 	LogDebug("[vRegCommCallback] iUserIdAdmin: %d | iAdmin: %d | iUserIdTarget: %d | iTarget: %d | szTargetAuthId: %s | iLength: %d | szReason: %s | szTargetName: %s | eComms: %d" , iUserIdAdmin, iAdmin, iUserIdTarget, iTarget, szTargetAuthId, iLength, szReason, szTargetName, eComms);
 		
-	if (rsResult == null)
+	if (rsResult == null || szError[0])
 	{
 		if (StrContains(szError, "Duplicate entry", false) != -1)
 			CReplyToCommand(iAdmin, "%t %t", "Prefix", "AlreadyCommBanned", szTargetName);
