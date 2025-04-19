@@ -107,13 +107,13 @@ public SharedPlugin __pl_bansystem = {
 
 public void __pl_bansystem_SetNTVOptional()
 {
-	MarkNativeAsOptional("bBanAccess");
-	MarkNativeAsOptional("bBannedComm");
-	MarkNativeAsOptional("OnBanAccess");
-	MarkNativeAsOptional("OnUnbanAccess");
-	MarkNativeAsOptional("OnBanMic");
-	MarkNativeAsOptional("OnUnbanMic");
-	MarkNativeAsOptional("OnBanChat");
-	MarkNativeAsOptional("OnUnBanChat");
+	MarkNativeAsOptional("bBSBanAccess");
+	MarkNativeAsOptional("bBSBannedComm");
+	MarkNativeAsOptional("vBSOnBanAccess");
+	MarkNativeAsOptional("vBSOnUnbanAccess");
+	MarkNativeAsOptional("vBSOnBanMic");
+	MarkNativeAsOptional("vBSOnUnbanMic");
+	MarkNativeAsOptional("vBSOnBanChat");
+	MarkNativeAsOptional("vBSOnUnBanChat");
 }
 #endif
