@@ -32,7 +32,7 @@ native bool bBSBanAccess(int iAdmin = 0, int iTarget = -1, const char[] szTarget
  *
  * @return           True if the client is banned from the specified communication type, False otherwise.
  */
-native bool	 bBSBannedComm(int iTarget, eTypeComms eType);
+native bool bBSBannedComm(int iTarget, eTypeComms eType);
 
 /**
  * Called when an Access prohibition is executed.
