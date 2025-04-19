@@ -96,17 +96,17 @@ public Plugin myinfo =
 
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iErrMax)
 {
-	CreateNative("bBanAccess", iBanAccesNative);
-	CreateNative("bBannedComm", iBannedCommNative);
+	CreateNative("bBSBanAccess", iBanAccesNative);
+	CreateNative("bBSBannedComm", iBannedCommNative);
 
-    g_gfOnBanAccess  = CreateGlobalForward("OnBanAccess", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-    g_gfOnUnbanAcess = CreateGlobalForward("OnUnbanAccess", ET_Ignore, Param_Cell, Param_String);
+    g_gfOnBanAccess  = CreateGlobalForward("vBSOnBanAccess", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
+    g_gfOnUnbanAcess = CreateGlobalForward("vBSOnUnbanAccess", ET_Ignore, Param_Cell, Param_String);
 
-    g_gfOnBanMic   = CreateGlobalForward("OnBanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanMic = CreateGlobalForward("OnUnbanMic", ET_Ignore, Param_Cell, Param_String);
+    g_gfOnBanMic   = CreateGlobalForward("vBSOnBanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
+	g_gfOnUnBanMic = CreateGlobalForward("vBSOnUnbanMic", ET_Ignore, Param_Cell, Param_String);
 
-    g_gfOnBanChat = CreateGlobalForward("OnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanChat = CreateGlobalForward("OnUnBanChat", ET_Ignore, Param_Cell, Param_String);
+    g_gfOnBanChat = CreateGlobalForward("vBSOnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
+	g_gfOnUnBanChat = CreateGlobalForward("vBSOnUnBanChat", ET_Ignore, Param_Cell, Param_String);
 	
 	RegPluginLibrary("bansystem");
 	return APLRes_Success;
