@@ -481,4 +481,10 @@
 		"en"		"Code"
 		"es"		"Código"
 	}
+
+	"CacheLocalDisabled"
+	{
+		"en"		"Local cache disabled"
+		"es"		"Cache local deshabilitada"
+	}
 }
