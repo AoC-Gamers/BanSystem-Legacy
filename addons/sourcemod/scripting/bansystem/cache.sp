@@ -70,7 +70,7 @@ void bRegisterCache(const char[] szAuthId, int iResult)
 	char szQuery[256];
 	int iLen = 0;
 
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` ", g_szTableCache);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` ", TABLE_CACHE);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "(ban_id, steam_id) ");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES ('%d', '%s');", iResult, szAuthId);
 

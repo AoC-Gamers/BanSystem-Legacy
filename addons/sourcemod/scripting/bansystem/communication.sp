@@ -265,7 +265,7 @@ void vRemoveComm(int iAdmin, int iTarget, const char[] szTargetAuthId)
 	ReplySource eRsCmd = GetCmdReplySource();
 
 	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s'; ", g_szTableComm, szTargetAuthId);
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s'; ", TABLE_COMM, szTargetAuthId);
 
 	LogSQL("[vRemoveComm] szQuery: %s", szQuery);
 
@@ -888,7 +888,7 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 	char szQuery[1024];
 	int iLen = 0;
 
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` (", g_szTableComm);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` (", TABLE_COMM);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`steam_id`");
 
 	if(iTarget != NO_INDEX)

@@ -25,12 +25,6 @@ int g_iTimeDurations[] = {0, 10, 20, 40, 60, 120, 240, 480, 1440, 2880, 5760, 10
 char g_sTimeDurationsChat[][4] = {"0", "10", "20", "40", "1", "2", "4", "8", "1", "2", "4", "1", "2", "1", "2", "4", "8"};
 char g_sDatabase[][32] = {"bansystem", "bansystemcache"};
 
-enum eTypeBan
-{
-    kAccess = 0,
-    kComm   = 1,
-    kRegData  = 2
-}
 enum eDatabase
 {
 	kNoDB		= 0,
@@ -341,9 +335,8 @@ void vCheckCache(int iClient, const char[] szAuthId)
 	char szQuery[256];
 	int iLen = 0;
 
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `ban_id` FROM `%s` ", g_szTableCache);
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE date_cache >= strftime('%%s', 'now', '-7 days') ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND steam_id = '%s';", szAuthId);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `ban_id` FROM `BanCache_Valid` ");
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE steam_id = '%s';", szAuthId);
 
 	LogSQL("[vCheckCache] Query: %s", szQuery);
 

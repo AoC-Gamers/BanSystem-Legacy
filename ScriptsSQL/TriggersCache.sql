@@ -1,16 +1,7 @@
-CREATE TRIGGER IF NOT EXISTS SetDefaultDateCache
+DROP TRIGGER IF EXISTS DeleteOldCacheForSteamID;
+CREATE TRIGGER DeleteOldCacheForSteamID
 BEFORE INSERT ON BanCache
-FOR EACH ROW
-WHEN NEW.date_cache IS NULL
-BEGIN
-    UPDATE BanCache
-    SET date_cache = strftime('%s', 'now')
-    WHERE rowid = NEW.rowid;
-END;
-
-CREATE TRIGGER IF NOT EXISTS DeleteOldCache
-AFTER INSERT ON BanCache
 BEGIN
     DELETE FROM BanCache
-    WHERE strftime('%s', 'now') - date_cache > 604800; -- 604800 seconds = 7 days
+    WHERE steam_id = NEW.steam_id;
 END;

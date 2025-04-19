@@ -84,7 +84,7 @@ Action aRemoveAccessCmd(int iClient, int iArgs)
 	}
 
 	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s'; ", g_szTableAccess, szTargetAuthId);
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s'; ", TABLE_ACCESS, szTargetAuthId);
 
 	LogSQL("[aRemoveAccessCmd] Query: %s", szQuery);
 
@@ -176,7 +176,7 @@ Action aInfoCmd(int iClient, int iArgs)
 	int iLen = 0;
 	
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `ip_address`, `ban_length`, ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_reason`, `banned_by`, `date_expire`  FROM `%s` ", g_szTableAccess);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_reason`, `banned_by`, `date_expire`  FROM `%s` ", TABLE_ACCESS);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `steam_id` = '%s';", szAuthId);
 
 #if DEBUG_SQL
@@ -279,7 +279,7 @@ Action aInfoSteamIdCmd(int iClient, int iArgs)
 	int iLen = 0;
 	
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT DISTINCT CONCAT(player_name, ' - ', ip_address) AS player_info ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` ", g_szTableDataAccess);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` ", TABLE_DATA_ACCESS);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `steam_id` = '%s';", szAuthId);
 
 #if DEBUG_SQL
@@ -359,7 +359,7 @@ Action aInfoIpCmd(int iClient, int iArgs)
 	int iLen = 0;
 	
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT DISTINCT CONCAT(player_name, ' - ', steam_id) AS player_info ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` ", g_szTableDataAccess);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` ", TABLE_DATA_ACCESS);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `ip_address` = '%s';", szIpAddress);
 
 #if DEBUG_SQL
@@ -753,7 +753,7 @@ void vRegAccess(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLengt
 	char szQuery[1024];
 	int iLen = 0;
 
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` (", g_szTableAccess);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` (", TABLE_ACCESS);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`steam_id`");
 	if(iTarget != NO_INDEX)
 	{
