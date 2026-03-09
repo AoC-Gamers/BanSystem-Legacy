@@ -133,6 +133,8 @@ void vRemoveAccessCallback(Database dbDataBase, DBResultSet rsResult, const char
 		return;
 	}
 
+	vRemoveSQLCache(szTargetAuthId);
+
 	int iAffectedRows = SQL_GetAffectedRows(dbDataBase);
 	LogSQL("[vRemoveAccessCallback] SQL_GetAffectedRows: %d", iAffectedRows);
 
@@ -157,7 +159,7 @@ Action aInfoCmd(int iClient, int iArgs)
 {
     if (iArgs < 1)
     {
-        CReplyToCommand(iClient, "%t %t: sm_baninfo <\"steamid\">", "Prefix", "Use");
+        CReplyToCommand(iClient, "%t %t: sm_ban_info <\"steamid\">", "Prefix", "Use");
         return Plugin_Handled;
     }
 
@@ -260,7 +262,7 @@ Action aInfoSteamIdCmd(int iClient, int iArgs)
 {
    if (iArgs < 1)
     {
-        CReplyToCommand(iClient, "%t %t: sm_ban_info_steamid <\"steamid\">", "Prefix", "Use");
+        CReplyToCommand(iClient, "%t %t: sm_ban_attempt_steamid <\"steamid\">", "Prefix", "Use");
         return Plugin_Handled;
     }
 
@@ -340,7 +342,7 @@ Action aInfoIpCmd(int iClient, int iArgs)
 {
    if (iArgs < 1)
     {
-        CReplyToCommand(iClient, "%t %t: sm_ban_info_ip <\"steamid\">", "Prefix", "Use");
+        CReplyToCommand(iClient, "%t %t: sm_ban_attempt_ip <\"ip\">", "Prefix", "Use");
         return Plugin_Handled;
     }
 
@@ -527,11 +529,13 @@ void vAccessTimeMenu(int iClient)
 	hTimeMenu.ExitBackButton = true;
 
 	char szTime[64];
+	char szInfo[16];
 
 	for (int i = 0; i < sizeof(g_iTimeDurations); i++)
 	{
 		GetTimeLength(g_iTimeDurations[i], szTime, sizeof(szTime));
-		hTimeMenu.AddItem(g_sTimeDurationsChat[i], szTime);
+		IntToString(g_iTimeDurations[i], szInfo, sizeof(szInfo));
+		hTimeMenu.AddItem(szInfo, szTime);
 	}
 
 	hTimeMenu.Display(iClient, MENU_TIME_FOREVER);
@@ -726,14 +730,20 @@ void vRegAccess(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLengt
 
     char
 		szTargetIp[32],
+		szSafeTargetIp[64],
         szAdminName[MAX_NAME_LENGTH] = "Console",
-        szTargetName[MAX_NAME_LENGTH];
+		szSafeAdminName[(MAX_NAME_LENGTH * 2) + 1],
+        szTargetName[MAX_NAME_LENGTH],
+		szSafeTargetName[(MAX_NAME_LENGTH * 2) + 1],
+		szSafeTargetAuthId[(MAX_AUTHID_LENGTH * 2) + 1],
+		szSafeReason[(MAX_MESSAGE_LENGTH * 2) + 1];
 
 	ReplySource eRsCmd = GetCmdReplySource();
 	if(iAdmin != SERVER_INDEX)
 	{
 		iUserIdAdmin = GetClientUserId(iAdmin);
 		GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		g_dbDatabase.Escape(szAdminName, szSafeAdminName, sizeof(szSafeAdminName));
 	}
 	else
 		iUserIdAdmin = SERVER_INDEX;
@@ -743,12 +753,19 @@ void vRegAccess(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLengt
 		iUserIdTarget = GetClientUserId(iTarget);
         GetClientName(iTarget, szTargetName, sizeof(szTargetName));
 		GetClientIP(iTarget, szTargetIp, sizeof(szTargetIp));
+		g_dbDatabase.Escape(szTargetName, szSafeTargetName, sizeof(szSafeTargetName));
+		g_dbDatabase.Escape(szTargetIp, szSafeTargetIp, sizeof(szSafeTargetIp));
 	}
 	else
 	{
 		iUserIdTarget = NO_INDEX;
 		strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+		g_dbDatabase.Escape(szTargetName, szSafeTargetName, sizeof(szSafeTargetName));
 	}
+
+	g_dbDatabase.Escape(szTargetAuthId, szSafeTargetAuthId, sizeof(szSafeTargetAuthId));
+	if (strlen(szReason) != 0)
+		g_dbDatabase.Escape(szReason, szSafeReason, sizeof(szSafeReason));
 
 	char szQuery[1024];
 	int iLen = 0;
@@ -767,19 +784,19 @@ void vRegAccess(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLengt
 	if(iAdmin != SERVER_INDEX)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ",`banned_by`");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ") VALUES (");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "'%s'", szTargetAuthId);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "'%s'", szSafeTargetAuthId);
 	if(iTarget != NO_INDEX)
 	{
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szTargetName);
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szTargetIp);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeTargetName);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeTargetIp);
 	}
 	if (iLength != 0)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%d'", iLength);
 	if (strlen(szReason) != 0)
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szReason);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeReason);
 
 	if(iAdmin != SERVER_INDEX)
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szAdminName);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeAdminName);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ")");
 
 	LogSQL("[vRegAccess] szQuery: %s", szQuery);
@@ -826,7 +843,10 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 	if(iUserIdAdmin != SERVER_INDEX)
 	{
 		iAdmin = GetClientOfUserId(iUserIdAdmin);
-		GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		if (iAdmin > SERVER_INDEX)
+			GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		else
+			iAdmin = SERVER_INDEX;
 	}
 	else
 		iAdmin = SERVER_INDEX;
@@ -834,7 +854,13 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 	if(iUserIdTarget != NO_INDEX)
 	{
 		iTarget = GetClientOfUserId(iUserIdTarget);
-		GetClientName(iTarget, szTargetName, sizeof(szTargetName));
+		if (iTarget > SERVER_INDEX)
+			GetClientName(iTarget, szTargetName, sizeof(szTargetName));
+		else
+		{
+			iTarget = NO_INDEX;
+			strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+		}
 	}
 	else
 	{
@@ -906,7 +932,8 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 Action aKickAccessTimer(Handle hTimer, any pData)
 {
 	int iClient = GetClientOfUserId(view_as<int>(pData));
-	KickClientEx(iClient, "%t", "BannedAccess");
+	if (iClient > SERVER_INDEX)
+		KickClientEx(iClient, "%t", "BannedAccess");
 	return Plugin_Stop;
 }
 
@@ -920,7 +947,7 @@ void vAttemptAccess(int iClient, const char[] szAuthId)
 {
 	vAttemptPrintToAdmins(iClient, szAuthId);
 
-	if(!g_cvRegAttemptAccess)
+	if(!g_cvRegAttemptAccess.BoolValue)
 		return;
 
 	char

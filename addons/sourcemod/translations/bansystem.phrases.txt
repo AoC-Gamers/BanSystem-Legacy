@@ -452,6 +452,13 @@
 		"es"		"Jugador ({red}{1}{default}) no encontrado en la cache local."
 	}
 
+	"CachePlayerAdded"
+	{
+		"#format"	"{1:s}"
+		"en"		"Player ({red}{1}{default}) added to SQLite cache."
+		"es"		"Jugador ({red}{1}{default}) agregado a la cache SQLite."
+	}
+
 	"CacheCleared"
 	{
 		"en"		"Cache {blue}cleared{default}"
@@ -486,5 +493,11 @@
 	{
 		"en"		"Local cache disabled"
 		"es"		"Cache local deshabilitada"
+	}
+
+	"CacheSQLDisabled"
+	{
+		"en"		"SQLite cache disabled"
+		"es"		"Cache SQLite deshabilitada"
 	}
 }
