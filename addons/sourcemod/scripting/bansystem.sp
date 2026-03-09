@@ -458,7 +458,7 @@ void vCheckAuthId(int iClient, const char[] szAuthId)
 	pCheckAuthId.WriteString(szAuthId);
 
 	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "CALL CheckAuthId('%s');", szAuthId);
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "CALL GetCheckAuthId('%s');", szAuthId);
 
 	LogSQL("[vCheckAuthId] Query: %s", szQuery);
 

@@ -13,6 +13,7 @@
 #define TABLE_CACHE				 "BanCache"
 
 #define PROCEDURE_CHECKAUTHID	 "CheckAuthId"
+#define PROCEDURE_GETCHECKAUTHID "GetCheckAuthId"
 #define PROCEDURE_ATTEMPTACCESS	 "AttemptAccess"
 
 #define TRIGGER_ACCESS_INSERT	 "trg_bans_access_before_insert"
@@ -50,6 +51,7 @@ eSqlObject g_arrSqlDB[] = {
 	{TABLE_DATA_ACCESS, SQL_OBJECT_TABLE},
 
 	{PROCEDURE_CHECKAUTHID, SQL_OBJECT_PROCEDURE},
+	{PROCEDURE_GETCHECKAUTHID, SQL_OBJECT_PROCEDURE},
 	{PROCEDURE_ATTEMPTACCESS, SQL_OBJECT_PROCEDURE},
 
 	{TRIGGER_ACCESS_INSERT, SQL_OBJECT_TRIGGER},
@@ -137,6 +139,7 @@ void vInstallMySQLTable()
 		vEnsureTableExists(TABLE_DATA_ACCESS, m_Mysql, kRegData);
 
     vEnsureProcedureExists(PROCEDURE_CHECKAUTHID);
+		vEnsureProcedureExists(PROCEDURE_GETCHECKAUTHID);
     vEnsureProcedureExists(PROCEDURE_ATTEMPTACCESS);
 
     vEnsureTriggerExists(TRIGGER_ACCESS_INSERT, m_Mysql);
@@ -592,6 +595,19 @@ bool bCreateProcedure(const char[] szProcedureName)
         iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SET result = 0; SET out_expire = NULL; ");
         iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "END IF; ");
         iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "END;");
+	}
+	else if (StrEqual(szProcedureName, PROCEDURE_GETCHECKAUTHID))
+	{
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "DROP PROCEDURE IF EXISTS GetCheckAuthId; ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "CREATE PROCEDURE GetCheckAuthId( ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "IN szAuthId VARCHAR(64) ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ") ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "BEGIN ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "DECLARE Result INT; ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "DECLARE ExpireRes VARCHAR(64); ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "CALL CheckAuthId(szAuthId, Result, ExpireRes); ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT Result AS result, ExpireRes AS expire; ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "END;");
 	}
 	else if (StrEqual(szProcedureName, PROCEDURE_ATTEMPTACCESS))
 	{
