@@ -20,6 +20,12 @@ void vOnPluginStart_Cache()
 
 Action aCacheRegCmd(int iClient, int iArgs)
 {
+	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+	{
+		CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+		return Plugin_Handled;
+	}
+
     if (iArgs != 2)
     {
         CReplyToCommand(iClient, "%t %t: sm_bs_cache <\"steamid\"> <TypeBan>", "Prefix", "Use");
@@ -33,7 +39,7 @@ Action aCacheRegCmd(int iClient, int iArgs)
 
     if (!bIsSteamId(szSteamID))
     {
-        CReplyToCommand(iClient, "AuthIdError", szSteamID);
+        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 
@@ -46,7 +52,7 @@ Action aCacheRegCmd(int iClient, int iArgs)
     }
 
     bRegisterCache(szSteamID, iTypeBan);
-    CReplyToCommand(iClient, "%t %t", "Prefix", "LocalCachePlayerAdded", szSteamID);
+    CReplyToCommand(iClient, "%t %t", "Prefix", "CachePlayerAdded", szSteamID);
     return Plugin_Handled;
 }
 
@@ -64,7 +70,7 @@ Action aCacheRegCmd(int iClient, int iArgs)
  */
 void bRegisterCache(const char[] szAuthId, int iResult)
 {
-	if (!g_cvSQLCache.BoolValue)
+	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
 		return;
 
 	char szQuery[256];
@@ -97,10 +103,40 @@ void bRegisterCacheCallback(Handle dbDatabase, DBResultSet rsResult, const char[
 	LogSQL("[bRegisterCacheCallback] Cache saved successfully.");
 }
 
+void vRemoveSQLCache(const char[] szAuthId)
+{
+	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+		return;
+
+	char szQuery[256];
+	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s';", TABLE_CACHE, szAuthId);
+
+	LogSQL("[vRemoveSQLCache] Query: %s", szQuery);
+	SQL_TQuery(g_dbCache, vRemoveSQLCacheCallback, szQuery);
+}
+
+void vRemoveSQLCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	if (rsResult == null || szError[0])
+	{
+		logErrorSQL(dbDataBase, szError, "vRemoveSQLCacheCallback");
+		delete rsResult;
+		return;
+	}
+
+	delete rsResult;
+}
+
 Action aCacheListCmd(int iClient, int iArgs)
 {
+    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    {
+        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        return Plugin_Handled;
+    }
+
     char szQuery[256];
-    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache;");
+    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid;");
 
     int iUserid;
     if (iClient == SERVER_INDEX)
@@ -162,6 +198,12 @@ void vCacheListCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 
 Action aCacheClearCmd(int iClient, int iArgs)
 {
+    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    {
+        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        return Plugin_Handled;
+    }
+
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "DELETE FROM BanCache;");
 
@@ -215,6 +257,12 @@ void vCacheClearCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 
 Action aCacheSteamIdCmd(int iClient, int iArgs)
 {
+    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    {
+        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        return Plugin_Handled;
+    }
+
     if (iArgs < 1 || iArgs == 0)
     {
         CReplyToCommand(iClient, "%t %t: sm_bs_cache_steamid <\"steamid\">", "Prefix", "Use");
@@ -226,12 +274,12 @@ Action aCacheSteamIdCmd(int iClient, int iArgs)
 
     if (!bIsSteamId(szSteamID))
     {
-        CReplyToCommand(iClient, "AuthIdError", szSteamID);
+        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 
     char szQuery[256];
-    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache WHERE AuthID = '%s';", szSteamID);
+    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid WHERE steam_id = '%s';", szSteamID);
 
     int iUserid;
     if (iClient == SERVER_INDEX)
@@ -316,7 +364,7 @@ Action aLocalaCacheListCmd(int iClient, int iArgs)
 Action aLocalaCacheClearCmd(int iClient, int iArgs)
 {
     g_arrCacheNoPunishment.Clear();
-    CReplyToCommand(iClient, "LocalcacheCleared");
+    CReplyToCommand(iClient, "%t %t", "Prefix", "LocalcacheCleared");
     return Plugin_Handled;
 }
 
@@ -332,7 +380,7 @@ Action aLocalCacheSteamIdCmd(int iClient, int iArgs)
 
     if (!bIsSteamId(szSteamID))
     {
-        CReplyToCommand(iClient, "AuthIdError", szSteamID);
+        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 

@@ -19,10 +19,9 @@
 #define DEBUG_MENU 	0
 #define PATCH_DEBUG	"logs/BanSystem.log"
 
-#define PLUGIN_VERSION	"1.0"
+#define PLUGIN_VERSION	"1.0.0"
 
 int g_iTimeDurations[] = {0, 10, 20, 40, 60, 120, 240, 480, 1440, 2880, 5760, 10080, 20160, 43200, 86400, 172800, 345600};
-char g_sTimeDurationsChat[][4] = {"0", "10", "20", "40", "1", "2", "4", "8", "1", "2", "4", "1", "2", "1", "2", "4", "8"};
 char g_sDatabase[][32] = {"bansystem", "bansystemcache"};
 
 enum eDatabase
@@ -103,10 +102,10 @@ public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iEr
     g_gfOnUnbanAcess = CreateGlobalForward("vBSOnUnbanAccess", ET_Ignore, Param_Cell, Param_String);
 
     g_gfOnBanMic   = CreateGlobalForward("vBSOnBanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanMic = CreateGlobalForward("vBSOnUnbanMic", ET_Ignore, Param_Cell, Param_String);
+	g_gfOnUnBanMic = CreateGlobalForward("vBSOnUnbanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String);
 
     g_gfOnBanChat = CreateGlobalForward("vBSOnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanChat = CreateGlobalForward("vBSOnUnBanChat", ET_Ignore, Param_Cell, Param_String);
+	g_gfOnUnBanChat = CreateGlobalForward("vBSOnUnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String);
 	
 	RegPluginLibrary("bansystem");
 	return APLRes_Success;
@@ -177,6 +176,7 @@ public void OnClientDisconnect(int iClient)
 {
     g_eProcessAccess[iClient].m_bIsWaitingChatReason = false;
 	g_eProcessComm[iClient].m_bIsWaitingChatReason = false;
+	vResetPlayerPunishmentState(iClient);
 }
 
 public void OnClientAuthorized(int iClient, const char[] szAuth)
@@ -184,10 +184,11 @@ public void OnClientAuthorized(int iClient, const char[] szAuth)
 	if(iClient == SERVER_INDEX || !IsClientConnected(iClient) || IsFakeClient(iClient))
 		return;
 
+	vResetPlayerPunishmentState(iClient);
+
 	if (g_cvLocalCache.BoolValue && bCheckLocalCache(szAuth))
 	{
 		LogDebug("[OnClientConnect] Client No Punishment: %N (%s)", iClient, szAuth);
-		g_ePunished[iClient].m_eComms = kNone;
 		return;
 	}
 
@@ -197,7 +198,6 @@ public void OnClientAuthorized(int iClient, const char[] szAuth)
 		return;
 	}
 
-	g_ePunished[iClient].m_eComms = kNone;
 	vCheckAuthId(iClient, szAuth);
 	return;
 }
@@ -237,7 +237,7 @@ int iBanAccesNative(Handle hPlugin, int iNumParams)
 	GetNativeString(5, szReason, sizeof(szReason));
 
 	vRegAccess(iClient, iTarget, szTargetAuthId, iLength, szReason);
-	return 0;
+	return 1;
 }
 
 /**
@@ -316,7 +316,51 @@ void vConnectCallback(Database dbDatabase, const char[] szError, any pData)
 	if(view_as<bool>(pData))
 		g_dbCache = dbDatabase;
 	else
+	{
 		g_dbDatabase = dbDatabase;
+		vValidateMySQLSchema();
+	}
+}
+
+void vValidateMySQLSchema()
+{
+	if (g_dbDatabase == null)
+		return;
+
+	char szQuery[256];
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "SELECT `version_num` FROM `%s` ORDER BY `version_num` DESC LIMIT 1;", TABLE_SCHEMA_VERSION);
+
+	LogSQL("[vValidateMySQLSchema] Query: %s", szQuery);
+	SQL_TQuery(g_dbDatabase, vValidateMySQLSchemaCallback, szQuery);
+}
+
+void vValidateMySQLSchemaCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	if (rsResult == null || szError[0])
+	{
+		logErrorSQL(dbDataBase, szError, "vValidateMySQLSchemaCallback");
+		delete rsResult;
+		SetFailState("MySQL schema validation failed. Apply ScriptsSQL/mysql/001_schema.sql.");
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		delete rsResult;
+		SetFailState("MySQL schema version table is empty. Apply ScriptsSQL/mysql/001_schema.sql.");
+		return;
+	}
+
+	int iSchemaVersion = rsResult.FetchInt(0);
+	delete rsResult;
+
+	if (iSchemaVersion != MYSQL_SCHEMA_VERSION)
+	{
+		SetFailState("MySQL schema version mismatch. Expected %d but found %d. Apply ScriptsSQL/mysql/001_schema.sql.", MYSQL_SCHEMA_VERSION, iSchemaVersion);
+		return;
+	}
+
+	LogDebug("[vValidateMySQLSchemaCallback] MySQL schema version validated: %d", iSchemaVersion);
 }
 
 /**
@@ -363,18 +407,28 @@ void vCheckCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 
     iClient = GetClientOfUserId(iUserId);
 
+	if (iClient == NO_INDEX)
+	{
+		delete rsResult;
+		return;
+	}
+
     if (rsResult == null || szError[0])
     {
         logErrorSQL(dbDataBase, szError, "vCheckCacheCallback");
+		delete rsResult;
+		if (g_dbDatabase != null)
+			vCheckAuthId(iClient, szAuthId);
         return;
     }
 
     if (!SQL_FetchRow(rsResult))
     {
         LogDebug("[vCheckCacheCallback] No cache entry found for client: %N (%s)", iClient, szAuthId);
-        g_ePunished[iClient].m_eComms = kNone;
-        bRegLocalCache(szAuthId);
-		vCheckAuthId(iClient, szAuthId);
+        vResetPlayerPunishmentState(iClient);
+		delete rsResult;
+		if (g_dbDatabase != null)
+			vCheckAuthId(iClient, szAuthId);
         return;
     }
 
@@ -430,12 +484,14 @@ void vCheckCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 		}
 		default:
 		{
-			g_ePunished[iClient].m_eComms = kNone;
-			bRegLocalCache(szAuthId);
+			vResetPlayerPunishmentState(iClient);
 			LogDebug("[vCheckCacheCallback] Client No Punishment: %N (%s)", iClient, szAuthId);
-			vCheckAuthId(iClient, szAuthId);
+			if (g_dbDatabase != null)
+				vCheckAuthId(iClient, szAuthId);
 		}
 	}
+
+	delete rsResult;
 }
 
 /**
@@ -481,18 +537,24 @@ void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 	pCheckAuthId.ReadString(szAuthId, sizeof(szAuthId));
 	delete pCheckAuthId;
 
+	if (iClient == NO_INDEX)
+	{
+		delete rsResult;
+		return;
+	}
+
 	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vCheckAuthIdCallback");
-        g_ePunished[iClient].m_eComms = kNone;
-		PrintToServer("szAuthId(%s)", szAuthId);
-        bRegLocalCache(szAuthId);
+        vResetPlayerPunishmentState(iClient);
+		delete rsResult;
 		return;
 	}
 
 	if (!SQL_FetchRow(rsResult))
 	{
-		logErrorSQL(dbDataBase, szError, "vCheckAuthIdCallback");
+		LogError("[vCheckAuthIdCallback] Empty result for auth id %s", szAuthId);
+		vResetPlayerPunishmentState(iClient);
 		delete rsResult;
 		return;
 	}
@@ -504,7 +566,7 @@ void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 	
 	if (iResult == 0)
 	{
-		g_ePunished[iClient].m_eComms = kNone;
+		vResetPlayerPunishmentState(iClient);
 		bRegLocalCache(szAuthId);
 	}
 	else if (iResult == -1 || iResult == 1)
@@ -520,12 +582,12 @@ void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 		{
 			char szDate[64];
 			if (SQL_IsFieldNull(rsResult, 1))
-			{
 				KickClient(iClient, "%t", "BlockAccessTempNoDate");
+			else
+			{
+				SQL_FetchString(rsResult, 1, szDate, sizeof(szDate));
+				KickClient(iClient, "%t", "BlockAccessTemp", szDate);
 			}
-			
-			SQL_FetchString(rsResult, 1, szDate, sizeof(szDate));
-			KickClient(iClient, "%t", "BlockAccessTemp", szDate);
 		}
 	}
 	else
@@ -577,6 +639,8 @@ void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 		pAnnouncer.WriteString(szComms);
 		pAnnouncer.WriteString(szDate);
 	}
+
+	delete rsResult;
 }
 
 /**
@@ -603,6 +667,9 @@ void AnnouncerCommTimer(Handle hTimer, any pData)
 	pAnnouncer.ReadString(szDate, sizeof(szDate));
 
 	iClient = GetClientOfUserId(iUserId); 
+	if (iClient == NO_INDEX)
+		return;
+
 	SetGlobalTransTarget(iClient);
 
 	PrintToConsole(iClient, "\n\n");
@@ -627,10 +694,29 @@ void AnnouncerCommTimer(Handle hTimer, any pData)
  */
 void logErrorSQL(Database pDb, const char[] szQuery, const char[] szName)
 {
+	if (pDb == null)
+	{
+		LogError("[%s] Database handle is null.", szName);
+		LogError("[%s] Query dump: %s", szName, szQuery);
+		return;
+	}
+
 	char szSQLError[4096];
 	SQL_GetError(pDb, szSQLError, sizeof(szSQLError));
 	LogError("[%s] SQL failed: %s", szName, szSQLError);
 	LogError("[%s] Query dump: %s", szName, szQuery);
+}
+
+void vResetPlayerPunishmentState(int iClient)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients)
+		return;
+
+	g_ePunished[iClient].m_eComms = kNone;
+	g_ePunished[iClient].m_bPerm = false;
+
+	if (IsClientInGame(iClient))
+		SetClientListeningFlags(iClient, VOICE_NORMAL);
 }
 
 /**

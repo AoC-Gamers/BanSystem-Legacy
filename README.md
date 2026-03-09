@@ -63,11 +63,20 @@ Ambos sistemas trabajan en conjunto para garantizar un rendimiento óptimo y min
    - Copia los archivos `.smx` a la carpeta `addons/sourcemod/plugins/`.
    - Copia los archivos de traducción a `addons/sourcemod/translations/`.
 
-4. **Configurar la base de datos**:
+4. **Preparar MySQL externamente**:
+   - Aplica el script canónico `ScriptsSQL/mysql/001_schema.sql` en la base de datos principal.
+   - El plugin valida en el arranque la tabla `bansystem_schema_version`.
+   - La versión de esquema MySQL requerida actualmente es `1`.
+
+5. **Configurar la base de datos**:
    - Edita el archivo `addons/sourcemod/configs/databases.cfg` para añadir la configuración de la base de datos MySQL.
    - Si deseas habilitar el caché SQLite, asegúrate de que esté configurado correctamente.
 
-5. **Reiniciar el servidor**:
+6. **Preparar SQLite cache (opcional)**:
+   - El esquema de referencia está en `ScriptsSQL/sqlite/cache.sql`.
+   - El plugin aún puede reparar/recrear esta caché local con `sm_bs_install_cache` y `sm_bs_reinstall_cache`.
+
+7. **Reiniciar el servidor**:
    - Reinicia tu servidor para cargar el plugin.
 
 ## Comandos
@@ -86,6 +95,26 @@ Ambos sistemas trabajan en conjunto para garantizar un rendimiento óptimo y min
 - **Variables de consola**:
   - `sm_bansystem_sqlitecache`: Habilita o deshabilita el caché SQLite (1 = habilitado, 0 = deshabilitado).
   - `sm_bansystem_localcache`: Habilita o deshabilita el caché local (1 = habilitado, 0 = deshabilitado).
+  - `sm_bansystem_Attempt`: Habilita o deshabilita el registro de intentos de acceso en MySQL.
+
+## Scripts SQL
+
+- `ScriptsSQL/mysql/001_schema.sql`: esquema canónico de MySQL para producción.
+- `ScriptsSQL/sqlite/cache.sql`: referencia del esquema local de caché SQLite.
+- `ScriptsSQL/README.md`: notas operativas sobre versión de esquema.
+
+## Versionado
+
+- Desde este corte, el plugin usa versionado semántico.
+- `1.0.0` representa la línea estable actual del proyecto.
+- Los cambios estructurales incompatibles, como la migración interna hacia `account_id`, deben entrar en una futura `2.0.0`.
+- El historial de cambios se documenta en `CHANGELOG.md`.
+
+## Nota de versiones
+
+- La versión del plugin y la versión del esquema MySQL no son la misma cosa.
+- El plugin actual reporta `1.0.0`.
+- El esquema MySQL requerido actualmente sigue siendo `1`.
 
 ## Contribuciones
 

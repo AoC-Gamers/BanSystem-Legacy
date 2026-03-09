@@ -265,7 +265,7 @@ void vRemoveComm(int iAdmin, int iTarget, const char[] szTargetAuthId)
 	ReplySource eRsCmd = GetCmdReplySource();
 
 	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s'; ", TABLE_COMM, szTargetAuthId);
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "SELECT `ban_type`, `player_name` FROM `%s` WHERE steam_id = '%s';", TABLE_COMM, szTargetAuthId);
 
 	LogSQL("[vRemoveComm] szQuery: %s", szQuery);
 
@@ -275,21 +275,17 @@ void vRemoveComm(int iAdmin, int iTarget, const char[] szTargetAuthId)
 	pRemoveComm.WriteString(szTargetAuthId);
 	pRemoveComm.WriteCell(eRsCmd);
 
-	SQL_TQuery(g_dbDatabase, vRemoveCommCallback, szQuery, pRemoveComm);
+	SQL_TQuery(g_dbDatabase, vRemoveCommLookupCallback, szQuery, pRemoveComm);
 }
 
-void vRemoveCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+void vRemoveCommLookupCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
 	int
 		iUserIdAdmin,
 		iUserIdTarget,
-		iAdmin,
-		iTarget;
+		iAdmin;
 
-	char
-		szTargetAuthId[MAX_AUTHID_LENGTH],
-		szTargetName[MAX_NAME_LENGTH],
-		szAdminName[MAX_NAME_LENGTH] = "Console";
+	char szTargetAuthId[MAX_AUTHID_LENGTH];
 
 	ReplySource eRsCmd;
 	DataPack pRemoveComm = view_as<DataPack>(pData);
@@ -301,72 +297,150 @@ void vRemoveCommCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 	eRsCmd = view_as<ReplySource>(pRemoveComm.ReadCell());
 	delete pRemoveComm;
 
-	LogDebug("[vRemoveCommCallback] iUserIdAdmin: %d | iUserIdTarget: %d | szTargetAuthId: %s", iUserIdAdmin, iUserIdTarget, szTargetAuthId);
-	if(iUserIdTarget != SERVER_INDEX)
-		LogDebug("[vRemoveCommCallback] iTarget: %N", GetClientOfUserId(iUserIdTarget));
+	LogDebug("[vRemoveCommLookupCallback] iUserIdAdmin: %d | iUserIdTarget: %d | szTargetAuthId: %s", iUserIdAdmin, iUserIdTarget, szTargetAuthId);
 
 	SetCmdReplySource(eRsCmd);
 	if(iUserIdAdmin != SERVER_INDEX)
 	{
 		iAdmin = GetClientOfUserId(iUserIdAdmin);
-		GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		if (iAdmin <= SERVER_INDEX)
+			iAdmin = SERVER_INDEX;
 	}
 	else
 		iAdmin = SERVER_INDEX;
 
-	if(iUserIdTarget != SERVER_INDEX)
+	if (rsResult == null || szError[0])
 	{
-		iTarget = GetClientOfUserId(iUserIdTarget);
-		GetClientName(iTarget, szTargetName, sizeof(szTargetName));
+		logErrorSQL(dbDataBase, szError, "vRemoveCommLookupCallback");
+		delete rsResult;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		CReplyToCommand(iAdmin, "%t %t", "Prefix", "UnbanCommNotFound", szTargetAuthId);
+		delete rsResult;
+		return;
+	}
+
+	eTypeComms eComms = view_as<eTypeComms>(rsResult.FetchInt(0));
+	char szTargetName[MAX_NAME_LENGTH];
+
+	if (rsResult.IsFieldNull(1))
+		strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+	else
+		rsResult.FetchString(1, szTargetName, sizeof(szTargetName));
+
+	delete rsResult;
+
+	char szQuery[256];
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s';", TABLE_COMM, szTargetAuthId);
+
+	DataPack pDeleteComm = new DataPack();
+	pDeleteComm.WriteCell(iUserIdAdmin);
+	pDeleteComm.WriteCell(iUserIdTarget);
+	pDeleteComm.WriteString(szTargetAuthId);
+	pDeleteComm.WriteString(szTargetName);
+	pDeleteComm.WriteCell(eComms);
+	pDeleteComm.WriteCell(eRsCmd);
+
+	LogSQL("[vRemoveCommLookupCallback] delete query: %s", szQuery);
+	SQL_TQuery(g_dbDatabase, vRemoveCommCallback, szQuery, pDeleteComm);
+}
+
+void vRemoveCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	int
+		iUserIdAdmin,
+		iUserIdTarget,
+		iAdmin,
+		iTarget = NO_INDEX;
+
+	char
+		szTargetAuthId[MAX_AUTHID_LENGTH],
+		szTargetName[MAX_NAME_LENGTH];
+
+	eTypeComms eComms;
+	ReplySource eRsCmd;
+	DataPack pRemoveComm = view_as<DataPack>(pData);
+	pRemoveComm.Reset();
+
+	iUserIdAdmin = pRemoveComm.ReadCell();
+	iUserIdTarget = pRemoveComm.ReadCell();
+	pRemoveComm.ReadString(szTargetAuthId, sizeof(szTargetAuthId));
+	pRemoveComm.ReadString(szTargetName, sizeof(szTargetName));
+	eComms = view_as<eTypeComms>(pRemoveComm.ReadCell());
+	eRsCmd = view_as<ReplySource>(pRemoveComm.ReadCell());
+	delete pRemoveComm;
+
+	SetCmdReplySource(eRsCmd);
+	if(iUserIdAdmin != SERVER_INDEX)
+	{
+		iAdmin = GetClientOfUserId(iUserIdAdmin);
+		if (iAdmin <= SERVER_INDEX)
+			iAdmin = SERVER_INDEX;
 	}
 	else
+		iAdmin = SERVER_INDEX;
+
+	if (iUserIdTarget != NO_INDEX)
 	{
-		iTarget = SERVER_INDEX;
-		strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+		iTarget = GetClientOfUserId(iUserIdTarget);
+		if (iTarget <= SERVER_INDEX)
+			iTarget = NO_INDEX;
 	}
 
 	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vRemoveCommCallback");
+		delete rsResult;
 		return;
 	}
+
+	vRemoveSQLCache(szTargetAuthId);
 
 	int iAffectedRows = SQL_GetAffectedRows(dbDataBase);
 	LogSQL("[vRemoveCommCallback] SQL_GetAffectedRows: %d", iAffectedRows);
 
-    if (iAffectedRows == 0)
+	if (iAffectedRows == 0)
 	{
-        CReplyToCommand(iAdmin, "%t %t", "Prefix", "UnbanCommNotFound", szTargetAuthId);
+		CReplyToCommand(iAdmin, "%t %t", "Prefix", "UnbanCommNotFound", szTargetAuthId);
 		delete rsResult;
 		return;
 	}
 
 	CReplyToCommand(iAdmin, "%t %t", "Prefix", "UnbanCommSuccess", szTargetName);
 
-	if(iTarget == SERVER_INDEX)
-		return;
+	if (iTarget != NO_INDEX)
+	{
+		CReplyToCommand(iTarget, "%t %t", "Prefix", "YouUnbanCommSuccess");
 
-	CReplyToCommand(iTarget, "%t %t", "Prefix", "YouUnbanCommSuccess");
-	if (g_eProcessComm[iTarget].m_eComms == kChat || g_eProcessComm[iTarget].m_eComms == kAll)
+		if (eComms == kMic || eComms == kAll)
+			SetClientListeningFlags(iTarget, VOICE_NORMAL);
+
+		g_ePunished[iTarget].m_eComms = kNone;
+		g_ePunished[iTarget].m_bPerm = false;
+	}
+
+	if (eComms == kChat || eComms == kAll)
 	{
 		Call_StartForward(g_gfOnUnBanChat);
 		Call_PushCell(iAdmin);
+		Call_PushCell(iTarget);
 		Call_PushString(szTargetAuthId);
 		Call_Finish();
 	}
 
-	if (g_eProcessComm[iTarget].m_eComms == kMic || g_eProcessComm[iTarget].m_eComms == kAll)
+	if (eComms == kMic || eComms == kAll)
 	{
-		SetClientListeningFlags(iTarget, VOICE_NORMAL);
-
 		Call_StartForward(g_gfOnUnBanMic);
 		Call_PushCell(iAdmin);
+		Call_PushCell(iTarget);
 		Call_PushString(szTargetAuthId);
 		Call_Finish();
 	}
-	
-	LogDebug("[vRemoveCommCallback] iTarget: %N | g_eProcessComm[iTarget].m_eComms: %d", iTarget, g_eProcessComm[iTarget].m_eComms);
-	g_ePunished[iTarget].m_eComms = kNone;
+
+	LogDebug("[vRemoveCommCallback] iTarget: %d | eComms: %d", iTarget, eComms);
 	delete rsResult;
 	return;
 }
@@ -636,11 +710,13 @@ void vCommTimeMenu(int iClient)
 	hTimeMenu.ExitBackButton = true;
 
 	char szTime[64];
+	char szInfo[16];
 
 	for (int i = 0; i < sizeof(g_iTimeDurations); i++)
 	{
 		GetTimeLength(g_iTimeDurations[i], szTime, sizeof(szTime));
-		hTimeMenu.AddItem(g_sTimeDurationsChat[i], szTime);
+		IntToString(g_iTimeDurations[i], szInfo, sizeof(szInfo));
+		hTimeMenu.AddItem(szInfo, szTime);
 	}
 
 	hTimeMenu.Display(iClient, MENU_TIME_FOREVER);
@@ -861,14 +937,20 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 
 	char
 		szTargetIp[32],
+		szSafeTargetIp[64],
 		szBannedBy[128],
-		szTargetName[MAX_NAME_LENGTH];
+		szSafeBannedBy[257],
+		szTargetName[MAX_NAME_LENGTH],
+		szSafeTargetName[(MAX_NAME_LENGTH * 2) + 1],
+		szSafeTargetAuthId[(MAX_AUTHID_LENGTH * 2) + 1],
+		szSafeReason[(MAX_MESSAGE_LENGTH * 2) + 1];
 
 	ReplySource eRsCmd = GetCmdReplySource();
 	if(iAdmin != SERVER_INDEX)
 	{
 		iUserIdAdmin = GetClientUserId(iAdmin);
 		GetClientAuthId(iAdmin, AuthId_Steam2, szBannedBy, sizeof(szBannedBy));
+		g_dbDatabase.Escape(szBannedBy, szSafeBannedBy, sizeof(szSafeBannedBy));
 	}
 	else
 		iUserIdAdmin = SERVER_INDEX;
@@ -878,12 +960,19 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 		iUserIdTarget = GetClientUserId(iTarget);
 		GetClientName(iTarget, szTargetName, sizeof(szTargetName));
 		GetClientIP(iTarget, szTargetIp, sizeof(szTargetIp));
+		g_dbDatabase.Escape(szTargetName, szSafeTargetName, sizeof(szSafeTargetName));
+		g_dbDatabase.Escape(szTargetIp, szSafeTargetIp, sizeof(szSafeTargetIp));
 	}
 	else
 	{
 		iUserIdTarget = NO_INDEX;
 		strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+		g_dbDatabase.Escape(szTargetName, szSafeTargetName, sizeof(szSafeTargetName));
 	}
+
+	g_dbDatabase.Escape(szTargetAuthId, szSafeTargetAuthId, sizeof(szSafeTargetAuthId));
+	if (strlen(szReason) != 0)
+		g_dbDatabase.Escape(szReason, szSafeReason, sizeof(szSafeReason));
 
 	char szQuery[1024];
 	int iLen = 0;
@@ -892,7 +981,10 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`steam_id`");
 
 	if(iTarget != NO_INDEX)
+	{
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", `player_name`");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", `ip_address`");
+	}
 
 	if(eComms != kAll)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", `ban_type`");
@@ -904,10 +996,13 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 	if(iAdmin != SERVER_INDEX)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ",`banned_by`");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ") VALUES (");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "'%s'", szTargetAuthId);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "'%s'", szSafeTargetAuthId);
 
 	if(iTarget != NO_INDEX)
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szTargetName);
+	{
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeTargetName);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeTargetIp);
+	}
 
 	if(eComms != kAll)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%d'", eComms);
@@ -915,10 +1010,10 @@ void vRegComm(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength,
 	if (iLength != 0)
 		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%d'", iLength);
 	if (strlen(szReason) != 0)
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szReason);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeReason);
 
 	if(iAdmin != SERVER_INDEX)
-		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szBannedBy);
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ", '%s'", szSafeBannedBy);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, ")");
 
 	LogSQL("[vRegComm] szQuery: %s", szQuery);
@@ -969,7 +1064,10 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 	if(iUserIdAdmin != SERVER_INDEX)
 	{
 		iAdmin = GetClientOfUserId(iUserIdAdmin);
-		GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		if (iAdmin > SERVER_INDEX)
+			GetClientAuthId(iAdmin, AuthId_Steam2, szAdminName, sizeof(szAdminName));
+		else
+			iAdmin = SERVER_INDEX;
 	}
 	else
 		iAdmin = SERVER_INDEX;
@@ -977,7 +1075,13 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 	if(iUserIdTarget != NO_INDEX)
 	{
 		iTarget = GetClientOfUserId(iUserIdTarget);
-		GetClientName(iTarget, szTargetName, sizeof(szTargetName));
+		if (iTarget > SERVER_INDEX)
+			GetClientName(iTarget, szTargetName, sizeof(szTargetName));
+		else
+		{
+			iTarget = NO_INDEX;
+			strcopy(szTargetName, sizeof(szTargetName), szTargetAuthId);
+		}
 	}
 	else
 	{
@@ -1054,7 +1158,7 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 
 	if (eComms == kChat || eComms == kAll)
 	{
-		Call_StartForward(g_gfOnBanMic);
+		Call_StartForward(g_gfOnBanChat);
 		Call_PushCell(iAdmin);
 		Call_PushCell(iTarget);
 		Call_PushString(szTargetAuthId);
@@ -1064,7 +1168,7 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 	}
 	if (eComms == kMic || eComms == kAll)
 	{
-		Call_StartForward(g_gfOnBanChat);
+		Call_StartForward(g_gfOnBanMic);
 		Call_PushCell(iAdmin);
 		Call_PushCell(iTarget);
 		Call_PushString(szTargetAuthId);
