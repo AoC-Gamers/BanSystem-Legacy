@@ -34,6 +34,55 @@ enum struct sProcessAccess {
 sProcessAccess g_eProcessAccess[MAXPLAYERS+1];
 StringMap g_smAttemptAccessIpCache;
 
+void vRefreshBSCoreAccessSummaryByAuthId(const char[] szTargetAuthId)
+{
+	if (!bCanUseBSCoreLibrary() || !bCanUsePrimaryDatabase())
+		return;
+
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szTargetAuthId, iAccountId))
+		return;
+
+	char szQuery[256];
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "SELECT `id` FROM `%s` WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ORDER BY `id` DESC LIMIT 1;", TABLE_ACCESS, iAccountId);
+
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(iAccountId);
+	SQL_TQuery(g_dbDatabase, vRefreshBSCoreAccessSummaryCallback, szQuery, pContext);
+}
+
+void vRefreshBSCoreAccessSummaryCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	int iAccountId = pContext.ReadCell();
+	delete pContext;
+
+	if (!bCanUseBSCoreLibrary())
+	{
+		delete rsResult;
+		return;
+	}
+
+	if (rsResult == null || szError[0])
+	{
+		logErrorSQL(dbDataBase, szError, "vRefreshBSCoreAccessSummaryCallback");
+		delete rsResult;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		BSCore_ClearSummaryModule(iAccountId, 1);
+		delete rsResult;
+		return;
+	}
+
+	int iBanId = rsResult.FetchInt(0);
+	BSCore_SetAccessSummary(iAccountId, iBanId);
+	delete rsResult;
+}
+
 void vResetAccessProcessState(int iClient)
 {
 	if (iClient <= SERVER_INDEX || iClient > MaxClients)
@@ -297,7 +346,10 @@ void vSubmitRemoveAccessByIdentity(int iClient, const char[] szTargetAuthId, Rep
 
 	LogSQL("[vSubmitRemoveAccessByIdentity] Query: %s", szQuery);
 
-	DataPack pRemoveAccess = pCreateReplyContextString(iClient, szTargetAuthId, eRsCmd);
+	DataPack pRemoveAccess = new DataPack();
+	pRemoveAccess.WriteCell(iGetCommandIssuerUserId(iClient));
+	pRemoveAccess.WriteCell(eRsCmd);
+	pRemoveAccess.WriteString(szTargetAuthId);
 	SQL_TQuery(g_dbDatabase, vRemoveAccessCallback, szQuery, pRemoveAccess);
 }
 
@@ -311,7 +363,12 @@ void vRemoveAccessCallback(Database dbDataBase, DBResultSet rsResult, const char
 		iUserId;
 
 	ReplySource eRsCmd;
-	vReadReplyContextString(pData, iUserId, eRsCmd, szTargetAuthId, sizeof(szTargetAuthId));
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szTargetAuthId, sizeof(szTargetAuthId));
+	delete pContext;
 	iReplyClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	iAdmin = iResolveReplyClient(iUserId, true);
 
@@ -339,6 +396,7 @@ void vRemoveAccessCallback(Database dbDataBase, DBResultSet rsResult, const char
 
 	if (iReplyClient != NO_INDEX)
 		CReplyToCommand(iReplyClient, "%t %t", "Prefix", "UnbanAccessSuccess", szTargetAuthId);
+	vClearBSCoreSummaryModuleByAuthId(szTargetAuthId, 1);
 	Call_StartForward(g_gfOnUnbanAcess);
 	Call_PushCell(iAdmin);
 	Call_PushString(szTargetAuthId);
@@ -392,7 +450,10 @@ void vSubmitAccessInfoByIdentity(int iClient, const char[] szAuthId, ReplySource
 
 	LogSQL("[aInfoCmd] szQuery: %s", szQuery);
 
-	DataPack pInfoCallback = pCreateReplyContextString(iClient, szAuthId, eRsCmd);
+	DataPack pInfoCallback = new DataPack();
+	pInfoCallback.WriteCell(iGetCommandIssuerUserId(iClient));
+	pInfoCallback.WriteCell(eRsCmd);
+	pInfoCallback.WriteString(szAuthId);
 	SQL_TQuery(g_dbDatabase, vInfoCallback, szQuery, pInfoCallback);
 }
 
@@ -401,7 +462,12 @@ void vInfoCallback(Database dbDataBase, DBResultSet rsResult, const char[] szErr
 	char szAuthId[MAX_AUTHID_LENGTH];
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContextString(pData, iUserId, eRsCmd, szAuthId, sizeof(szAuthId));
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szAuthId, sizeof(szAuthId));
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -511,7 +577,10 @@ void vSubmitAccessAttemptInfoByIdentity(int iClient, const char[] szAuthId, Repl
 
 	LogSQL("[aInfoSteamIdCmd] szQuery: %s", szQuery);
 
-	DataPack pInfoIp = pCreateReplyContextString(iClient, szAuthId, eRsCmd);
+	DataPack pInfoIp = new DataPack();
+	pInfoIp.WriteCell(iGetCommandIssuerUserId(iClient));
+	pInfoIp.WriteCell(eRsCmd);
+	pInfoIp.WriteString(szAuthId);
 	SQL_TQuery(g_dbDatabase, vInfoSteamIdCallback, szQuery, pInfoIp);
 }
 
@@ -520,7 +589,12 @@ void vInfoSteamIdCallback(Database dbDataBase, DBResultSet rsResult, const char[
 	char szAuthId[MAX_AUTHID_LENGTH];
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContextString(pData, iUserId, eRsCmd, szAuthId, sizeof(szAuthId));
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szAuthId, sizeof(szAuthId));
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -591,7 +665,10 @@ Action aInfoIpCmd(int iClient, int iArgs)
 
 	LogSQL("[aInfoIpCmd] szQuery: %s", szQuery);
 
-	DataPack pInfoIp = pCreateReplyContextString(iClient, szIpAddress, GetCmdReplySource());
+	DataPack pInfoIp = new DataPack();
+	pInfoIp.WriteCell(iGetCommandIssuerUserId(iClient));
+	pInfoIp.WriteCell(GetCmdReplySource());
+	pInfoIp.WriteString(szIpAddress);
 	SQL_TQuery(g_dbDatabase, vInfoIpCallback, szQuery, pInfoIp);
 	return Plugin_Handled;
 }
@@ -611,7 +688,9 @@ Action aListAccessDbCmd(int iClient, int iArgs)
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
-	DataPack pListAccess = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack pListAccess = new DataPack();
+	pListAccess.WriteCell(iGetCommandIssuerUserId(iClient));
+	pListAccess.WriteCell(GetCmdReplySource());
 	SQL_TQuery(g_dbDatabase, vListAccessCallback, szQuery, pListAccess);
 	return Plugin_Handled;
 }
@@ -621,7 +700,12 @@ void vInfoIpCallback(Database dbDataBase, DBResultSet rsResult, const char[] szE
 	char szIpAddress[MAX_AUTHID_LENGTH];
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContextString(pData, iUserId, eRsCmd, szIpAddress, sizeof(szIpAddress));
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szIpAddress, sizeof(szIpAddress));
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -665,7 +749,11 @@ void vListAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 {
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -1300,6 +1388,7 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 		{
 			bRemoveLocalCache(szTargetAuthId);
 			vSyncConnectedClientState(szTargetAuthId, iTarget);
+			vRefreshBSCoreAccessSummaryByAuthId(szTargetAuthId);
 			vReplyAccessBanResult(iReplyClient, true, szTargetName);
 			delete rsResult;
 			return;
@@ -1317,6 +1406,7 @@ void vRegAccessCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
 	bRemoveLocalCache(szTargetAuthId);
 	if (iLength == 0)
 		bRegisterCache(szTargetAuthId, 1);
+	vRefreshBSCoreAccessSummaryByAuthId(szTargetAuthId);
 	
 	vReplyAccessBanResult(iReplyClient, false, szTargetName);
 	

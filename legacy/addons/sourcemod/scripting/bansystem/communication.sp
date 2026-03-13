@@ -19,6 +19,56 @@ enum struct eProcessComm {
 
 eProcessComm g_eProcessComm[MAXPLAYERS+1];
 
+void vRefreshBSCoreCommSummaryByAuthId(const char[] szTargetAuthId)
+{
+	if (!bCanUseBSCoreLibrary() || !bCanUsePrimaryDatabase())
+		return;
+
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szTargetAuthId, iAccountId))
+		return;
+
+	char szQuery[256];
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "SELECT `id`, `ban_type` FROM `%s` WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ORDER BY `id` DESC LIMIT 1;", TABLE_COMM, iAccountId);
+
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(iAccountId);
+	SQL_TQuery(g_dbDatabase, vRefreshBSCoreCommSummaryCallback, szQuery, pContext);
+}
+
+void vRefreshBSCoreCommSummaryCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	int iAccountId = pContext.ReadCell();
+	delete pContext;
+
+	if (!bCanUseBSCoreLibrary())
+	{
+		delete rsResult;
+		return;
+	}
+
+	if (rsResult == null || szError[0])
+	{
+		logErrorSQL(dbDataBase, szError, "vRefreshBSCoreCommSummaryCallback");
+		delete rsResult;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		BSCore_ClearSummaryModule(iAccountId, 2);
+		delete rsResult;
+		return;
+	}
+
+	int iBanId = rsResult.FetchInt(0);
+	int iCommType = rsResult.FetchInt(1);
+	BSCore_SetCommSummary(iAccountId, iBanId, iCommType);
+	delete rsResult;
+}
+
 void vResetCommProcessState(int iClient)
 {
 	if (iClient <= SERVER_INDEX || iClient > MaxClients)
@@ -243,7 +293,10 @@ void vSubmitCommInfoByIdentity(int iClient, const char[] szAuthId, ReplySource e
 
 	LogSQL("[aInfoCommCmd] szQuery: %s", szQuery);
 
-	DataPack pInfoComm = pCreateReplyContextString(iClient, szAuthId, eRsCmd);
+	DataPack pInfoComm = new DataPack();
+	pInfoComm.WriteCell(iGetCommandIssuerUserId(iClient));
+	pInfoComm.WriteCell(eRsCmd);
+	pInfoComm.WriteString(szAuthId);
 	SQL_TQuery(g_dbDatabase, vInfoCommCallback, szQuery, pInfoComm);
 }
 
@@ -255,7 +308,9 @@ Action aClearCommCmd(int iClient, int iArgs)
 	char szQuery[128];
 	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s`;", TABLE_COMM);
 
-	DataPack pClearComm = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack pClearComm = new DataPack();
+	pClearComm.WriteCell(iGetCommandIssuerUserId(iClient));
+	pClearComm.WriteCell(GetCmdReplySource());
 
 	SQL_TQuery(g_dbDatabase, vClearCommDatabaseCallback, szQuery, pClearComm);
 	return Plugin_Handled;
@@ -318,7 +373,11 @@ void vClearCommDatabaseCallback(Database dbDataBase, DBResultSet rsResult, const
 {
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iReplyClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 
 	if (rsResult == null || szError[0])
@@ -340,14 +399,21 @@ void vClearCommDatabaseCallback(Database dbDataBase, DBResultSet rsResult, const
 
 	char szQuery[128];
 	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE ABS(ban_id) IN (2, 3, 4);", TABLE_CACHE);
-	SQL_TQuery(g_dbCache, vClearCommCacheCallback, szQuery, pCreateReplyContextUserId(iUserId, eRsCmd));
+	DataPack pCacheContext = new DataPack();
+	pCacheContext.WriteCell(iUserId);
+	pCacheContext.WriteCell(eRsCmd);
+	SQL_TQuery(g_dbCache, vClearCommCacheCallback, szQuery, pCacheContext);
 }
 
 void vClearCommCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iReplyClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 
 	if (rsResult == null || szError[0])
@@ -374,7 +440,12 @@ void vInfoCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] s
 	char szAuthId[MAX_AUTHID_LENGTH];
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContextString(pData, iUserId, eRsCmd, szAuthId, sizeof(szAuthId));
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szAuthId, sizeof(szAuthId));
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -486,7 +557,9 @@ Action aListCommDbCmd(int iClient, int iArgs)
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
-	DataPack pListComm = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack pListComm = new DataPack();
+	pListComm.WriteCell(iGetCommandIssuerUserId(iClient));
+	pListComm.WriteCell(GetCmdReplySource());
 	SQL_TQuery(g_dbDatabase, vListCommDbCallback, szQuery, pListComm);
 	return Plugin_Handled;
 }
@@ -582,7 +655,11 @@ void vListCommDbCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 {
 	int iUserId;
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -829,6 +906,8 @@ void vRemoveCommCallback(Database dbDataBase, DBResultSet rsResult, const char[]
 
 	if (iReplyClient != NO_INDEX)
 		CReplyToCommand(iReplyClient, "%t %t", "Prefix", "UnbanCommSuccess", szTargetName);
+
+	vClearBSCoreSummaryModuleByAuthId(szTargetAuthId, 2);
 
 	if (iTarget != NO_INDEX)
 	{
@@ -1669,6 +1748,8 @@ void vRegCommCallback(Database dbDataBase, DBResultSet rsResult, const char[] sz
 		vSyncConnectedClientState(szTargetAuthId, iTarget);
 		vNotifyCommBanTarget(iTarget, eComms, szAdminName, iLength, szReason);
 	}
+
+	vRefreshBSCoreCommSummaryByAuthId(szTargetAuthId);
 
 	if (eComms == kChat || eComms == kAll)
 	{

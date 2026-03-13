@@ -1,18 +1,29 @@
 # ScriptsSQL
 
-`mysql/schema.sql` is the canonical MySQL schema for the plugin.
+Current SQL layout:
 
-- Import `mysql/schema.sql` before loading the plugin.
-- The plugin validates `bansystem_schema_version` on startup.
-- The current required MySQL schema version is `6`.
+- `mysql/legacy/old_bansystem_schema.sql`
+  - legacy monolithic schema used by the current `bansystem` plugin
+- `mysql/core_schema.sql`
+  - new modular core schema
+- `mysql/access_schema.sql`
+  - access module schema
+- `mysql/communication_schema.sql`
+  - communication module schema
+- `mysql/sprays_schema.sql`
+  - sprays module schema
+- `mysql/adminsync_schema.sql`
+  - admin sync satellite schema
 
-Example install flow:
+Recommended install order for the new modular design:
 
 ```bash
-mysql new_db < ScriptsSQL/mysql/schema.sql
+mysql new_db < ScriptsSQL/mysql/core_schema.sql
+mysql new_db < ScriptsSQL/mysql/access_schema.sql
+mysql new_db < ScriptsSQL/mysql/communication_schema.sql
+mysql new_db < ScriptsSQL/mysql/sprays_schema.sql
 ```
 
-SQLite cache is managed locally by the plugin.
+Use only the module schemas that you actually deploy.
 
-- BanSystem repairs/recreates the local cache objects at runtime.
-- There is no external SQLite install script to apply.
+SQLite cache is managed locally by the plugin.

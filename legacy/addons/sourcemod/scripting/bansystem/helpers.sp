@@ -215,45 +215,6 @@ void vNotifyCommUnbanTarget(int iTarget)
 	CPrintToChat(iTarget, "%t %t", "Prefix", "YouUnbanCommSuccess");
 }
 
-DataPack pCreateReplyContext(int iClient, ReplySource eRsCmd)
-{
-	return pCreateReplyContextUserId(iGetCommandIssuerUserId(iClient), eRsCmd);
-}
-
-DataPack pCreateReplyContextUserId(int iUserId, ReplySource eRsCmd)
-{
-	DataPack pContext = new DataPack();
-	pContext.WriteCell(iUserId);
-	pContext.WriteCell(eRsCmd);
-	return pContext;
-}
-
-DataPack pCreateReplyContextString(int iClient, const char[] szValue, ReplySource eRsCmd)
-{
-	DataPack pContext = pCreateReplyContextUserId(iGetCommandIssuerUserId(iClient), eRsCmd);
-	pContext.WriteString(szValue);
-	return pContext;
-}
-
-void vReadReplyContext(any pData, int &iUserId, ReplySource &eRsCmd)
-{
-	DataPack pContext = view_as<DataPack>(pData);
-	pContext.Reset();
-	iUserId = pContext.ReadCell();
-	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
-	delete pContext;
-}
-
-void vReadReplyContextString(any pData, int &iUserId, ReplySource &eRsCmd, char[] szValue, int iMaxLength)
-{
-	DataPack pContext = view_as<DataPack>(pData);
-	pContext.Reset();
-	iUserId = pContext.ReadCell();
-	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
-	pContext.ReadString(szValue, iMaxLength);
-	delete pContext;
-}
-
 int iResolveReplyClientForCommand(int iUserId, ReplySource eRsCmd, bool bFallbackToServer = false)
 {
 	int iClient = iResolveReplyClient(iUserId, bFallbackToServer);

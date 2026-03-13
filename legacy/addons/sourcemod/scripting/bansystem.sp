@@ -9,6 +9,7 @@
 #include <l4d2_changelevel>
 
 #undef REQUIRE_PLUGIN
+#include <bansystem_core>
 #define REQUIRE_PLUGIN
 
 /*****************************************************************
@@ -72,6 +73,7 @@ Database
 bool g_bPrimaryDatabaseReady;
 bool g_bMapTransitionActive;
 bool g_bHasL4D2ChangeLevel;
+bool g_bHasBSCoreLibrary;
 
 KeyValues g_kvReasons;
 
@@ -148,6 +150,7 @@ public void OnPluginStart()
 	g_smIdentityRequestContext = new StringMap();
 	g_bMapTransitionActive = true;
 	g_bHasL4D2ChangeLevel = LibraryExists("l4d2_changelevel");
+	g_bHasBSCoreLibrary = LibraryExists("bansystem_core");
 	vOnPluginStart_Api();
 
 	vLoadTranslation("common.phrases");
@@ -166,6 +169,7 @@ public void OnPluginStart()
 	vOnPluginStart_Access();
 	vOnPluginStart_Communication();
 	vOnPluginStart_Cache();
+	vTryRegisterBSCoreModules();
 
 	RegConsoleCmd("sm_abort", Command_AbortBan);
 	AutoExecConfig(true, "bansystem");
@@ -175,12 +179,19 @@ public void OnLibraryAdded(const char[] szName)
 {
 	if (StrEqual(szName, "l4d2_changelevel", false))
 		g_bHasL4D2ChangeLevel = true;
+	else if (StrEqual(szName, "bansystem_core", false))
+	{
+		g_bHasBSCoreLibrary = true;
+		vTryRegisterBSCoreModules();
+	}
 }
 
 public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "l4d2_changelevel", false))
 		g_bHasL4D2ChangeLevel = false;
+	else if (StrEqual(szName, "bansystem_core", false))
+		g_bHasBSCoreLibrary = false;
 }
 
 public Action Command_AbortBan(int iClient, int iArgs)
@@ -812,17 +823,21 @@ void vExpireCommPunishment(int iClient, bool bNotifyClient)
 
 	char szQuery[192];
 	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE `accountid` = %d AND `ban_length` != 0;", TABLE_COMM, iAccountId);
-	SQL_TQuery(g_dbDatabase, vExpireCommDatabaseCallback, szQuery);
+	SQL_TQuery(g_dbDatabase, vExpireCommDatabaseCallback, szQuery, iAccountId);
 }
 
 void vExpireCommDatabaseCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
+	int iAccountId = pData;
 	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vExpireCommDatabaseCallback");
 		delete rsResult;
 		return;
 	}
+
+	if (bCanUseBSCoreLibrary() && iAccountId > 0)
+		BSCore_ClearSummaryModule(iAccountId, 2);
 
 	delete rsResult;
 }
@@ -1190,4 +1205,32 @@ void LogCategory(eDebugMask eMask, const char[] szTag, const char[] sMessage, in
 	static char sFormat[1024];
 	VFormat(sFormat, sizeof(sFormat), sMessage, iVFormatArg);
 	LogToFileEx(g_sLogPath, "[%s] %s", szTag, sFormat);
+}
+
+bool bCanUseBSCoreLibrary()
+{
+	return g_bHasBSCoreLibrary;
+}
+
+void vTryRegisterBSCoreModules()
+{
+	if (!bCanUseBSCoreLibrary())
+		return;
+
+	BSCore_RegisterModule("access", 1);
+	BSCore_RegisterModule("communication", 2);
+	LogAPI("Registered BanSystem modules in bansystem_core.");
+}
+
+void vClearBSCoreSummaryModuleByAuthId(const char[] szTargetAuthId, int iModuleBit)
+{
+	if (!bCanUseBSCoreLibrary())
+		return;
+
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szTargetAuthId, iAccountId))
+		return;
+
+	if (BSCore_ClearSummaryModule(iAccountId, iModuleBit))
+		LogAPI("Cleared bansystem_core summary module bit %d for accountid %d.", iModuleBit, iAccountId);
 }

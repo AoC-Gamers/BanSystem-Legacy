@@ -171,7 +171,9 @@ Action aCacheListCmd(int iClient, int iArgs)
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid;");
 
-	DataPack dpCacheList = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack dpCacheList = new DataPack();
+	dpCacheList.WriteCell(iGetCommandIssuerUserId(iClient));
+	dpCacheList.WriteCell(GetCmdReplySource());
 
 	SQL_TQuery(g_dbCache, vCacheListCallback, szQuery, dpCacheList);
     return Plugin_Handled;
@@ -182,7 +184,11 @@ void vCacheListCallback(Database dbDataBase, DBResultSet rsResult, const char[] 
     int iUserId;
 
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -226,7 +232,9 @@ Action aCacheClearCmd(int iClient, int iArgs)
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "DELETE FROM BanCache;");
 
-	DataPack dpCacheClear = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack dpCacheClear = new DataPack();
+	dpCacheClear.WriteCell(iGetCommandIssuerUserId(iClient));
+	dpCacheClear.WriteCell(GetCmdReplySource());
 
 	SQL_TQuery(g_dbCache, vCacheClearCallback, szQuery, dpCacheClear);
     return Plugin_Handled;
@@ -237,7 +245,11 @@ void vCacheClearCallback(Database dbDataBase, DBResultSet rsResult, const char[]
     int iUserId;
 
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{
@@ -287,7 +299,9 @@ Action aCacheSteamIdCmd(int iClient, int iArgs)
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid WHERE account_id = %d;", iAccountId);
 
-	DataPack dpCacheSteamId = pCreateReplyContext(iClient, GetCmdReplySource());
+	DataPack dpCacheSteamId = new DataPack();
+	dpCacheSteamId.WriteCell(iGetCommandIssuerUserId(iClient));
+	dpCacheSteamId.WriteCell(GetCmdReplySource());
 
     SQL_TQuery(g_dbCache, vCacheSteamIdCallback, szQuery, dpCacheSteamId);
     return Plugin_Handled;
@@ -298,7 +312,11 @@ void vCacheSteamIdCallback(Database dbDataBase, DBResultSet rsResult, const char
     int iUserId;
 
 	ReplySource eRsCmd;
-	vReadReplyContext(pData, iUserId, eRsCmd);
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
 	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
 	if (iClient == NO_INDEX)
 	{

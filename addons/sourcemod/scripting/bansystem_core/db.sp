@@ -1,0 +1,124 @@
+/*****************************************************************
+			D B
+*****************************************************************/
+
+stock bool BSCore_CanUsePrimaryDatabase()
+{
+	return (g_dbCorePrimary != null && g_bCorePrimaryReady);
+}
+
+stock bool BSCore_CanUseCacheDatabase()
+{
+	return (g_dbCoreCache != null && g_bCoreCacheReady);
+}
+
+stock void BSCore_ConnectDatabases()
+{
+	char szMysqlConfig[64];
+	g_cvCoreMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
+	Database.Connect(BSCore_OnPrimaryDatabaseConnected, szMysqlConfig);
+	BSCore_SQL("Connecting core primary database using config '%s'.", szMysqlConfig);
+
+	if (!g_cvCoreSqliteCache.BoolValue)
+	{
+		if (g_dbCoreCache != null)
+		{
+			delete g_dbCoreCache;
+			g_dbCoreCache = null;
+		}
+
+		g_bCoreCacheReady = false;
+		return;
+	}
+
+	char szCacheConfig[64];
+	g_cvCoreCacheConfig.GetString(szCacheConfig, sizeof(szCacheConfig));
+	Database.Connect(BSCore_OnCacheDatabaseConnected, szCacheConfig);
+	BSCore_SQL("Connecting core cache database using config '%s'.", szCacheConfig);
+}
+
+public void BSCore_OnPrimaryDatabaseConnected(Database db, const char[] szError, any data)
+{
+	if (db == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Primary database connection failed: %s", szError);
+		g_bCorePrimaryReady = false;
+		return;
+	}
+
+	if (g_dbCorePrimary != null)
+		delete g_dbCorePrimary;
+
+	g_dbCorePrimary = db;
+	BSCore_ValidatePrimarySummarySchema();
+}
+
+public void BSCore_OnCacheDatabaseConnected(Database db, const char[] szError, any data)
+{
+	if (db == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Cache database connection failed: %s", szError);
+		g_bCoreCacheReady = false;
+		return;
+	}
+
+	if (g_dbCoreCache != null)
+		delete g_dbCoreCache;
+
+	g_dbCoreCache = db;
+	BSCore_ValidateCacheSummarySchema();
+}
+
+stock void BSCore_ValidatePrimarySummarySchema()
+{
+	if (g_dbCorePrimary == null)
+		return;
+
+	char szQuery[256];
+	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY);
+	BSCore_SQL("Primary summary validation query: %s", szQuery);
+	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySummarySchemaValidated, szQuery);
+}
+
+stock void BSCore_ValidateCacheSummarySchema()
+{
+	if (g_dbCoreCache == null)
+		return;
+
+	char szQuery[256];
+	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
+	BSCore_SQL("Cache summary validation query: %s", szQuery);
+	SQL_TQuery(g_dbCoreCache, BSCore_OnCacheSummarySchemaValidated, szQuery);
+}
+
+public void BSCore_OnPrimarySummarySchemaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)
+{
+	if (rsResult == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Primary summary schema validation failed: %s", szError);
+		g_bCorePrimaryReady = false;
+		delete rsResult;
+		return;
+	}
+
+	delete rsResult;
+	g_bCorePrimaryReady = true;
+	BSCore_SQL("Primary summary schema validated.");
+	BSCore_MaybeFinalizeMapTransition();
+}
+
+public void BSCore_OnCacheSummarySchemaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)
+{
+	if (rsResult == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Cache summary schema validation failed: %s", szError);
+		g_bCoreCacheReady = false;
+		delete rsResult;
+		return;
+	}
+
+	delete rsResult;
+	g_bCoreCacheReady = true;
+	BSCore_SQL("Cache summary schema validated.");
+	BSCore_MaybeFinalizeMapTransition();
+}
