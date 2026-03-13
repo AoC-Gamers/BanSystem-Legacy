@@ -66,10 +66,10 @@ eBSCommResolvedDetail g_eBSCommResolvedDetail[MAXPLAYERS + 1];
 public Plugin myinfo =
 {
 	name = "BanSystem Comm",
-	author = "Israel L.",
+	author = "lechuga",
 	description = "Communication module scaffold for BanSystem Core.",
 	version = BANSYSTEM_COMM_VERSION,
-	url = "https://github.com/IsraelL/BanSystem"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)

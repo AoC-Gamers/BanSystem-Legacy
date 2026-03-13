@@ -32,7 +32,7 @@ public Plugin myinfo =
 	author = "lechuga",
 	description = "Synchronizes admins and groups from MySQL to a local snapshot",
 	version = PLUGIN_VERSION,
-	url = "https://github.com/AoC-Gamers/AoC-L4D2-Competitive"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 Database g_dbLocal;

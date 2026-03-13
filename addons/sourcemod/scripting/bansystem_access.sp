@@ -65,10 +65,10 @@ eBSAccessResolvedDetail g_eBSAccessResolvedDetail[MAXPLAYERS + 1];
 public Plugin myinfo =
 {
 	name = "BanSystem Access",
-	author = "Israel L.",
+	author = "lechuga",
 	description = "Access module scaffold for BanSystem Core.",
 	version = BANSYSTEM_ACCESS_VERSION,
-	url = "https://github.com/IsraelL/BanSystem"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)

@@ -43,10 +43,10 @@ Handle g_hBSSpraysViewHud;
 public Plugin myinfo =
 {
 	name = "BanSystem Sprays View",
-	author = "Israel L.",
+	author = "lechuga",
 	description = "Displays spray owner information for BanSystem Sprays.",
 	version = BANSYSTEM_SPRAYS_VIEW_VERSION,
-	url = "https://github.com/IsraelL/BanSystem"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 public void OnPluginStart()

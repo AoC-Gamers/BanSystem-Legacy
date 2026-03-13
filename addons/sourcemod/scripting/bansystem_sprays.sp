@@ -64,10 +64,10 @@ eBSSpraysResolvedDetail g_eBSSpraysResolvedDetail[MAXPLAYERS + 1];
 public Plugin myinfo =
 {
 	name = "BanSystem Sprays",
-	author = "Israel L.",
+	author = "lechuga",
 	description = "Sprays module scaffold for BanSystem Core.",
 	version = BANSYSTEM_SPRAYS_VERSION,
-	url = "https://github.com/IsraelL/BanSystem"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)

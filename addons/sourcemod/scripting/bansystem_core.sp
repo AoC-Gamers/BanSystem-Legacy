@@ -58,10 +58,10 @@ int g_iCoreResolvedDetailMask[MAXPLAYERS + 1];
 public Plugin myinfo =
 {
 	name = "BanSystem Core",
-	author = "Israel L.",
+	author = "lechuga",
 	description = "Core scaffold for modular BanSystem.",
 	version = BANSYSTEM_CORE_VERSION,
-	url = "https://github.com/IsraelL/BanSystem"
+	url = "https://github.com/AoC-Gamers/BanSystem"
 };
 
 public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max)
