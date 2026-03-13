@@ -11,18 +11,82 @@ enum eTypeComms
 	kAll  = 3,
 }
 
+typeset BSBanAccessAsyncCallback
+{
+	function void (int iRequestId, bool bAccepted, const char[] szResolvedAuthId, const char[] szError, any data);
+}
+
 /**
  * Execute an access ban.
  *
  * @param iAdmin            The client index of the admin initiating the ban. If it is an automatic ban use 0.
  * @param iTarget           The client index of the target being banned. If the user is in the game use iTarget, otherwise send -1.
- * @param szTargetAuthId    The SteamID/AuthID of the target being banned. If iTarget is not defined, add the steamid.
+ * @param szTargetAuthId    Identity of the target being banned. Supports SteamID2, SteamID3 and accountid offline.
+ *                          SteamID64 requires async resolution and is not supported by this native unless iTarget is connected.
  * @param iLength           The duration of the ban in minutes. Use 0 for a permanent ban.
  * @param szReason          The reason for the ban.
  *
  * @return                 True if the ban was successfully executed, False otherwise.
  */
 native bool bBSBanAccess(int iAdmin = 0, int iTarget = -1, const char[] szTargetAuthId, int iLength = 0, const char[] szReason);
+
+/**
+ * Queue an access ban, resolving SteamID64 asynchronously if needed.
+ *
+ * @param iAdmin            The client index of the admin initiating the ban. If it is an automatic ban use 0.
+ * @param iTarget           The client index of the target being banned. If the user is in the game use iTarget, otherwise send -1.
+ * @param szTargetAuthId    Identity of the target being banned. Supports SteamID2, SteamID3, SteamID64 and accountid.
+ * @param iLength           The duration of the ban in minutes. Use 0 for a permanent ban.
+ * @param szReason          The reason for the ban.
+ * @param fnCallback        Callback invoked when the request is either rejected or accepted and queued.
+ *                          On success, szResolvedAuthId contains the resolved SteamID2 and szError is empty.
+ *                          On failure, szResolvedAuthId is empty and szError contains a short reason.
+ * @param data              Opaque caller data forwarded back to the callback.
+ *
+ * @return                  Request id greater than zero if the request was accepted for processing, 0 on invalid callback.
+ */
+native int iBSBanAccessAsync(int iAdmin = 0, int iTarget = -1, const char[] szTargetAuthId, int iLength = 0, const char[] szReason = "", Function fnCallback = INVALID_FUNCTION, any data = 0);
+
+/**
+ * Queue an access unban, resolving SteamID64 asynchronously if needed.
+ *
+ * @param iAdmin            The client index of the admin initiating the unban. If it is an automatic action use 0.
+ * @param szTargetAuthId    Identity of the target being unbanned. Supports SteamID2, SteamID3, SteamID64 and accountid.
+ * @param fnCallback        Callback invoked when the request is either rejected or accepted and queued.
+ * @param data              Opaque caller data forwarded back to the callback.
+ *
+ * @return                  Request id greater than zero if the request was accepted for processing, 0 on invalid callback.
+ */
+native int iBSUnbanAccessAsync(int iAdmin = 0, const char[] szTargetAuthId, Function fnCallback = INVALID_FUNCTION, any data = 0);
+
+/**
+ * Queue a communication ban, resolving SteamID64 asynchronously if needed.
+ *
+ * @param iAdmin            The client index of the admin initiating the ban. If it is an automatic action use 0.
+ * @param iTarget           The client index of the target being banned. If the user is in the game use iTarget, otherwise send -1.
+ * @param szTargetAuthId    Identity of the target being banned. Supports SteamID2, SteamID3, SteamID64 and accountid.
+ * @param eType            The type of communication to prohibit.
+ * @param iLength           The duration of the ban in minutes. Use 0 for a permanent ban.
+ * @param szReason          The reason for the ban.
+ * @param fnCallback        Callback invoked when the request is either rejected or accepted and queued.
+ * @param data              Opaque caller data forwarded back to the callback.
+ *
+ * @return                  Request id greater than zero if the request was accepted for processing, 0 on invalid callback.
+ */
+native int iBSBanCommAsync(int iAdmin = 0, int iTarget = -1, const char[] szTargetAuthId, eTypeComms eType = kAll, int iLength = 0, const char[] szReason = "", Function fnCallback = INVALID_FUNCTION, any data = 0);
+
+/**
+ * Queue a communication unban, resolving SteamID64 asynchronously if needed.
+ *
+ * @param iAdmin            The client index of the admin initiating the unban. If it is an automatic action use 0.
+ * @param iTarget           The client index of the target being unbanned. If the user is in the game use iTarget, otherwise send -1.
+ * @param szTargetAuthId    Identity of the target being unbanned. Supports SteamID2, SteamID3, SteamID64 and accountid.
+ * @param fnCallback        Callback invoked when the request is either rejected or accepted and queued.
+ * @param data              Opaque caller data forwarded back to the callback.
+ *
+ * @return                  Request id greater than zero if the request was accepted for processing, 0 on invalid callback.
+ */
+native int iBSUnbanCommAsync(int iAdmin = 0, int iTarget = -1, const char[] szTargetAuthId, Function fnCallback = INVALID_FUNCTION, any data = 0);
 
 /**
  * Checks if a target client is banned from specific communication types.
@@ -108,6 +172,10 @@ public SharedPlugin __pl_bansystem = {
 public void __pl_bansystem_SetNTVOptional()
 {
 	MarkNativeAsOptional("bBSBanAccess");
+	MarkNativeAsOptional("iBSBanAccessAsync");
+	MarkNativeAsOptional("iBSUnbanAccessAsync");
+	MarkNativeAsOptional("iBSBanCommAsync");
+	MarkNativeAsOptional("iBSUnbanCommAsync");
 	MarkNativeAsOptional("bBSBannedComm");
 	MarkNativeAsOptional("vBSOnBanAccess");
 	MarkNativeAsOptional("vBSOnUnbanAccess");

@@ -20,15 +20,15 @@ void vOnPluginStart_Cache()
 
 Action aCacheRegCmd(int iClient, int iArgs)
 {
-	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+	if (!bCanUseSQLiteCache())
 	{
-		CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+		vReplyCommandPhrase(iClient, "CacheSQLDisabled");
 		return Plugin_Handled;
 	}
 
     if (iArgs != 2)
     {
-        CReplyToCommand(iClient, "%t %t: sm_bs_cache <\"steamid\"> <TypeBan>", "Prefix", "Use");
+        vReplyCommandUsage(iClient, "sm_bs_cache <\"steamid\"> <TypeBan>");
         CReplyToCommand(iClient, "%t TypeBan: <1:Access> <2:Mic> <3:chat> <4:All>", "Prefix");
 
         return Plugin_Handled;
@@ -37,22 +37,23 @@ Action aCacheRegCmd(int iClient, int iArgs)
     char szSteamID[MAX_AUTHID_LENGTH];
     GetCmdArg(1, szSteamID, sizeof(szSteamID));
 
-    if (!bIsSteamId(szSteamID))
+    int iAccountId;
+    if (!bGetAccountIdFromAuthId(szSteamID, iAccountId))
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
+        vReplyCommandPhraseString(iClient, "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 
     int iTypeBan = GetCmdArgInt(2);
     if (iTypeBan < 1 || iTypeBan > 4)
     {
-        CReplyToCommand(iClient, "%t %t: sm_bs_cache <\"steamid\"> <TypeBan>", "Prefix", "Use");
+        vReplyCommandUsage(iClient, "sm_bs_cache <\"steamid\"> <TypeBan>");
         CReplyToCommand(iClient, "%t TypeBan: <1:Access> <2:Mic> <3:chat> <4:All>", "Prefix");
         return Plugin_Handled;
     }
 
-    bRegisterCache(szSteamID, iTypeBan);
-    CReplyToCommand(iClient, "%t %t", "Prefix", "CachePlayerAdded", szSteamID);
+    bRegisterCacheAccountId(iAccountId, iTypeBan);
+    vReplyCommandPhraseString(iClient, "CachePlayerAdded", szSteamID);
     return Plugin_Handled;
 }
 
@@ -70,20 +71,40 @@ Action aCacheRegCmd(int iClient, int iArgs)
  */
 void bRegisterCache(const char[] szAuthId, int iResult)
 {
-	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szAuthId, iAccountId))
+		return;
+
+	bRegisterCacheAccountId(iAccountId, iResult);
+}
+
+void bRegisterCacheAccountId(int iAccountId, int iResult)
+{
+	if (!bCanUseSQLiteCache())
 		return;
 
 	char szQuery[256];
 	int iLen = 0;
 
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` ", TABLE_CACHE);
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "(ban_id, steam_id) ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES ('%d', '%s');", iResult, szAuthId);
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "(ban_id, account_id) ");
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES (%d, %d);", iResult, iAccountId);
 
-	LogSQL("[bRegisterCache] Query: %s", szQuery);
+	LogSQL("[bRegisterCacheAccountId] Query: %s", szQuery);
 
 	SQL_TQuery(g_dbCache, bRegisterCacheCallback, szQuery);
+}
 
+void vDisableSQLiteCache(const char[] szContext)
+{
+	g_bSQLiteCacheReady = false;
+	if (g_dbCache != null)
+	{
+		delete g_dbCache;
+		g_dbCache = null;
+	}
+
+	LogError("[%s] SQLite cache disabled until the next reconnect/reload.", szContext);
 }
 
 void bRegisterCacheCallback(Handle dbDatabase, DBResultSet rsResult, const char[] szError, any pData)
@@ -91,12 +112,14 @@ void bRegisterCacheCallback(Handle dbDatabase, DBResultSet rsResult, const char[
 	if (dbDatabase == null)
 	{
 		LogError("[bRegisterCacheCallback] Database connection failed.");
+		vDisableSQLiteCache("bRegisterCacheCallback");
 		return;
 	}
 
 	if (szError[0] != '\0')
 	{
 		LogError("[bRegisterCacheCallback] %s", szError);
+		vDisableSQLiteCache("bRegisterCacheCallback");
 		return;
 	}
 
@@ -105,13 +128,22 @@ void bRegisterCacheCallback(Handle dbDatabase, DBResultSet rsResult, const char[
 
 void vRemoveSQLCache(const char[] szAuthId)
 {
-	if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szAuthId, iAccountId))
+		return;
+
+	vRemoveSQLCacheAccountId(iAccountId);
+}
+
+void vRemoveSQLCacheAccountId(int iAccountId)
+{
+	if (!bCanUseSQLiteCache())
 		return;
 
 	char szQuery[256];
-	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE steam_id = '%s';", TABLE_CACHE, szAuthId);
+	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE account_id = %d;", TABLE_CACHE, iAccountId);
 
-	LogSQL("[vRemoveSQLCache] Query: %s", szQuery);
+	LogSQL("[vRemoveSQLCacheAccountId] Query: %s", szQuery);
 	SQL_TQuery(g_dbCache, vRemoveSQLCacheCallback, szQuery);
 }
 
@@ -120,6 +152,7 @@ void vRemoveSQLCacheCallback(Database dbDataBase, DBResultSet rsResult, const ch
 	if (rsResult == null || szError[0])
 	{
 		logErrorSQL(dbDataBase, szError, "vRemoveSQLCacheCallback");
+		vDisableSQLiteCache("vRemoveSQLCacheCallback");
 		delete rsResult;
 		return;
 	}
@@ -129,24 +162,16 @@ void vRemoveSQLCacheCallback(Database dbDataBase, DBResultSet rsResult, const ch
 
 Action aCacheListCmd(int iClient, int iArgs)
 {
-    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    if (!bCanUseSQLiteCache())
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        vReplyCommandPhrase(iClient, "CacheSQLDisabled");
         return Plugin_Handled;
     }
 
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid;");
 
-    int iUserid;
-    if (iClient == SERVER_INDEX)
-        iUserid = SERVER_INDEX;
-    else
-        iUserid = GetClientUserId(iClient);
-
-	DataPack dpCacheList = new DataPack();
-	dpCacheList.WriteCell(iUserid);
-	dpCacheList.WriteCell(GetCmdReplySource());
+	DataPack dpCacheList = pCreateReplyContext(iClient, GetCmdReplySource());
 
 	SQL_TQuery(g_dbCache, vCacheListCallback, szQuery, dpCacheList);
     return Plugin_Handled;
@@ -154,68 +179,54 @@ Action aCacheListCmd(int iClient, int iArgs)
 
 void vCacheListCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
-    int
-        iClient,
-        iUserId;
+    int iUserId;
 
-    DataPack dpCacheList  = view_as<DataPack>(pData);
-	dpCacheList.Reset();
-
-    iUserId = dpCacheList.ReadCell();
-    ReplySource eRsCmd = view_as<ReplySource>(dpCacheList.ReadCell());
-
-    if (iUserId == SERVER_INDEX)
-        iClient = SERVER_INDEX;
-    else
-        iClient = GetClientOfUserId(iUserId);
-
-    SetCmdReplySource(eRsCmd);
+	ReplySource eRsCmd;
+	vReadReplyContext(pData, iUserId, eRsCmd);
+	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
+	if (iClient == NO_INDEX)
+	{
+		delete rsResult;
+		return;
+	}
     if (rsResult == null || szError[0])
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
+        vReplyCommandPhrase(iClient, "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheListCallback");
 		delete rsResult;
         return;
     }
 
-	PrintToConsole(iClient, "/***********[%t]***********\\", "TitleInfo");
+	vPrintInfoHeader(iClient);
 	while (rsResult.FetchRow())
 	{
+		int iAccountId = rsResult.FetchInt(1);
 		char szAutchId[MAX_AUTHID_LENGTH];
-		rsResult.FetchString(1, szAutchId, sizeof(szAutchId));
+		bGetAuthIdFromAccountId(iAccountId, szAutchId, sizeof(szAutchId));
 
         char szDate[64];
         rsResult.FetchString(2, szDate, sizeof(szDate));
 
-		PrintToConsole(iClient, "> BanID %d | AuthID: %s | Date: %s", rsResult.FetchInt(0), szAutchId, szDate);
+		PrintToConsole(iClient, "> BanID %d | AccountID: %d | AuthID: %s | Date: %s", rsResult.FetchInt(0), iAccountId, szAutchId, szDate);
 	}
 
-	if (eRsCmd == SM_REPLY_TO_CHAT && iClient != SERVER_INDEX)
-		CPrintToChat(iClient, "%t %t", "Prefix", "InfoPrinted");
+	vNotifyInfoPrinted(iClient, eRsCmd);
 
     delete rsResult;
 }
 
 Action aCacheClearCmd(int iClient, int iArgs)
 {
-    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    if (!bCanUseSQLiteCache())
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        vReplyCommandPhrase(iClient, "CacheSQLDisabled");
         return Plugin_Handled;
     }
 
     char szQuery[256];
     Format(szQuery, sizeof(szQuery), "DELETE FROM BanCache;");
 
-    int iUserid;
-    if (iClient == SERVER_INDEX)
-        iUserid = SERVER_INDEX;
-    else
-        iUserid = GetClientUserId(iClient);
-
-	DataPack dpCacheClear = new DataPack();
-	dpCacheClear.WriteCell(iUserid);
-	dpCacheClear.WriteCell(GetCmdReplySource());
+	DataPack dpCacheClear = pCreateReplyContext(iClient, GetCmdReplySource());
 
 	SQL_TQuery(g_dbCache, vCacheClearCallback, szQuery, dpCacheClear);
     return Plugin_Handled;
@@ -223,73 +234,60 @@ Action aCacheClearCmd(int iClient, int iArgs)
 
 void vCacheClearCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
-    int
-        iClient,
-        iUserId;
+    int iUserId;
 
-    DataPack dpCacheClear  = view_as<DataPack>(pData);
-	dpCacheClear.Reset();
-
-    iUserId = dpCacheClear.ReadCell();
-    ReplySource eRsCmd = view_as<ReplySource>(dpCacheClear.ReadCell());
-
-    if (iUserId == SERVER_INDEX)
-        iClient = SERVER_INDEX;
-    else
-        iClient = GetClientOfUserId(iUserId);
-
-    SetCmdReplySource(eRsCmd);
+	ReplySource eRsCmd;
+	vReadReplyContext(pData, iUserId, eRsCmd);
+	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
+	if (iClient == NO_INDEX)
+	{
+		delete rsResult;
+		return;
+	}
     if (rsResult == null || szError[0])
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
+        vReplyCommandPhrase(iClient, "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheClearCallback");
 		delete rsResult;
         return;
     }
 
     if (rsResult.AffectedRows > 0)
-        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheCleared");
+        vReplyCommandPhrase(iClient, "CacheCleared");
     else
-        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheAlreadyEmpty");
+        vReplyCommandPhrase(iClient, "CacheAlreadyEmpty");
 
     delete rsResult;
 }
 
 Action aCacheSteamIdCmd(int iClient, int iArgs)
 {
-    if (!g_cvSQLCache.BoolValue || g_dbCache == null)
+    if (!bCanUseSQLiteCache())
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "CacheSQLDisabled");
+        vReplyCommandPhrase(iClient, "CacheSQLDisabled");
         return Plugin_Handled;
     }
 
     if (iArgs < 1 || iArgs == 0)
     {
-        CReplyToCommand(iClient, "%t %t: sm_bs_cache_steamid <\"steamid\">", "Prefix", "Use");
+        vReplyCommandUsage(iClient, "sm_bs_cache_steamid <\"steamid\">");
         return Plugin_Handled;
     }
 
     char szSteamID[MAX_AUTHID_LENGTH];
     GetCmdArg(1, szSteamID, sizeof(szSteamID));
 
-    if (!bIsSteamId(szSteamID))
+	int iAccountId;
+    if (!bGetAccountIdFromAuthId(szSteamID, iAccountId))
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
+        vReplyCommandPhraseString(iClient, "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 
     char szQuery[256];
-    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid WHERE steam_id = '%s';", szSteamID);
+    Format(szQuery, sizeof(szQuery), "SELECT * FROM BanCache_Valid WHERE account_id = %d;", iAccountId);
 
-    int iUserid;
-    if (iClient == SERVER_INDEX)
-        iUserid = SERVER_INDEX;
-    else
-        iUserid = GetClientUserId(iClient);
-
-	DataPack dpCacheSteamId = new DataPack();
-	dpCacheSteamId.WriteCell(iUserid);
-	dpCacheSteamId.WriteCell(GetCmdReplySource());
+	DataPack dpCacheSteamId = pCreateReplyContext(iClient, GetCmdReplySource());
 
     SQL_TQuery(g_dbCache, vCacheSteamIdCallback, szQuery, dpCacheSteamId);
     return Plugin_Handled;
@@ -297,66 +295,59 @@ Action aCacheSteamIdCmd(int iClient, int iArgs)
 
 void vCacheSteamIdCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
 {
-    int
-        iClient,
-        iUserId;
+    int iUserId;
 
-    DataPack dpCacheSteamId  = view_as<DataPack>(pData);
-	dpCacheSteamId.Reset();
-
-    iUserId = dpCacheSteamId.ReadCell();
-    ReplySource eRsCmd = view_as<ReplySource>(dpCacheSteamId.ReadCell());
-
-    if (iUserId == SERVER_INDEX)
-        iClient = SERVER_INDEX;
-    else
-        iClient = GetClientOfUserId(iUserId);
-
-    SetCmdReplySource(eRsCmd);
+	ReplySource eRsCmd;
+	vReadReplyContext(pData, iUserId, eRsCmd);
+	int iClient = iResolveReplyClientForCommand(iUserId, eRsCmd, false);
+	if (iClient == NO_INDEX)
+	{
+		delete rsResult;
+		return;
+	}
     if (rsResult == null || szError[0])
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "SQLError");
+        vReplyCommandPhrase(iClient, "SQLError");
         logErrorSQL(dbDataBase, szError, "vCacheSteamIdCallback");
         delete rsResult;
         return;
     }
 
-    PrintToConsole(iClient, "/***********[%t]***********\\", "TitleInfo");
+    vPrintInfoHeader(iClient);
     while (rsResult.FetchRow())
     {
+        int iAccountId = rsResult.FetchInt(1);
         char szAutchId[MAX_AUTHID_LENGTH];
-        rsResult.FetchString(1, szAutchId, sizeof(szAutchId));
+        bGetAuthIdFromAccountId(iAccountId, szAutchId, sizeof(szAutchId));
 
         char szDate[64];
         rsResult.FetchString(2, szDate, sizeof(szDate));
 
-        PrintToConsole(iClient, "> BanID %d | AuthID: %s | Date: %s", rsResult.FetchInt(0), szAutchId, szDate);
+        PrintToConsole(iClient, "> BanID %d | AccountID: %d | AuthID: %s | Date: %s", rsResult.FetchInt(0), iAccountId, szAutchId, szDate);
     }
 
-    if (eRsCmd == SM_REPLY_TO_CHAT && iClient != SERVER_INDEX)
-        CPrintToChat(iClient, "%t %t", "Prefix", "InfoPrinted");
+    vNotifyInfoPrinted(iClient, eRsCmd);
 
     delete rsResult;
 }
 
 Action aLocalaCacheListCmd(int iClient, int iArgs)
 {
-
-    PrintToConsole(iClient, "/***********[%t]***********\\", "TitleInfo");
-    char szAutchId[MAX_AUTHID_LENGTH];
+    vPrintInfoHeader(iClient);
     int iFound = 0;
     for (int i = 0; i < g_arrCacheNoPunishment.Length; i++)
     {
-        g_arrCacheNoPunishment.GetString(i, szAutchId, sizeof(szAutchId));
-        PrintToConsole(iClient, "> #%d: %s", i, szAutchId);
+        int iAccountId = g_arrCacheNoPunishment.Get(i);
+        char szAutchId[MAX_AUTHID_LENGTH];
+        bGetAuthIdFromAccountId(iAccountId, szAutchId, sizeof(szAutchId));
+        PrintToConsole(iClient, "> #%d: %d | %s", i, iAccountId, szAutchId);
         iFound++;
     }
 
     if (iFound == 0)
         PrintToConsole(iClient, "%t", "NoUsersFound");
 
-	if (GetCmdReplySource() == SM_REPLY_TO_CHAT && iClient != SERVER_INDEX)
-		CPrintToChat(iClient, "%t %t", "Prefix", "InfoPrinted");
+	vNotifyInfoPrinted(iClient, GetCmdReplySource());
 
     return Plugin_Handled;
 }
@@ -364,7 +355,7 @@ Action aLocalaCacheListCmd(int iClient, int iArgs)
 Action aLocalaCacheClearCmd(int iClient, int iArgs)
 {
     g_arrCacheNoPunishment.Clear();
-    CReplyToCommand(iClient, "%t %t", "Prefix", "LocalcacheCleared");
+    vReplyCommandPhrase(iClient, "LocalcacheCleared");
     return Plugin_Handled;
 }
 
@@ -372,41 +363,35 @@ Action aLocalCacheSteamIdCmd(int iClient, int iArgs)
 {
     if (iArgs < 1 || iArgs == 0)
     {
-        CReplyToCommand(iClient, "%t %t: sm_bs_localcache_steamid <\"steamid\">", "Prefix", "Use");
+        vReplyCommandUsage(iClient, "sm_bs_localcache_steamid <\"steamid\">");
         return Plugin_Handled;
     }
     char szSteamID[MAX_AUTHID_LENGTH];
     GetCmdArg(1, szSteamID, sizeof(szSteamID));
 
-    if (!bIsSteamId(szSteamID))
+	int iAccountId;
+    if (!bGetAccountIdFromAuthId(szSteamID, iAccountId))
     {
-        CReplyToCommand(iClient, "%t %t", "Prefix", "AuthIdError", szSteamID);
+        vReplyCommandPhraseString(iClient, "AuthIdError", szSteamID);
         return Plugin_Handled;
     }
 
-    if (g_arrCacheNoPunishment.FindString(szSteamID) != -1)
-        CReplyToCommand(iClient, "%t %t", "Prefix", "LocalCachePlayerFound", szSteamID);
+    if (bCheckLocalCacheAccountId(iAccountId))
+        vReplyCommandPhraseString(iClient, "LocalCachePlayerFound", szSteamID);
     else
-        CReplyToCommand(iClient, "%t %t", "Prefix", "LocalCachePlayerNotFound", szSteamID);
+        vReplyCommandPhraseString(iClient, "LocalCachePlayerNotFound", szSteamID);
     return Plugin_Handled;
 }
 
-/**
- * Registers a local cache entry for the given authentication ID.
- *
- * @param szAuthId        The authentication ID to register in the local cache.
- * @return                False if the authentication ID is already in the cache or after adding it to the cache.
- */
-bool bRegLocalCache(const char[] szAuthId)
+bool bRegLocalCacheAccountId(int iAccountId)
 {
-    if (!g_cvLocalCache.BoolValue)
+    if (!g_cvLocalCache.BoolValue || iAccountId == 0)
         return false;
 
-    if (g_arrCacheNoPunishment.FindString(szAuthId) != -1)
-        return false;
+    if (g_arrCacheNoPunishment.FindValue(iAccountId) == -1)
+        g_arrCacheNoPunishment.Push(iAccountId);
 
-    g_arrCacheNoPunishment.PushString(szAuthId);
-    return false;
+    return true;
 }
 
 /**
@@ -423,10 +408,19 @@ bool bRegLocalCache(const char[] szAuthId)
  */
 bool bRemoveLocalCache(const char[] szAuthId)
 {
-    if (!g_cvLocalCache.BoolValue)
+	int iAccountId;
+	if (!bGetAccountIdFromAuthId(szAuthId, iAccountId))
+		return false;
+
+	return bRemoveLocalCacheAccountId(iAccountId);
+}
+
+bool bRemoveLocalCacheAccountId(int iAccountId)
+{
+    if (!g_cvLocalCache.BoolValue || iAccountId == 0)
         return false;
 
-    int iIndex = g_arrCacheNoPunishment.FindString(szAuthId);
+    int iIndex = g_arrCacheNoPunishment.FindValue(iAccountId);
     if (iIndex == -1)
         return false;
 
@@ -434,14 +428,10 @@ bool bRemoveLocalCache(const char[] szAuthId)
     return true;
 }
 
-/**
- * Checks if the given authentication ID exists in the local cache of players
- * who should not be punished.
- *
- * @param szAuthId The authentication ID to check (e.g., SteamID or similar identifier).
- * @return True if the authentication ID is found in the cache, false otherwise.
- */
-bool bCheckLocalCache(const char[] szAuthId)
+bool bCheckLocalCacheAccountId(int iAccountId)
 {
-    return (g_arrCacheNoPunishment.FindString(szAuthId) != -1);
+    if (iAccountId == 0)
+        return false;
+
+    return (g_arrCacheNoPunishment.FindValue(iAccountId) != -1);
 }

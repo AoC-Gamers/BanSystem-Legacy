@@ -1,12 +1,18 @@
 # ScriptsSQL
 
-`mysql/001_schema.sql` is the canonical MySQL schema for the plugin.
+`mysql/schema.sql` is the canonical MySQL schema for the plugin.
 
-- Apply it before loading the plugin.
+- Import `mysql/schema.sql` before loading the plugin.
 - The plugin validates `bansystem_schema_version` on startup.
-- The current required MySQL schema version is `1`.
+- The current required MySQL schema version is `6`.
 
-`sqlite/cache.sql` mirrors the local cache schema used by the plugin.
+Example install flow:
 
-- SQLite cache remains managed locally by the plugin.
-- The file is provided as a reference for inspection and maintenance.
+```bash
+mysql new_db < ScriptsSQL/mysql/schema.sql
+```
+
+SQLite cache is managed locally by the plugin.
+
+- BanSystem repairs/recreates the local cache objects at runtime.
+- There is no external SQLite install script to apply.

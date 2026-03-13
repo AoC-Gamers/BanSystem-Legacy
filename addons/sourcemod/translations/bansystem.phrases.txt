@@ -32,6 +32,43 @@
 		"es"		"SQL {red}error{default}"
 	}
 
+	"DatabaseNotReady"
+	{
+		"en"		"Primary database not ready yet"
+		"es"		"La base de datos principal aun no esta lista"
+	}
+
+	"AuthCheckUnavailable"
+	{
+		"en"		"Access verification is temporarily unavailable. Please retry."
+		"es"		"La verificacion de acceso esta temporalmente no disponible. Intente nuevamente."
+	}
+
+	"AuthCheckPending"
+	{
+		"en"		"Access verification is still in progress"
+		"es"		"La verificacion de acceso aun esta en progreso"
+	}
+
+	"IdentityResolvePending"
+	{
+		"en"		"Resolving SteamID input"
+		"es"		"Resolviendo la identidad Steam ingresada"
+	}
+
+	"IdentityResolveUnavailable"
+	{
+		"en"		"SteamID online resolution is unavailable"
+		"es"		"La resolucion online de SteamID no esta disponible"
+	}
+
+	"IdentityResolveFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"SteamID resolution failed: {1}"
+		"es"		"La resolucion de SteamID fallo: {1}"
+	}
+
 	"BlockAccessPerm"
 	{
 		"en"		"You have a permanent access ban"
@@ -66,8 +103,9 @@
 
 	"BannedComm"
 	{
-		"en"		"You received a {red}communication ban{default}.\n{green}Read your console{default} for more information"
-		"es"		"Usted recibió una {red}prohibición de comunicación{default}.\n{green}Lea su consola{default} para más información"
+		"#format"	"{1:s}"
+		"en"		"You received a {red}{1} communication ban{default}.\n{green}Read your console{default} for more information"
+		"es"		"Usted recibió una {red}prohibición de comunicación de {1}{default}.\n{green}Lea su consola{default} para más información"
 	}
 
 	"BannedAccessConsoleTitle"
@@ -138,6 +176,18 @@
 		"es"		"No se encontró información de prohibición para {red}{1}{default}."
 	}
 
+	"NoActiveAccessBans"
+	{
+		"en"		"There are no active access bans."
+		"es"		"No hay prohibiciones de acceso activas."
+	}
+
+	"NoActiveCommDbBans"
+	{
+		"en"		"There are no active communication bans."
+		"es"		"No hay prohibiciones de comunicación activas."
+	}
+
 	"TitleInfo"
 	{
 		"en"		"Information"
@@ -156,6 +206,12 @@
 		"es"		"Dirección IP"
 	}
 
+	"InfoTypeComm"
+	{
+		"en"		"Communication type"
+		"es"		"Tipo de comunicación"
+	}
+
 	"InfoLength"
 	{
 		"en"		"Length"
@@ -166,6 +222,12 @@
 	{
 		"en"		"Reason"
 		"es"		"Razón"
+	}
+
+	"InfoContext"
+	{
+		"en"		"Context"
+		"es"		"Contexto"
 	}
 
 	"InfonedBy"
@@ -273,16 +335,10 @@
 		"es"		"{blue}Se eliminó la prohibición de comunicación{default} a {green}{1}{default}."
 	}
 
-	"UnbanError"
+	"CommBansCleared"
 	{
-		"en"		"Error while trying to unban the player."
-		"es"		"Error al intentar desprohibir al jugador."
-	}
-
-	"UnbanErrorNoUser"
-	{
-		"en"		"Error while trying to unban the player. The player {green}does not{default} have a ban."
-		"es"		"{red}Error{default} al intentar desprohibir al jugador. El jugador {green}no{default} tiene una prohibición."
+		"en"		"All communication bans were {blue}cleared{default}."
+		"es"		"Todas las prohibiciones de comunicación fueron {blue}eliminadas{default}."
 	}
 
 	"NoMatchingClient"
@@ -295,12 +351,6 @@
 	{
 		"en"		"Communication ban"
 		"es"		"Prohibición de comunicación"
-	}
-
-	"MenuTargetsTitle"
-	{
-		"en"		"Select the target"
-		"es"		"Jugadores Disponibles"
 	}
 
 	"MenuAllDesc"
@@ -325,6 +375,24 @@
 	{
 		"en"		"Invalid communication type"
 		"es"		"Tipo de comunicación inválido"
+	}
+
+	"InvalidDuration"
+	{
+		"en"		"Invalid duration"
+		"es"		"Duracion invalida"
+	}
+
+	"AbortBanApplied"
+	{
+		"en"		"Pending ban process aborted."
+		"es"		"El proceso de prohibición pendiente fue cancelado."
+	}
+
+	"AbortBanNoPendingProcess"
+	{
+		"en"		"There is no pending ban process to abort."
+		"es"		"No hay un proceso de prohibición pendiente para cancelar."
 	}
 	
 	"TypeCommAll"
@@ -353,14 +421,16 @@
 
 	"AlreadyCommBanned"
 	{
-		"en"		"The player {green}already{default} has a communication ban."
-		"es"		"El jugador {green}ya{default} tiene una prohibición de comunicación."
+		"#format"	"{1:s}"
+		"en"		"{green}{1}{default} already has a communication ban."
+		"es"		"{green}{1}{default} ya tiene una prohibición de comunicación."
 	}
 
 	"AlreadyAccessBanned"
 	{
-		"en"		"The player {green}already{default} has an access ban."
-		"es"		"El jugador {green}ya{default} tiene una prohibición de acceso."
+		"#format"	"{1:s}"
+		"en"		"{green}{1}{default} already has an access ban."
+		"es"		"{green}{1}{default} ya tiene una prohibición de acceso."
 	}
 
 	"YouUnbanCommSuccess"
@@ -389,35 +459,73 @@
 		"es"		"Razón personalizada"
 	}
 
+	"BanContextSkip"
+	{
+		"en"		"Without context"
+		"es"		"Sin contexto"
+	}
+
+	"BanContextAdd"
+	{
+		"en"		"Add context"
+		"es"		"Agregar contexto"
+	}
+
+	"BanContextPrompt"
+	{
+		"#format"	"{1:s}"
+		"en"		"Write the optional ban context in chat or use {olive}{1}{default} to cancel."
+		"es"		"Escriba el contexto opcional del ban por chat o use {olive}{1}{default} para cancelar."
+	}
+
+	"BanDurationValuePrompt"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"Write the duration value in {olive}{1}{default} by chat or use {olive}{2}{default} to cancel."
+		"es"		"Escriba por chat la cantidad en {olive}{1}{default} o use {olive}{2}{default} para cancelar."
+	}
+
+	"BanDurationValueInvalid"
+	{
+		"en"		"Invalid duration value. Enter a positive integer."
+		"es"		"Valor de duración inválido. Ingrese un entero positivo."
+	}
+
 	"NoTargetsRemoveComm"
 	{
 		"en"		"No targets to remove the communication ban."
 		"es"		"No hay objetivos para eliminar la prohibición de comunicación."
 	}
 
-	"localUnbanComm"
+	"NoTargetsAccessBan"
 	{
-		"#format"	"{1:t},{2:N}"
-		"en"		"Removed the ban {green}{1}{default} to {blue}{2}{default}."
-		"es"		"Se elimino la prohibición {green}{1}{default} para {blue}{2}{default}."
+		"en"		"No targets available to apply an access ban."
+		"es"		"No hay objetivos disponibles para aplicar una prohibición de acceso."
+	}
+
+	"NoTargetsCommBan"
+	{
+		"en"		"No targets available to apply a communication ban."
+		"es"		"No hay objetivos disponibles para aplicar una prohibición de comunicación."
 	}
 
 	"ListBanComm"
 	{
-		"en"		"List of players is in your {green}console{default}"
-		"es"		"La lista de jugadores esta en su {green}consola{default}"
+		"en"		"Connected communication bans are in your {green}console{default}"
+		"es"		"Las prohibiciones de comunicación conectadas están en su {green}consola{default}"
 	}
 
 	"NoCommBans"
 	{
-		"en"		"There are no communication bans."
-		"es"		"No hay prohibiciones de comunicación."
+		"en"		"There are no connected communication bans."
+		"es"		"No hay prohibiciones de comunicación conectadas."
 	}
 
 	"ErrorSectionName"
 	{
-		"en"		"Error in obtaining the reason"
-		"es"		"Error en la obtención de la razón"
+		"#format"	"{1:s}"
+		"en"		"Error: missing reasons section '{1}'."
+		"es"		"Error: no se encontró la sección de razones '{1}'."
 	}
 
 	"Ban Time"
@@ -487,12 +595,6 @@
 	{
 		"en"		"Code"
 		"es"		"Código"
-	}
-
-	"CacheLocalDisabled"
-	{
-		"en"		"Local cache disabled"
-		"es"		"Cache local deshabilitada"
 	}
 
 	"CacheSQLDisabled"

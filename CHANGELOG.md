@@ -6,6 +6,15 @@ The format is based on Keep a Changelog and the project version follows Semantic
 
 ## [Unreleased]
 
+### Changed
+
+- Local clean cache now stores `account_id` instead of SteamID strings.
+- SQLite cache now keys entries by `account_id`.
+- MySQL lookups, access bans, communication bans and access-attempt logging now use `account_id` as the internal key.
+- The canonical MySQL schema now persists `steamid64` as a complementary column for web-facing consumers while the plugin keeps `account_id` as the internal key.
+- Admin commands that receive Steam identities now normalize SteamID2/3 offline and can resolve SteamID64 online through `SteamIDTools`.
+- The canonical MySQL schema now uses `accountid` as the persisted numeric key, drops stored SteamID2, stores `banned_by_name` and `banned_by_steamid64`, and adds optional `ban_context`.
+
 ## [1.0.0] - 2026-03-09
 
 ### Added

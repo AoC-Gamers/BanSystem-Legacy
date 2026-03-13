@@ -5,6 +5,8 @@
 #include <colors>
 #include <adminmenu>
 #include <sdktools>
+#include <steamidtools>
+#include <l4d2_changelevel>
 
 #undef REQUIRE_PLUGIN
 #define REQUIRE_PLUGIN
@@ -13,15 +15,12 @@
 			G L O B A L   V A R S
 *****************************************************************/
 
-#define DEBUG 		0
-#define DEBUG_SQL 	0
-#define DEBUG_API 	0
-#define DEBUG_MENU 	0
 #define PATCH_DEBUG	"logs/BanSystem.log"
 
 #define PLUGIN_VERSION	"1.0.0"
+// SourcePawn cannot safely manipulate STEAMID64_BASE as a 64-bit integer, so we keep its decimal string form here.
+#define STEAMID64_BASE_STRING "76561197960265728"
 
-int g_iTimeDurations[] = {0, 10, 20, 40, 60, 120, 240, 480, 1440, 2880, 5760, 10080, 20160, 43200, 86400, 172800, 345600};
 char g_sDatabase[][32] = {"bansystem", "bansystemcache"};
 
 enum eDatabase
@@ -31,23 +30,52 @@ enum eDatabase
 	kCache 		= 2
 }
 
+enum eDebugMask
+{
+	kDebug_None    = 0,
+	kDebug_General = 1,
+	kDebug_SQL     = 2,
+	kDebug_Menu    = 4,
+	kDebug_API     = 8
+}
+
+enum eIdentityResolution
+{
+	kIdentityResolution_Invalid = 0,
+	kIdentityResolution_Resolved,
+	kIdentityResolution_OnlinePending
+}
+
+enum eIdentityRequestKind
+{
+	kIdentityRequest_None = 0,
+	kIdentityRequest_AccessUnban,
+	kIdentityRequest_AccessInfo,
+	kIdentityRequest_AccessAttemptInfo,
+	kIdentityRequest_AccessBan,
+	kIdentityRequest_CommInfo,
+	kIdentityRequest_CommUnban,
+	kIdentityRequest_CommBan
+}
+
+enum eAuthState
+{
+	kAuthState_Idle = 0,
+	kAuthState_Queued,
+	kAuthState_Checking
+}
+
 Database
 	g_dbDatabase,
 	g_dbCache;
 
-GlobalForward
-	g_gfOnBanAccess,
-	g_gfOnUnbanAcess,
-	g_gfOnBanMic,
-	g_gfOnUnBanMic,
-	g_gfOnBanChat,
-	g_gfOnUnBanChat;
+bool g_bPrimaryDatabaseReady;
+bool g_bMapTransitionActive;
+bool g_bHasL4D2ChangeLevel;
 
 KeyValues g_kvReasons;
 
-#if DEBUG
 char g_sLogPath[PLATFORM_MAX_PATH];
-#endif
 
 char g_szBanReasonsPath[PLATFORM_MAX_PATH];
 
@@ -66,12 +94,24 @@ enum struct ePlayerState {
 
 ePlayerState g_ePunished[MAXPLAYERS+1];
 ArrayList g_arrCacheNoPunishment;
+StringMap g_smIdentityRequestContext;
+Handle g_hCommExpireTimer[MAXPLAYERS+1];
+Handle g_hAuthCheckTimer[MAXPLAYERS+1];
+eAuthState g_eAuthState[MAXPLAYERS+1];
 
 ConVar
 	g_cvSQLCache,
-	g_cvLocalCache;
+	g_cvLocalCache,
+	g_cvAuthCheckTimeout,
+	g_cvSteamIdProvider,
+	g_cvDebugMask;
 
-#include "bansystem/install.sp"
+#include "bansystem/schema.sp"
+#include "bansystem/helpers.sp"
+#include "bansystem/api.sp"
+#include "bansystem/identity.sp"
+#include "bansystem/auth.sp"
+#include "bansystem/db.sp"
 #include "bansystem/access.sp"
 #include "bansystem/communication.sp"
 #include "bansystem/cache.sp"
@@ -95,30 +135,20 @@ public Plugin myinfo =
 
 public APLRes AskPluginLoad2(Handle hMyself, bool bLate, char[] szError, int iErrMax)
 {
-	CreateNative("bBSBanAccess", iBanAccesNative);
-	CreateNative("bBSBannedComm", iBannedCommNative);
-
-    g_gfOnBanAccess  = CreateGlobalForward("vBSOnBanAccess", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-    g_gfOnUnbanAcess = CreateGlobalForward("vBSOnUnbanAccess", ET_Ignore, Param_Cell, Param_String);
-
-    g_gfOnBanMic   = CreateGlobalForward("vBSOnBanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanMic = CreateGlobalForward("vBSOnUnbanMic", ET_Ignore, Param_Cell, Param_Cell, Param_String);
-
-    g_gfOnBanChat = CreateGlobalForward("vBSOnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String, Param_Cell, Param_String);
-	g_gfOnUnBanChat = CreateGlobalForward("vBSOnUnBanChat", ET_Ignore, Param_Cell, Param_Cell, Param_String);
-	
-	RegPluginLibrary("bansystem");
+	vRegisterApiLibrary();
 	return APLRes_Success;
 }
 
 public void OnPluginStart()
 {
-#if DEBUG
 	BuildPath(Path_SM, g_sLogPath, sizeof(g_sLogPath), PATCH_DEBUG);
-#endif
 	BuildPath(Path_SM, g_szBanReasonsPath, sizeof(g_szBanReasonsPath), "configs/bansystem_reasons.txt");
 
-	g_arrCacheNoPunishment = new ArrayList(MAX_AUTHID_LENGTH);
+	g_arrCacheNoPunishment = new ArrayList();
+	g_smIdentityRequestContext = new StringMap();
+	g_bMapTransitionActive = true;
+	g_bHasL4D2ChangeLevel = LibraryExists("l4d2_changelevel");
+	vOnPluginStart_Api();
 
 	vLoadTranslation("common.phrases");
 	vLoadTranslation("bansystem.phrases");
@@ -128,8 +158,11 @@ public void OnPluginStart()
 
 	g_cvSQLCache = CreateConVar("sm_bansystem_sqlitecache", "1", "Enables the SQL Lite cache that stores players with bans.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvLocalCache = CreateConVar("sm_bansystem_localcache", "1", "Enables local cache confirming players without bans.", FCVAR_NONE, true, 0.0, true, 1.0);
+	g_cvAuthCheckTimeout = CreateConVar("sm_bansystem_auth_timeout", "8.0", "Seconds to wait for an auth check before rejecting the player.", FCVAR_NONE, true, 1.0);
+	g_cvSteamIdProvider = CreateConVar("sm_bansystem_steamid_provider", "auto", "Online provider used to resolve SteamID64 inputs: auto, steamworks or system2.", FCVAR_NONE);
+	g_cvDebugMask = CreateConVar("sm_bansystem_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api.", FCVAR_NONE, true, 0.0);
 
-	vOnPluginStart_Install();
+	vOnPluginStart_Schema();
 	vOnPluginStart_Access();
 	vOnPluginStart_Communication();
 	vOnPluginStart_Cache();
@@ -138,32 +171,59 @@ public void OnPluginStart()
 	AutoExecConfig(true, "bansystem");
 }
 
+public void OnLibraryAdded(const char[] szName)
+{
+	if (StrEqual(szName, "l4d2_changelevel", false))
+		g_bHasL4D2ChangeLevel = true;
+}
+
+public void OnLibraryRemoved(const char[] szName)
+{
+	if (StrEqual(szName, "l4d2_changelevel", false))
+		g_bHasL4D2ChangeLevel = false;
+}
+
 public Action Command_AbortBan(int iClient, int iArgs)
 {
-	if(CheckCommandAccess(iClient, "sm_ban", ADMFLAG_BAN) || g_eProcessAccess[iClient].m_bIsWaitingChatReason)
+	if (g_eProcessAccess[iClient].m_eInputStage != kPanelInput_None)
 	{
-		g_eProcessAccess[iClient].m_bIsWaitingChatReason = false;
-		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBan applied successfully");
+		vResetAccessProcessState(iClient);
+		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBanApplied");
 	}
-	else if(CheckCommandAccess(iClient, "sm_comm", ADMFLAG_CHAT) || g_eProcessComm[iClient].m_bIsWaitingChatReason)
+	else if (g_eProcessComm[iClient].m_eInputStage != kPanelInput_None)
 	{
-		g_eProcessComm[iClient].m_bIsWaitingChatReason = false;
-		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBan applied successfully");
+		vResetCommProcessState(iClient);
+		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBanApplied");
 	}
 	else
-		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBan not waiting for custom reason");
-	
+		CReplyToCommand(iClient, "%t %t", "Prefix", "AbortBanNoPendingProcess");
+
 	return Plugin_Handled;
+}
+
+void vResetPendingAdminProcesses(int iClient)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients)
+		return;
+
+	vResetAccessProcessState(iClient);
+	vResetCommProcessState(iClient);
 }
 
 public void OnConfigsExecuted()
 {
+	g_bMapTransitionActive = true;
+	g_bPrimaryDatabaseReady = false;
 	vConnectDB(g_sDatabase[0]);
 
 	if (g_cvSQLCache.BoolValue)
 		vConnectDB(g_sDatabase[1], true);
 	else if (g_dbCache != null)
+	{
 		delete g_dbCache;
+		g_dbCache = null;
+		g_bSQLiteCacheReady = false;
+	}
 
 	vLoadReasons();
 }
@@ -174,32 +234,597 @@ public void OnConfigsExecuted()
 
 public void OnClientDisconnect(int iClient)
 {
-    g_eProcessAccess[iClient].m_bIsWaitingChatReason = false;
-	g_eProcessComm[iClient].m_bIsWaitingChatReason = false;
+	vResetClientAuthorizationState(iClient);
+	vResetAccessProcessState(iClient);
+	vResetCommProcessState(iClient);
 	vResetPlayerPunishmentState(iClient);
 }
 
-public void OnClientAuthorized(int iClient, const char[] szAuth)
+bool bIsUsableClient(int iClient)
 {
-	if(iClient == SERVER_INDEX || !IsClientConnected(iClient) || IsFakeClient(iClient))
+	return (iClient > SERVER_INDEX && iClient <= MaxClients && IsClientConnected(iClient));
+}
+
+bool bCanUsePrimaryDatabase()
+{
+	return (g_dbDatabase != null && g_bPrimaryDatabaseReady);
+}
+
+bool bEnsurePrimaryDatabaseReady(int iClient)
+{
+	if (bCanUsePrimaryDatabase())
+		return true;
+
+	vReplyCommandPhrase(iClient, "DatabaseNotReady");
+	return false;
+}
+
+DataPack pCreateAdminTargetAuthReplyContext(int iAdmin, int iTarget, const char[] szTargetAuthId, ReplySource eRsCmd)
+{
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(iGetCommandIssuerUserId(iAdmin));
+	pContext.WriteCell(iGetCommandIssuerUserId(iTarget));
+	pContext.WriteString(szTargetAuthId);
+	pContext.WriteCell(eRsCmd);
+	return pContext;
+}
+
+void vReadAdminTargetAuthReplyContext(any pData, int &iUserIdAdmin, int &iUserIdTarget, char[] szTargetAuthId, int iAuthIdMaxLength, ReplySource &eRsCmd)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserIdAdmin = pContext.ReadCell();
+	iUserIdTarget = pContext.ReadCell();
+	pContext.ReadString(szTargetAuthId, iAuthIdMaxLength);
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	delete pContext;
+}
+
+DataPack pCreateAdminTargetAuthLengthReasonReplyContext(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength, const char[] szReason, ReplySource eRsCmd)
+{
+	DataPack pContext = pCreateAdminTargetAuthReplyContext(iAdmin, iTarget, szTargetAuthId, eRsCmd);
+	pContext.WriteCell(iLength);
+	pContext.WriteString(szReason);
+	return pContext;
+}
+
+void vReadAdminTargetAuthLengthReasonReplyContext(any pData, int &iUserIdAdmin, int &iUserIdTarget, char[] szTargetAuthId, int iAuthIdMaxLength, int &iLength, char[] szReason, int iReasonMaxLength, ReplySource &eRsCmd)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserIdAdmin = pContext.ReadCell();
+	iUserIdTarget = pContext.ReadCell();
+	pContext.ReadString(szTargetAuthId, iAuthIdMaxLength);
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	iLength = pContext.ReadCell();
+	pContext.ReadString(szReason, iReasonMaxLength);
+	delete pContext;
+}
+
+DataPack pCreateAdminTargetAuthLengthReasonTypeReplyContext(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength, const char[] szReason, eTypeComms eComms, ReplySource eRsCmd)
+{
+	DataPack pContext = pCreateAdminTargetAuthLengthReasonReplyContext(iAdmin, iTarget, szTargetAuthId, iLength, szReason, eRsCmd);
+	pContext.WriteCell(eComms);
+	return pContext;
+}
+
+void vReadAdminTargetAuthLengthReasonTypeReplyContext(any pData, int &iUserIdAdmin, int &iUserIdTarget, char[] szTargetAuthId, int iAuthIdMaxLength, int &iLength, char[] szReason, int iReasonMaxLength, eTypeComms &eComms, ReplySource &eRsCmd)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserIdAdmin = pContext.ReadCell();
+	iUserIdTarget = pContext.ReadCell();
+	pContext.ReadString(szTargetAuthId, iAuthIdMaxLength);
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	iLength = pContext.ReadCell();
+	pContext.ReadString(szReason, iReasonMaxLength);
+	eComms = view_as<eTypeComms>(pContext.ReadCell());
+	delete pContext;
+}
+
+DataPack pCreateAdminTargetAuthLengthReasonContextTypeReplyContext(int iAdmin, int iTarget, const char[] szTargetAuthId, int iLength, const char[] szReason, const char[] szContext, eTypeComms eComms, ReplySource eRsCmd)
+{
+	DataPack pContext = pCreateAdminTargetAuthLengthReasonTypeReplyContext(iAdmin, iTarget, szTargetAuthId, iLength, szReason, eComms, eRsCmd);
+	pContext.WriteString(szContext);
+	return pContext;
+}
+
+void vReadAdminTargetAuthLengthReasonContextTypeReplyContext(any pData, int &iUserIdAdmin, int &iUserIdTarget, char[] szTargetAuthId, int iAuthIdMaxLength, int &iLength, char[] szReason, int iReasonMaxLength, char[] szContext, int iContextMaxLength, eTypeComms &eComms, ReplySource &eRsCmd)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserIdAdmin = pContext.ReadCell();
+	iUserIdTarget = pContext.ReadCell();
+	pContext.ReadString(szTargetAuthId, iAuthIdMaxLength);
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	iLength = pContext.ReadCell();
+	pContext.ReadString(szReason, iReasonMaxLength);
+	eComms = view_as<eTypeComms>(pContext.ReadCell());
+	pContext.ReadString(szContext, iContextMaxLength);
+	delete pContext;
+}
+
+DataPack pCreateAdminTargetAuthNameTypeReplyContext(int iAdmin, int iTarget, const char[] szTargetAuthId, const char[] szTargetName, eTypeComms eComms, ReplySource eRsCmd)
+{
+	DataPack pContext = pCreateAdminTargetAuthReplyContext(iAdmin, iTarget, szTargetAuthId, eRsCmd);
+	pContext.WriteString(szTargetName);
+	pContext.WriteCell(eComms);
+	return pContext;
+}
+
+void vReadAdminTargetAuthNameTypeReplyContext(any pData, int &iUserIdAdmin, int &iUserIdTarget, char[] szTargetAuthId, int iAuthIdMaxLength, char[] szTargetName, int iTargetNameMaxLength, eTypeComms &eComms, ReplySource &eRsCmd)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserIdAdmin = pContext.ReadCell();
+	iUserIdTarget = pContext.ReadCell();
+	pContext.ReadString(szTargetAuthId, iAuthIdMaxLength);
+	eRsCmd = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szTargetName, iTargetNameMaxLength);
+	eComms = view_as<eTypeComms>(pContext.ReadCell());
+	delete pContext;
+}
+
+int iResolveAdminForAudit(int iUserIdAdmin, char[] szAdminAuthId, int iMaxLength)
+{
+	strcopy(szAdminAuthId, iMaxLength, "Console");
+
+	if (iUserIdAdmin == SERVER_INDEX)
+		return SERVER_INDEX;
+
+	int iAdmin = iResolveReplyClient(iUserIdAdmin, true);
+	if (!bIsUsableClient(iAdmin))
+		return SERVER_INDEX;
+
+	GetClientAuthId(iAdmin, AuthId_Steam2, szAdminAuthId, iMaxLength);
+	return iAdmin;
+}
+
+void vResolveTargetForAudit(int iUserIdTarget, const char[] szFallbackAuthId, int &iTarget, char[] szTargetName, int iMaxLength)
+{
+	if (iUserIdTarget != NO_INDEX)
+	{
+		iTarget = GetClientOfUserId(iUserIdTarget);
+		if (bIsUsableClient(iTarget) && GetClientName(iTarget, szTargetName, iMaxLength))
+			return;
+	}
+
+	iTarget = NO_INDEX;
+	strcopy(szTargetName, iMaxLength, szFallbackAuthId);
+}
+
+void vResolveTargetClientByUserId(int iUserIdTarget, int &iTarget)
+{
+	if (iUserIdTarget == NO_INDEX)
+	{
+		iTarget = NO_INDEX;
 		return;
+	}
+
+	iTarget = GetClientOfUserId(iUserIdTarget);
+	if (!bIsUsableClient(iTarget))
+		iTarget = NO_INDEX;
+}
+
+DataPack pCreateIdentityRequestContext(eIdentityRequestKind eKind, int iClient, ReplySource eReplySource, int iArg0 = 0, int iArg1 = 0, const char[] szExtra = "")
+{
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(view_as<int>(eKind));
+	pContext.WriteCell(iGetCommandIssuerUserId(iClient));
+	pContext.WriteCell(view_as<int>(eReplySource));
+	pContext.WriteCell(iArg0);
+	pContext.WriteCell(iArg1);
+	pContext.WriteString(szExtra);
+	return pContext;
+}
+
+void vReadIdentityRequestContext(any pData, eIdentityRequestKind &eKind, int &iUserId, ReplySource &eReplySource, int &iArg0, int &iArg1, char[] szExtra, int iExtraMaxLength)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	eKind = view_as<eIdentityRequestKind>(pContext.ReadCell());
+	iUserId = pContext.ReadCell();
+	eReplySource = view_as<ReplySource>(pContext.ReadCell());
+	iArg0 = pContext.ReadCell();
+	iArg1 = pContext.ReadCell();
+	pContext.ReadString(szExtra, iExtraMaxLength);
+	delete pContext;
+}
+
+DataPack pCreateAuthCheckContext(int iClient, int iAccountId, const char[] szAuthId)
+{
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(GetClientUserId(iClient));
+	pContext.WriteCell(iAccountId);
+	pContext.WriteString(szAuthId);
+	return pContext;
+}
+
+void vReadAuthCheckContext(any pData, int &iUserId, int &iAccountId, char[] szAuthId, int iAuthIdMaxLength)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	iAccountId = pContext.ReadCell();
+	pContext.ReadString(szAuthId, iAuthIdMaxLength);
+	delete pContext;
+}
+
+DataPack pCreateCommAnnouncementContext(int iUserId, const char[] szComms, const char[] szDate)
+{
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(iUserId);
+	pContext.WriteString(szComms);
+	pContext.WriteString(szDate);
+	return pContext;
+}
+
+void vReadCommAnnouncementContext(any pData, int &iUserId, char[] szComms, int iCommsMaxLength, char[] szDate, int iDateMaxLength)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	pContext.ReadString(szComms, iCommsMaxLength);
+	pContext.ReadString(szDate, iDateMaxLength);
+}
+
+bool bTryParseCommandDuration(const char[] szInput, int &iMinutes)
+{
+	char szNormalized[32];
+	vNormalizeCommandInput(szInput, szNormalized, sizeof(szNormalized));
+
+	if (szNormalized[0] == '\0')
+		return false;
+
+	if (StrEqual(szNormalized, "perm", false) || StrEqual(szNormalized, "permanent", false))
+	{
+		iMinutes = 0;
+		return true;
+	}
+
+	if (!bIsInteger(szNormalized))
+		return false;
+
+	iMinutes = StringToInt(szNormalized);
+	return (iMinutes >= 0);
+}
+
+bool bTryGetCommandDurationArg(int iArgs, int iArgIndex, int &iMinutes, int iDefaultMinutes = 0)
+{
+	if (iArgs < iArgIndex)
+	{
+		iMinutes = iDefaultMinutes;
+		return true;
+	}
+
+	char szDuration[32];
+	GetCmdArg(iArgIndex, szDuration, sizeof(szDuration));
+	return bTryParseCommandDuration(szDuration, iMinutes);
+}
+
+void vBuildCommandReasonFromArgs(int iStartArg, int iArgs, char[] szReason, int iMaxLength)
+{
+	szReason[0] = '\0';
+
+	if (iArgs < iStartArg)
+		return;
+
+	for (int i = iStartArg; i <= iArgs; i++)
+	{
+		char szArg[128];
+		GetCmdArg(i, szArg, sizeof(szArg));
+
+		if (szReason[0] != '\0')
+			StrCat(szReason, iMaxLength, " ");
+
+		StrCat(szReason, iMaxLength, szArg);
+	}
+
+	TrimString(szReason);
+	StripQuotes(szReason);
+}
+
+bool bTryParseCommType(const char[] szInput, eTypeComms &eCommType)
+{
+	char szNormalized[16];
+	vNormalizeCommandInput(szInput, szNormalized, sizeof(szNormalized));
+
+	if (StrEqual(szNormalized, "mic", false))
+	{
+		eCommType = kMic;
+		return true;
+	}
+
+	if (StrEqual(szNormalized, "chat", false))
+	{
+		eCommType = kChat;
+		return true;
+	}
+
+	if (StrEqual(szNormalized, "all", false))
+	{
+		eCommType = kAll;
+		return true;
+	}
+
+	return false;
+}
+
+void vDenyAuthorization(int iClient)
+{
+	if (!bIsUsableClient(iClient))
+		return;
+
+	vCompleteClientAuthorizationCheck(iClient);
+	KickClient(iClient, "%t", "AuthCheckUnavailable");
+}
+
+void vSyncConnectedClientState(const char[] szAuthId, int iTarget = NO_INDEX)
+{
+	if (!bCanUsePrimaryDatabase())
+		return;
+
+	int iClient = iTarget;
+	if (!bIsUsableClient(iClient))
+	{
+		iClient = FindClientBySteamID2(szAuthId);
+		if (iClient <= SERVER_INDEX)
+			iClient = NO_INDEX;
+	}
+
+	if (!bIsUsableClient(iClient))
+		return;
+
+	int iAccountId;
+	iAccountId = GetClientAccountID(iClient);
+	if (iAccountId == 0 && !bGetAccountIdFromAuthId(szAuthId, iAccountId))
+		return;
+
+	bRemoveLocalCacheAccountId(iAccountId);
+	vBeginClientAuthorizationCheck(iClient);
+	vCheckAuthId(iClient, iAccountId, szAuthId);
+}
+
+int iGetAdminAccountId(int iAdmin)
+{
+	if (!bIsUsableClient(iAdmin))
+		return 0;
+
+	int iAccountId = GetClientAccountID(iAdmin);
+	if (iAccountId != 0)
+		return iAccountId;
+
+	char szAuthId[MAX_AUTHID_LENGTH];
+	if (GetClientAuthId(iAdmin, AuthId_Steam2, szAuthId, sizeof(szAuthId)) && bGetAccountIdFromAuthId(szAuthId, iAccountId))
+		return iAccountId;
+
+	return 0;
+}
+
+void vFormatBannedByDisplay(int iAdminAccountId, char[] szBuffer, int iMaxLength)
+{
+	if (iAdminAccountId <= 0)
+	{
+		strcopy(szBuffer, iMaxLength, "CONSOLE");
+		return;
+	}
+
+	bGetAuthIdFromAccountId(iAdminAccountId, szBuffer, iMaxLength);
+}
+
+int iGetCommandIssuerUserId(int iClient)
+{
+	if (iClient == SERVER_INDEX)
+		return SERVER_INDEX;
+
+	if (!bIsUsableClient(iClient))
+		return NO_INDEX;
+
+	return GetClientUserId(iClient);
+}
+
+int iResolveReplyClient(int iUserId, bool bFallbackToServer = true)
+{
+	if (iUserId == SERVER_INDEX)
+		return SERVER_INDEX;
+
+	int iClient = GetClientOfUserId(iUserId);
+	if (iClient > SERVER_INDEX)
+		return iClient;
+
+	return bFallbackToServer ? SERVER_INDEX : NO_INDEX;
+}
+
+int iGetQueryListLimit(int iArgs, int iDefaultLimit = 50, int iMaxLimit = 200)
+{
+	if (iArgs < 1)
+		return iDefaultLimit;
+
+	int iLimit = GetCmdArgInt(1);
+	if (iLimit <= 0)
+		return iDefaultLimit;
+
+	if (iLimit > iMaxLimit)
+		return iMaxLimit;
+
+	return iLimit;
+}
+
+void vCancelCommExpireTimer(int iClient)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients)
+		return;
+
+	if (g_hCommExpireTimer[iClient] != null)
+	{
+		delete g_hCommExpireTimer[iClient];
+		g_hCommExpireTimer[iClient] = null;
+	}
+}
+
+void vSetPlayerCommPunishmentState(int iClient, eTypeComms eComms, bool bPerm)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients)
+		return;
+
+	vCancelCommExpireTimer(iClient);
+	g_ePunished[iClient].m_eComms = eComms;
+	g_ePunished[iClient].m_bPerm = bPerm;
+
+	vRefreshPlayerCommState(iClient);
+}
+
+void vRefreshPlayerCommState(int iClient)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients || !IsClientInGame(iClient))
+		return;
+
+	if (bIsClientAuthorizationPending(iClient) || g_ePunished[iClient].m_eComms == kMic || g_ePunished[iClient].m_eComms == kAll)
+		SetClientListeningFlags(iClient, VOICE_MUTED);
+	else
+		SetClientListeningFlags(iClient, VOICE_NORMAL);
+}
+
+int iUnixTimeFromUTC(int iYear, int iMonth, int iDay, int iHour, int iMinute, int iSecond)
+{
+	iYear -= (iMonth <= 2) ? 1 : 0;
+
+	int iEra = iYear / 400;
+	int iYearOfEra = iYear - (iEra * 400);
+	int iMonthPrime = iMonth + ((iMonth > 2) ? -3 : 9);
+	int iDayOfYear = (((153 * iMonthPrime) + 2) / 5) + iDay - 1;
+	int iDayOfEra = (iYearOfEra * 365) + (iYearOfEra / 4) - (iYearOfEra / 100) + iDayOfYear;
+	int iDays = (iEra * 146097) + iDayOfEra - 719468;
+
+	return (iDays * 86400) + (iHour * 3600) + (iMinute * 60) + iSecond;
+}
+
+bool bTryParseSQLDateTimeUTC(const char[] szDateTime, int &iUnixTime)
+{
+	if (strlen(szDateTime) < 19)
+		return false;
+
+	if (szDateTime[4] != '-' || szDateTime[7] != '-' || szDateTime[10] != ' ' || szDateTime[13] != ':' || szDateTime[16] != ':')
+		return false;
+
+	int iYear = StringToInt(szDateTime);
+	int iMonth = StringToInt(szDateTime[5]);
+	int iDay = StringToInt(szDateTime[8]);
+	int iHour = StringToInt(szDateTime[11]);
+	int iMinute = StringToInt(szDateTime[14]);
+	int iSecond = StringToInt(szDateTime[17]);
+
+	if (iYear < 1970 || iMonth < 1 || iMonth > 12 || iDay < 1 || iDay > 31 || iHour < 0 || iHour > 23 || iMinute < 0 || iMinute > 59 || iSecond < 0 || iSecond > 59)
+		return false;
+
+	iUnixTime = iUnixTimeFromUTC(iYear, iMonth, iDay, iHour, iMinute, iSecond);
+	return true;
+}
+
+void vScheduleCommExpireTimer(int iClient, float flDelay)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients || !IsClientConnected(iClient) || flDelay <= 0.0)
+		return;
+
+	vCancelCommExpireTimer(iClient);
+	g_hCommExpireTimer[iClient] = CreateTimer(flDelay, Timer_CommExpire, GetClientUserId(iClient), TIMER_FLAG_NO_MAPCHANGE);
+}
+
+void vScheduleCommExpireByDate(int iClient, const char[] szExpire)
+{
+	int iExpireAt;
+	if (!bTryParseSQLDateTimeUTC(szExpire, iExpireAt))
+	{
+		LogError("[vScheduleCommExpireByDate] Invalid expire datetime '%s' for client %d", szExpire, iClient);
+		return;
+	}
+
+	int iDelay = iExpireAt - GetTime();
+	if (iDelay <= 0)
+	{
+		vExpireCommPunishment(iClient, true);
+		return;
+	}
+
+	vScheduleCommExpireTimer(iClient, float(iDelay));
+}
+
+Action Timer_CommExpire(Handle hTimer, any pData)
+{
+	int iClient = GetClientOfUserId(view_as<int>(pData));
+	if (iClient <= SERVER_INDEX)
+		return Plugin_Stop;
+
+	if (g_hCommExpireTimer[iClient] == hTimer)
+		g_hCommExpireTimer[iClient] = null;
+
+	if (g_ePunished[iClient].m_eComms != kNone && !g_ePunished[iClient].m_bPerm)
+	{
+		vExpireCommPunishment(iClient, true);
+	}
+
+	return Plugin_Stop;
+}
+
+void vExpireCommPunishment(int iClient, bool bNotifyClient)
+{
+	if (iClient <= SERVER_INDEX || iClient > MaxClients)
+		return;
+
+	eTypeComms eComms = g_ePunished[iClient].m_eComms;
+	char szAuthId[MAX_AUTHID_LENGTH];
+	bool bHasAuthId = GetClientAuthId(iClient, AuthId_Steam2, szAuthId, sizeof(szAuthId));
+
+	int iAccountId = GetClientAccountID(iClient);
+	bool bHasAccountId = (iAccountId != 0);
 
 	vResetPlayerPunishmentState(iClient);
 
-	if (g_cvLocalCache.BoolValue && bCheckLocalCache(szAuth))
+	if (bNotifyClient && bIsUsableClient(iClient))
+		CPrintToChat(iClient, "%t %t", "Prefix", "YouUnbanCommSuccess");
+
+	if (bHasAuthId)
 	{
-		LogDebug("[OnClientConnect] Client No Punishment: %N (%s)", iClient, szAuth);
+		if (eComms == kChat || eComms == kAll)
+		{
+			Call_StartForward(g_gfOnUnBanChat);
+			Call_PushCell(SERVER_INDEX);
+			Call_PushCell(iClient);
+			Call_PushString(szAuthId);
+			Call_Finish();
+		}
+
+		if (eComms == kMic || eComms == kAll)
+		{
+			Call_StartForward(g_gfOnUnBanMic);
+			Call_PushCell(SERVER_INDEX);
+			Call_PushCell(iClient);
+			Call_PushString(szAuthId);
+			Call_Finish();
+		}
+	}
+
+	if (bHasAuthId)
+		vRemoveSQLCache(szAuthId);
+
+	if (!bHasAccountId || !bCanUsePrimaryDatabase())
+		return;
+
+	char szQuery[192];
+	g_dbDatabase.Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE `accountid` = %d AND `ban_length` != 0;", TABLE_COMM, iAccountId);
+	SQL_TQuery(g_dbDatabase, vExpireCommDatabaseCallback, szQuery);
+}
+
+void vExpireCommDatabaseCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
+{
+	if (rsResult == null || szError[0])
+	{
+		logErrorSQL(dbDataBase, szError, "vExpireCommDatabaseCallback");
+		delete rsResult;
 		return;
 	}
 
-	if (g_cvSQLCache.BoolValue)
-	{
-		vCheckCache(iClient, szAuth);
-		return;
-	}
-
-	vCheckAuthId(iClient, szAuth);
-	return;
+	delete rsResult;
 }
 
 public Action OnClientSayCommand(int iClient, const char[] szCommand, const char[] szArgs)
@@ -219,430 +844,6 @@ public Action OnClientSayCommand(int iClient, const char[] szCommand, const char
 	return Plugin_Continue;
 }
 
-/*****************************************************************
-			N A T I V E   F U N C T I O N S
-*****************************************************************/
-
-int iBanAccesNative(Handle hPlugin, int iNumParams)
-{
-	int iClient = GetNativeCell(1);
-	int iTarget = GetNativeCell(2);
-	char szTargetAuthId[MAX_AUTHID_LENGTH];
-	if (iTarget == NO_INDEX)
-		GetNativeString(3, szTargetAuthId, sizeof(szTargetAuthId));
-	else
-		GetClientAuthId(iTarget, AuthId_Steam2, szTargetAuthId, sizeof(szTargetAuthId));
-	int iLength = GetNativeCell(4);
-	char szReason[MAX_MESSAGE_LENGTH];
-	GetNativeString(5, szReason, sizeof(szReason));
-
-	vRegAccess(iClient, iTarget, szTargetAuthId, iLength, szReason);
-	return 1;
-}
-
-/**
- * Checks if a target client is banned from specific communication types.
- *
- * @param iTarget    The client index of the target to check.
- * @param eType      The type of communication to check for (e.g., kAll, kMic, kChat).
- *
- * @return           True if the client is banned from the specified communication type, False otherwise.    
- */
-int iBannedCommNative(Handle hPlugin, int iNumParams)
-{
-	int iClient = GetNativeCell(1);
-	eTypeComms eComms = view_as<eTypeComms>(GetNativeCell(2));
-
-	if (iClient == NO_INDEX)
-		return 0;
-
-	switch(eComms)
-	{
-		case kAll:
-		{
-			if (g_ePunished[iClient].m_eComms == kAll)
-				return 1;
-		}
-		case kMic:
-		{
-			if (g_ePunished[iClient].m_eComms == kMic || g_ePunished[iClient].m_eComms == kAll)
-				return 1;
-		}
-		case kChat:
-		{
-			if (g_ePunished[iClient].m_eComms == kChat || g_ePunished[iClient].m_eComms == kAll)
-				return 1;
-		}
-	}
-
-	return 0;
-}
-
-/*****************************************************************
-			P L U G I N   F U N C T I O N S
-*****************************************************************/
-
-/**
- * Establishes a connection to the database using the specified configuration name.
- *
- * @param szConfigName  The name of the SQL configuration to use for the connection.
- * @param bCache        Optional. Whether to cache the database connection. Defaults to false.
- */
-void vConnectDB(char[] szConfigName, bool bCache = false)
-{
-	if (!SQL_CheckConfig(szConfigName))
-	{
-        LogError("[vConnectDB] SQL config not found: %s", szConfigName);
-		return;
-	}
-
-	Database.Connect(vConnectCallback, szConfigName, bCache);
-}
-
-void vConnectCallback(Database dbDatabase, const char[] szError, any pData)
-{
-	if (dbDatabase == null)
-	{
-        LogError("[vConnectCallback] Database connection failed.");
-		return;
-	}
-
-	if (szError[0] != '\0')
-	{
-        LogError("[vConnectCallback] %s", szError);
-		return;
-	}
-
-	if(view_as<bool>(pData))
-		g_dbCache = dbDatabase;
-	else
-	{
-		g_dbDatabase = dbDatabase;
-		vValidateMySQLSchema();
-	}
-}
-
-void vValidateMySQLSchema()
-{
-	if (g_dbDatabase == null)
-		return;
-
-	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "SELECT `version_num` FROM `%s` ORDER BY `version_num` DESC LIMIT 1;", TABLE_SCHEMA_VERSION);
-
-	LogSQL("[vValidateMySQLSchema] Query: %s", szQuery);
-	SQL_TQuery(g_dbDatabase, vValidateMySQLSchemaCallback, szQuery);
-}
-
-void vValidateMySQLSchemaCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
-{
-	if (rsResult == null || szError[0])
-	{
-		logErrorSQL(dbDataBase, szError, "vValidateMySQLSchemaCallback");
-		delete rsResult;
-		SetFailState("MySQL schema validation failed. Apply ScriptsSQL/mysql/001_schema.sql.");
-		return;
-	}
-
-	if (!rsResult.FetchRow())
-	{
-		delete rsResult;
-		SetFailState("MySQL schema version table is empty. Apply ScriptsSQL/mysql/001_schema.sql.");
-		return;
-	}
-
-	int iSchemaVersion = rsResult.FetchInt(0);
-	delete rsResult;
-
-	if (iSchemaVersion != MYSQL_SCHEMA_VERSION)
-	{
-		SetFailState("MySQL schema version mismatch. Expected %d but found %d. Apply ScriptsSQL/mysql/001_schema.sql.", MYSQL_SCHEMA_VERSION, iSchemaVersion);
-		return;
-	}
-
-	LogDebug("[vValidateMySQLSchemaCallback] MySQL schema version validated: %d", iSchemaVersion);
-}
-
-/**
- * Checks the cache for a specific Steam ID within the last 7 days.
- *
- * This function constructs an SQL query to check if the given Steam ID exists
- * in the cache table (`g_szTableAccess`) with a date within the last 7 days.
- * It then logs the query and executes it asynchronously, passing the result
- * to the `vCheckCacheCallback` function.
- *
- * @param iClient The client index of the player initiating the check.
- * @param szAuthId The Steam ID of the player to check in the cache.
- */
-void vCheckCache(int iClient, const char[] szAuthId)
-{
-	char szQuery[256];
-	int iLen = 0;
-
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `ban_id` FROM `BanCache_Valid` ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE steam_id = '%s';", szAuthId);
-
-	LogSQL("[vCheckCache] Query: %s", szQuery);
-
-	int iUserId = GetClientUserId(iClient);
-
-	DataPack pCheckAuthId = new DataPack();
-	pCheckAuthId.WriteCell(iUserId);
-	pCheckAuthId.WriteString(szAuthId);
-
-	SQL_TQuery(g_dbCache, vCheckCacheCallback, szQuery, pCheckAuthId);
-}
-
-void vCheckCacheCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
-{
-    int iClient;
-    char szAuthId[MAX_AUTHID_LENGTH];
-
-    DataPack pCheckAuthId = view_as<DataPack>(pData);
-    pCheckAuthId.Reset();
-
-    int iUserId = pCheckAuthId.ReadCell();
-    pCheckAuthId.ReadString(szAuthId, sizeof(szAuthId));
-    delete pCheckAuthId;
-
-    iClient = GetClientOfUserId(iUserId);
-
-	if (iClient == NO_INDEX)
-	{
-		delete rsResult;
-		return;
-	}
-
-    if (rsResult == null || szError[0])
-    {
-        logErrorSQL(dbDataBase, szError, "vCheckCacheCallback");
-		delete rsResult;
-		if (g_dbDatabase != null)
-			vCheckAuthId(iClient, szAuthId);
-        return;
-    }
-
-    if (!SQL_FetchRow(rsResult))
-    {
-        LogDebug("[vCheckCacheCallback] No cache entry found for client: %N (%s)", iClient, szAuthId);
-        vResetPlayerPunishmentState(iClient);
-		delete rsResult;
-		if (g_dbDatabase != null)
-			vCheckAuthId(iClient, szAuthId);
-        return;
-    }
-
-    int iResult = SQL_FetchInt(rsResult, 0);
-    LogSQL("[vCheckCacheCallback] Cache result for client %N (%s): %d", iClient, szAuthId, iResult);
-
-	switch (iResult)
-	{
-		case 1:
-		{
-			vAttemptAccess(iClient, szAuthId);
-			KickClient(iClient, "%t", "BlockAccessPerm");
-		}
-		case 2,3,4:
-		{
-			eTypeComms eComms = view_as<eTypeComms>(iResult - 1);
-
-			char szComms[64];
-			char szDate[128] = "[SQL Error: Field is Null]";
-
-			switch (eComms)
-			{
-				case kAll:
-				{
-					Format(szComms, sizeof(szComms), "%T", "TypeCommAll", iClient);
-					g_ePunished[iClient].m_eComms = kAll;
-					SetClientListeningFlags(iClient, VOICE_MUTED);
-				}
-
-				case kMic:
-				{
-					Format(szComms, sizeof(szComms), "%T", "TypeCommMic", iClient);
-					g_ePunished[iClient].m_eComms = kMic;
-					SetClientListeningFlags(iClient, VOICE_MUTED);
-				}
-
-				case kChat:
-				{
-					Format(szComms, sizeof(szComms), "%T", "TypeCommChat", iClient);
-					g_ePunished[iClient].m_eComms = kChat;
-				}
-
-			}
-
-			g_ePunished[iClient].m_bPerm = true;
-			Format(szDate, sizeof(szDate), "%T", "Permanent", iClient);
-
-			DataPack pAnnouncer = new DataPack();
-			CreateDataTimer(10.0, AnnouncerCommTimer, pAnnouncer, TIMER_FLAG_NO_MAPCHANGE | TIMER_DATA_HNDL_CLOSE);
-			pAnnouncer.WriteCell(iUserId);
-			pAnnouncer.WriteString(szComms);
-			pAnnouncer.WriteString(szDate);
-		}
-		default:
-		{
-			vResetPlayerPunishmentState(iClient);
-			LogDebug("[vCheckCacheCallback] Client No Punishment: %N (%s)", iClient, szAuthId);
-			if (g_dbDatabase != null)
-				vCheckAuthId(iClient, szAuthId);
-		}
-	}
-
-	delete rsResult;
-}
-
-/**
- * Checks the authentication ID of a client against the database.
- *
- * @param iClient       The client index to check.
- * @param szAuthId      The authentication ID (e.g., SteamID) of the client.
- *
- * This function constructs a SQL query to check the provided authentication ID
- * in the database. It logs the query for debugging purposes and executes it
- * asynchronously. A DataPack is used to store the client user ID and the
- * authentication ID for use in the callback function.
- */
-void vCheckAuthId(int iClient, const char[] szAuthId)
-{
-	int iUserId = GetClientUserId(iClient);
-
-	DataPack pCheckAuthId = new DataPack();
-	pCheckAuthId.WriteCell(iUserId);
-	pCheckAuthId.WriteString(szAuthId);
-
-	char szQuery[256];
-	g_dbDatabase.Format(szQuery, sizeof(szQuery), "CALL GetCheckAuthId('%s');", szAuthId);
-
-	LogSQL("[vCheckAuthId] Query: %s", szQuery);
-
-	SQL_TQuery(g_dbDatabase, vCheckAuthIdCallback, szQuery, pCheckAuthId);
-}
-
-void vCheckAuthIdCallback(Database dbDataBase, DBResultSet rsResult, const char[] szError, any pData)
-{
-	char szAuthId[MAX_AUTHID_LENGTH];
-
-	int
-		iUserId,
-		iClient;
-
-	DataPack pCheckAuthId = view_as<DataPack>(pData);
-	pCheckAuthId.Reset();
-
-	iUserId = pCheckAuthId.ReadCell();
-	iClient = GetClientOfUserId(iUserId);
-	pCheckAuthId.ReadString(szAuthId, sizeof(szAuthId));
-	delete pCheckAuthId;
-
-	if (iClient == NO_INDEX)
-	{
-		delete rsResult;
-		return;
-	}
-
-	if (rsResult == null || szError[0])
-	{
-		logErrorSQL(dbDataBase, szError, "vCheckAuthIdCallback");
-        vResetPlayerPunishmentState(iClient);
-		delete rsResult;
-		return;
-	}
-
-	if (!SQL_FetchRow(rsResult))
-	{
-		LogError("[vCheckAuthIdCallback] Empty result for auth id %s", szAuthId);
-		vResetPlayerPunishmentState(iClient);
-		delete rsResult;
-		return;
-	}
-
-	int iResult = SQL_FetchInt(rsResult, 0);
-	bool bPerm = (iResult < 0);
-
-	LogSQL("[vCheckAuthIdCallback] iResult: %d", iResult);
-	
-	if (iResult == 0)
-	{
-		vResetPlayerPunishmentState(iClient);
-		bRegLocalCache(szAuthId);
-	}
-	else if (iResult == -1 || iResult == 1)
-	{
-		vAttemptAccess(iClient, szAuthId);
-		
-		if (bPerm)
-		{
-			KickClient(iClient, "%t", "BlockAccessPerm");
-			bRegisterCache(szAuthId, iResult);
-		}
-		else
-		{
-			char szDate[64];
-			if (SQL_IsFieldNull(rsResult, 1))
-				KickClient(iClient, "%t", "BlockAccessTempNoDate");
-			else
-			{
-				SQL_FetchString(rsResult, 1, szDate, sizeof(szDate));
-				KickClient(iClient, "%t", "BlockAccessTemp", szDate);
-			}
-		}
-	}
-	else
-	{
-		// Bloque de Communication
-		// Se obtiene el tipo de comunicación (valor absoluto) restandole 1
-		eTypeComms eComms = view_as<eTypeComms>(IntAbs(iResult) - 1);
-		char szComms[64];
-		char szDate[128] = "[SQL Error: Field is Null]";
-
-		switch(eComms)
-		{
-			case kAll: // Chat y mic permanent o temporal
-			{
-				Format(szComms, sizeof(szComms), "%T", "TypeCommAll", iClient);
-				g_ePunished[iClient].m_eComms = kAll;
-				SetClientListeningFlags(iClient, VOICE_MUTED);
-			}
-			case kMic: // Solo mic permanent o temporal
-			{
-				Format(szComms, sizeof(szComms), "%T", "TypeCommMic", iClient);
-				g_ePunished[iClient].m_eComms = kMic;
-				SetClientListeningFlags(iClient, VOICE_MUTED);
-			}
-			case kChat: // Solo chat permanent o temporal
-			{
-				Format(szComms, sizeof(szComms), "%T", "TypeCommChat", iClient);
-				g_ePunished[iClient].m_eComms = kChat;
-			}
-		}
-		
-		g_ePunished[iClient].m_bPerm = bPerm;
-		if (!bPerm)
-		{
-			if (SQL_IsFieldNull(rsResult, 1))
-				logErrorSQL(dbDataBase, szError, "vCheckAuthIdCallback");
-			else
-				SQL_FetchString(rsResult, 1, szDate, sizeof(szDate));
-		}
-		else
-		{
-			Format(szDate, sizeof(szDate), "%T", "Permanent", iClient);
-			bRegisterCache(szAuthId, iResult);
-		}
-		
-		DataPack pAnnouncer = new DataPack();
-		CreateDataTimer(10.0, AnnouncerCommTimer, pAnnouncer, TIMER_FLAG_NO_MAPCHANGE|TIMER_DATA_HNDL_CLOSE);
-		pAnnouncer.WriteCell(iUserId);
-		pAnnouncer.WriteString(szComms);
-		pAnnouncer.WriteString(szDate);
-	}
-
-	delete rsResult;
-}
-
 /**
  * Timer callback function that announces communication bans to a specific client.
  *
@@ -659,12 +860,7 @@ void AnnouncerCommTimer(Handle hTimer, any pData)
 		szComms[64],
 		szDate[128];
 
-	DataPack pAnnouncer = view_as<DataPack>(pData);
-	pAnnouncer.Reset();
-
-	iUserId = pAnnouncer.ReadCell();
-	pAnnouncer.ReadString(szComms, sizeof(szComms));
-	pAnnouncer.ReadString(szDate, sizeof(szDate));
+	vReadCommAnnouncementContext(pData, iUserId, szComms, sizeof(szComms), szDate, sizeof(szDate));
 
 	iClient = GetClientOfUserId(iUserId); 
 	if (iClient == NO_INDEX)
@@ -712,101 +908,22 @@ void vResetPlayerPunishmentState(int iClient)
 	if (iClient <= SERVER_INDEX || iClient > MaxClients)
 		return;
 
+	vCancelCommExpireTimer(iClient);
 	g_ePunished[iClient].m_eComms = kNone;
 	g_ePunished[iClient].m_bPerm = false;
 
-	if (IsClientInGame(iClient))
-		SetClientListeningFlags(iClient, VOICE_NORMAL);
+	vRefreshPlayerCommState(iClient);
 }
 
-/**
- * Retrieves the client index of a player based on their Steam2 Auth ID.
- *
- * @param szAuthId      The Steam2 Auth ID of the player to search for.
- * @return              The client index of the player if found, otherwise NO_INDEX.
- */
-stock int GetClientOfAuthID(const char[] szAuthId)
+bool bIsValidAuthCheckResult(int iResult)
 {
-	for (int i = 1; i <= MaxClients; i++)
+	switch (iResult)
 	{
-		if (!IsClientInGame(i) || IsFakeClient(i))
-			continue;
-
-		char szClientAuthId[MAX_AUTHID_LENGTH];
-		GetClientAuthId(i, AuthId_Steam2, szClientAuthId, sizeof(szClientAuthId));
-
-		if (StrEqual(szClientAuthId, szAuthId))
-			return i;
+		case 0, -1, 1, -2, 2, -3, 3, -4, 4:
+			return true;
 	}
-	return NO_INDEX;
-}
 
-/**
- * @brief Checks if a given string is a valid Steam ID.
- *
- * This function verifies if the provided string follows the format of a Steam ID.
- * A valid Steam ID should start with "STEAM_" and contain two colons separating
- * three numerical components.
- *
- * @param szAuthId The string to be checked.
- * @return True if the string is a valid Steam ID, false otherwise.
- */
-bool bIsSteamId(char[] szAuthId)
-{
-	if (strlen(szAuthId) == 0)
-		return false;
-	
-	if (StrContains(szAuthId, "STEAM_", false) == -1)
-		return false;
-
-	StripQuotes(szAuthId);
-
-	int iPos1 = FindCharInString(szAuthId, ':');
-	if (iPos1 == NO_INDEX)
-		return false;
-
-	int iPos2 = FindCharInString(szAuthId, ':', view_as<bool>(iPos1 + 1));
-	if (iPos2 == NO_INDEX)
-		return false;
-
-	char szUniverse[8];
-	char szAuth[8];
-	char szAccount[16];
-
-	int iLenUniverse = iPos1 - 6;
-	if (iLenUniverse <= 0 || iLenUniverse >= sizeof(szUniverse))
-		return false;
-
-	for (int i = 0; i < iLenUniverse; i++)
-	{
-		szUniverse[i] = szAuthId[6 + i];
-	}
-	szUniverse[iLenUniverse] = '\0';
-
-	int iLenAuth			 = iPos2 - iPos1 - 1;
-	if (iLenAuth <= 0 || iLenAuth >= sizeof(szAuth))
-		return false;
-
-	for (int i = 0; i < iLenAuth; i++)
-	{
-		szAuth[i] = szAuthId[iPos1 + 1 + i];
-	}
-	szAuth[iLenAuth] = '\0';
-
-	int iLenAccount	 = strlen(szAuthId) - iPos2 - 1;
-	if (iLenAccount <= 0 || iLenAccount >= sizeof(szAccount))
-		return false;
-
-	for (int i = 0; i < iLenAccount; i++)
-	{
-		szAccount[i] = szAuthId[iPos2 + 1 + i];
-	}
-	szAccount[iLenAccount] = '\0';
-
-	if (!bIsInteger(szUniverse) || !bIsInteger(szAuth) || !bIsInteger(szAccount))
-		return false;
-
-	return true;
+	return false;
 }
 
 /**
@@ -944,6 +1061,23 @@ stock int IntAbs(int n)
    return (n ^ (n >> 31)) - (n >> 31);
 } 
 
+void vGetReasonDisplayText(int iClient, const char[] szReason, char[] szBuffer, int iMaxLength)
+{
+	if (szReason[0] == '\0')
+	{
+		szBuffer[0] = '\0';
+		return;
+	}
+
+	if (szReason[0] == '#')
+	{
+		Format(szBuffer, iMaxLength, "%T", szReason, iClient);
+		return;
+	}
+
+	strcopy(szBuffer, iMaxLength, szReason);
+}
+
 /**
  * Loads ban reasons from a KeyValues file into memory.
  */
@@ -1025,62 +1159,35 @@ bool bIsIpAddress(const char[] szIpAddress)
 	return true;
 }
 
-#if DEBUG
-#if DEBUG_SQL
-/**
- * Logs a formatted SQL-related message to a log file.
- *
- * @param sMessage   The format string for the message to log.
- * @param ...        Additional arguments to format into the message.
- */
 void LogSQL(const char[] sMessage, any...)
 {
-    static char sFormat[1024];
-    VFormat(sFormat, sizeof(sFormat), sMessage, 2);
-    LogToFileEx(g_sLogPath, "[SQL] %s", sFormat);
+	LogCategory(kDebug_SQL, "SQL", sMessage, 2);
 }
-#else
-public void LogSQL(const char[] sMessage, any...) {}
-#endif
-#if DEBUG_MENU
-/**
- * Logs a formatted message to the menu log file.
- *
- * @param sMessage   The format string for the message to log.
- * @param ...        Additional arguments to format into the message.
- */
+
 void LogMenu(const char[] sMessage, any...)
 {
-    static char sFormat[1024];
-    VFormat(sFormat, sizeof(sFormat), sMessage, 2);
-    LogToFileEx(g_sLogPath, "[Menu] %s", sFormat);
+	LogCategory(kDebug_Menu, "Menu", sMessage, 2);
 }
-#else
-public void LogMenu(const char[] sMessage, any...) {}
-#endif
-/**
- * Logs a debug message to a specified log file.
- *
- * @param sMessage   The format string for the debug message.
- * @param ...        Additional arguments to format into the message.
- */
+
 void LogDebug(const char[] sMessage, any...)
 {
-    static char sFormat[1024];
-    VFormat(sFormat, sizeof(sFormat), sMessage, 2);
-    LogToFileEx(g_sLogPath, "[Debug] %s", sFormat);
+	LogCategory(kDebug_General, "Debug", sMessage, 2);
 }
-#else
-/**
- * Logs function dummy.
- */
-public void LogDebug(const char[] sMessage, any...) {}
-/**
- * Logs function dummy.
- */
-public void LogSQL(const char[] sMessage, any...) {}
-/**
- * Logs function dummy.
- */
-public void LogMenu(const char[] sMessage, any...) {}
-#endif
+
+void LogAPI(const char[] sMessage, any...)
+{
+	LogCategory(kDebug_API, "API", sMessage, 2);
+}
+
+void LogCategory(eDebugMask eMask, const char[] szTag, const char[] sMessage, int iVFormatArg)
+{
+	if (g_cvDebugMask == null)
+		return;
+
+	if (!(g_cvDebugMask.IntValue & view_as<int>(eMask)))
+		return;
+
+	static char sFormat[1024];
+	VFormat(sFormat, sizeof(sFormat), sMessage, iVFormatArg);
+	LogToFileEx(g_sLogPath, "[%s] %s", szTag, sFormat);
+}

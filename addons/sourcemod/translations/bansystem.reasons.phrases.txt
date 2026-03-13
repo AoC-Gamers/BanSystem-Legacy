@@ -90,14 +90,4 @@
         "en" "Behavior - Chat Spam"
         "es" "Conducta - Spam de Chat"
     }
-    "#IMPORT_LALO"
-    {
-        "en" "Imported - Lalo HLZ"
-        "es" "Importado - Lalo HLZ"
-    }
-    "#IMPORT_CENTER"
-    {
-        "en" "Imported - l4d2Center"
-        "es" "Importado - l4d2Center"
-    }
 }
