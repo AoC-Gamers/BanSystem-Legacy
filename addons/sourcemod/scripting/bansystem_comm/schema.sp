@@ -5,6 +5,9 @@
 #define BANSYSTEM_COMM_LIBRARY "bansystem_comm"
 #define BANSYSTEM_COMM_MODULE_NAME "communication"
 #define BANSYSTEM_COMM_MODULE_BIT 2
+#define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
+#define BANSYSTEM_COMM_SCHEMA_COMPONENT "comm"
+#define BANSYSTEM_COMM_SCHEMA_VERSION 1
 
 enum eBSCommType
 {

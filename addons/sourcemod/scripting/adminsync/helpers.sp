@@ -5,48 +5,133 @@ SnapshotBackend GetSnapshotBackend()
 	return StrEqual(szBackend, "kv", false) ? Backend_KeyValues : Backend_SQLite;
 }
 
-SteamIDToolsProvider eGetSteamIdLookupProvider()
+void vGetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] szBuffer, int iMaxLength)
 {
-	if (!SteamIDTools_IsLibraryAvailable())
-		return SteamIDToolsProvider_Unknown;
-
-	char szProvider[16];
-	g_cvSteamIdProvider.GetString(szProvider, sizeof(szProvider));
-	TrimString(szProvider);
-
-	if (StrEqual(szProvider, "steamworks", false))
+	switch (eProvider)
 	{
-		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
-			return SteamIDToolsProvider_SteamWorks;
-		return SteamIDToolsProvider_Unknown;
+		case SteamIDToolsProvider_SteamWorks:
+		{
+			strcopy(szBuffer, iMaxLength, "steamworks");
+		}
+		case SteamIDToolsProvider_System2:
+		{
+			strcopy(szBuffer, iMaxLength, "system2");
+		}
+		default:
+		{
+			strcopy(szBuffer, iMaxLength, "unknown");
+		}
 	}
-
-	if (StrEqual(szProvider, "system2", false))
-	{
-		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
-			return SteamIDToolsProvider_System2;
-		return SteamIDToolsProvider_Unknown;
-	}
-
-	if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
-		return SteamIDToolsProvider_SteamWorks;
-
-	if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
-		return SteamIDToolsProvider_System2;
-
-	return SteamIDToolsProvider_Unknown;
 }
 
-void vResetPromptState(int iClient)
+bool bTryGetSteamIdLookupProvider(int iClient, SteamIDToolsProvider &eProvider)
 {
-	g_ePromptState[iClient] = Prompt_None;
-	g_iPromptAccountId[iClient] = 0;
-	g_iPromptImmunity[iClient] = 0;
-	g_iPanelAction[iClient] = 0;
-	g_szPromptName[iClient][0] = '\0';
-	g_szPromptFlags[iClient][0] = '\0';
-	g_szPromptSteamId64[iClient][0] = '\0';
-	g_szPromptGroupName[iClient][0] = '\0';
+	eProvider = SteamIDToolsProvider_Unknown;
+
+	if (!SteamIDTools_IsLibraryAvailable())
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64Unavailable");
+		return false;
+	}
+
+	char szConfigured[16];
+	g_cvSteamIdProvider.GetString(szConfigured, sizeof(szConfigured));
+	TrimString(szConfigured);
+
+	if (StrEqual(szConfigured, "steamworks", false))
+	{
+		eProvider = SteamIDToolsProvider_SteamWorks;
+	}
+	else if (StrEqual(szConfigured, "system2", false))
+	{
+		eProvider = SteamIDToolsProvider_System2;
+	}
+	else
+	{
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_SteamWorks))
+		{
+			eProvider = SteamIDToolsProvider_SteamWorks;
+			return true;
+		}
+
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_System2))
+		{
+			eProvider = SteamIDToolsProvider_System2;
+			return true;
+		}
+
+		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
+		{
+			eProvider = SteamIDToolsProvider_SteamWorks;
+		}
+		else if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
+		{
+			eProvider = SteamIDToolsProvider_System2;
+		}
+	}
+
+	if (eProvider == SteamIDToolsProvider_Unknown)
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64Unavailable");
+		return false;
+	}
+
+	if (SteamIDTools_IsProviderReady(eProvider))
+	{
+		return true;
+	}
+
+	char szProvider[16];
+	char szStatus[128];
+	vGetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
+	if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
+	{
+		strcopy(szStatus, sizeof(szStatus), "backend unavailable");
+	}
+
+	CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64BackendNotReady", szProvider, szStatus);
+	return false;
+}
+
+bool bTryGetSteamIdLookupProviderSilent(SteamIDToolsProvider &eProvider)
+{
+	eProvider = SteamIDToolsProvider_Unknown;
+
+	if (!SteamIDTools_IsLibraryAvailable())
+	{
+		return false;
+	}
+
+	char szConfigured[16];
+	g_cvSteamIdProvider.GetString(szConfigured, sizeof(szConfigured));
+	TrimString(szConfigured);
+
+	if (StrEqual(szConfigured, "steamworks", false))
+	{
+		eProvider = SteamIDToolsProvider_SteamWorks;
+	}
+	else if (StrEqual(szConfigured, "system2", false))
+	{
+		eProvider = SteamIDToolsProvider_System2;
+	}
+	else
+	{
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_SteamWorks))
+		{
+			eProvider = SteamIDToolsProvider_SteamWorks;
+			return true;
+		}
+
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_System2))
+		{
+			eProvider = SteamIDToolsProvider_System2;
+			return true;
+		}
+
+		return false;
+	}
+
+	return SteamIDTools_IsProviderReady(eProvider);
 }
 
 bool bIsClientUsable(int iClient)
@@ -54,27 +139,61 @@ bool bIsClientUsable(int iClient)
 	return (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient) && !IsFakeClient(iClient));
 }
 
+void vNormalizeAdminSyncText(const char[] szInput, char[] szOutput, int iMaxLength)
+{
+	strcopy(szOutput, iMaxLength, szInput);
+	TrimString(szOutput);
+	StripQuotes(szOutput);
+}
+
+bool bAdminSyncHasText(const char[] szInput)
+{
+	char szNormalized[256];
+	vNormalizeAdminSyncText(szInput, szNormalized, sizeof(szNormalized));
+	return (szNormalized[0] != '\0');
+}
+
+bool bTryParseAdminSyncNonNegativeInt(const char[] szInput, int &iValue)
+{
+	char szNormalized[32];
+	vNormalizeAdminSyncText(szInput, szNormalized, sizeof(szNormalized));
+	if (!SteamIDTools_IsNumericString(szNormalized))
+		return false;
+
+	iValue = StringToInt(szNormalized);
+	return (iValue >= 0);
+}
+
+int iGetAdminSyncCommandUserId(int iClient)
+{
+	if (!bIsClientUsable(iClient))
+		return 0;
+
+	return GetClientUserId(iClient);
+}
+
 void vAdminSyncDebug(const char[] szFormat, any ...)
 {
-	vAdminSyncLog(kASDebug_General, "Debug", szFormat, 2);
+	char szMessage[512];
+	VFormat(szMessage, sizeof(szMessage), szFormat, 2);
+	vAdminSyncLog(kASDebug_General, "Debug", szMessage);
 }
 
 void vAdminSyncSQL(const char[] szFormat, any ...)
 {
-	vAdminSyncLog(kASDebug_SQL, "SQL", szFormat, 2);
-}
-
-void vAdminSyncMenu(const char[] szFormat, any ...)
-{
-	vAdminSyncLog(kASDebug_Menu, "Menu", szFormat, 2);
+	char szMessage[512];
+	VFormat(szMessage, sizeof(szMessage), szFormat, 2);
+	vAdminSyncLog(kASDebug_SQL, "SQL", szMessage);
 }
 
 void vAdminSyncAPI(const char[] szFormat, any ...)
 {
-	vAdminSyncLog(kASDebug_API, "API", szFormat, 2);
+	char szMessage[512];
+	VFormat(szMessage, sizeof(szMessage), szFormat, 2);
+	vAdminSyncLog(kASDebug_API, "API", szMessage);
 }
 
-void vAdminSyncLog(eAdminSyncDebugMask eMask, const char[] szTag, const char[] szFormat, int iVFormatArg)
+void vAdminSyncLog(eAdminSyncDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
 	if (g_cvDebug == null)
 		return;
@@ -82,18 +201,12 @@ void vAdminSyncLog(eAdminSyncDebugMask eMask, const char[] szTag, const char[] s
 	if (!(g_cvDebug.IntValue & view_as<int>(eMask)))
 		return;
 
-	char szMessage[512];
-	VFormat(szMessage, sizeof(szMessage), szFormat, iVFormatArg);
 	LogToFileEx(g_szDebugLogPath, "[%s] %s", szTag, szMessage);
 }
 
 bool bAccountIdToSteam2(int iAccountId, char[] szBuffer, int iMaxLength)
 {
-	if (iAccountId <= 0)
-		return false;
-
-	Format(szBuffer, iMaxLength, "STEAM_1:%d:%d", iAccountId % 2, iAccountId / 2);
-	return true;
+	return AccountIDToSteamID2(iAccountId, szBuffer, iMaxLength);
 }
 
 void vApplyFlagsToAdmin(AdminId idAdmin, const char[] szFlags)

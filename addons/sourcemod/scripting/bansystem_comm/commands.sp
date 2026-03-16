@@ -89,13 +89,12 @@ Action Command_BSCommAdd(int iClient, int iArgs)
 	char szMinutes[16];
 	char szReason[BANSYSTEM_COMM_MAX_REASON_LENGTH];
 	char szContext[sizeof(g_eBSCommResolvedDetail[].m_szContext)];
-	GetCmdArg(1, szType, sizeof(szType));
-	GetCmdArg(2, szInput, sizeof(szInput));
-	GetCmdArg(3, szMinutes, sizeof(szMinutes));
-	GetCmdArg(4, szReason, sizeof(szReason));
-	GetCmdArg(5, szContext, sizeof(szContext));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_GetCmdArgNormalized(1, iArgs, szType, sizeof(szType));
+	SteamIDTools_TryGetIdentityFromCmdArgs(2, iArgs, szInput, sizeof(szInput), iNextArg);
+	SteamIDTools_GetCmdArgNormalized(iNextArg, iArgs, szMinutes, sizeof(szMinutes));
+	SteamIDTools_GetCmdArgNormalized(iNextArg + 1, iArgs, szReason, sizeof(szReason));
+	SteamIDTools_JoinCmdArgs(iNextArg + 2, iArgs, szContext, sizeof(szContext));
 
 	eBSCommType eCommType;
 	if (!BSComm_ParseCommTypeString(szType, eCommType))
@@ -144,9 +143,8 @@ Action Command_BSCommRemove(int iClient, int iArgs)
 	}
 
 	char szInput[64];
-	GetCmdArg(1, szInput, sizeof(szInput));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
@@ -181,9 +179,8 @@ Action Command_BSCommInfo(int iClient, int iArgs)
 	}
 
 	char szInput[64];
-	GetCmdArg(1, szInput, sizeof(szInput));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{

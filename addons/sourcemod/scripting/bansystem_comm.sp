@@ -4,8 +4,14 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+
+#undef REQUIRE_PLUGIN
 #include <steamidtools>
+#include <steamidtools_helpers>
 #include <basecomm>
+#define REQUIRE_PLUGIN
+
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <bansystem_core>
@@ -25,6 +31,7 @@ ConVar g_cvBSCommSteamIdProvider;
 char g_szBSCommLogPath[PLATFORM_MAX_PATH];
 
 bool g_bBSCommHasCoreLibrary;
+bool g_bBSCommHasBaseComm;
 bool g_bBSCommDatabaseReady;
 
 enum eBSCommIdentityAction
@@ -59,7 +66,6 @@ eBSCommResolvedDetail g_eBSCommResolvedDetail[MAXPLAYERS + 1];
 #include "bansystem_comm/api.sp"
 #include "bansystem_comm/db.sp"
 #include "bansystem_comm/commands.sp"
-#include "bansystem_comm/panels.sp"
 #include "bansystem_comm/mutations.sp"
 #include "bansystem_comm/detail.sp"
 
@@ -81,22 +87,25 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart()
 {
 	BuildPath(Path_SM, g_szBSCommLogPath, sizeof(g_szBSCommLogPath), BANSYSTEM_COMM_DEBUG_LOG);
-	LoadTranslations("bansystem_modular.phrases");
+	LoadTranslations("bansystem_comm.phrases");
 	g_smBSCommIdentityRequestContext = new StringMap();
-	g_cvBSCommDebugMask = CreateConVar("sm_bs_comm_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api.", FCVAR_NONE, true, 0.0);
+	g_cvBSCommDebugMask = CreateConVar("sm_bs_comm_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSCommMysqlConfig = CreateConVar("sm_bs_comm_mysql_config", "bansystem", "MySQL config used by BanSystem Comm.", FCVAR_NONE);
 	g_cvBSCommSteamIdProvider = CreateConVar("sm_bs_comm_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
 	g_bBSCommHasCoreLibrary = LibraryExists("bansystem_core");
+	g_bBSCommHasBaseComm = LibraryExists("basecomm");
+
+	BSEnsureAutoExecFolder();
+	AutoExecConfig(true, "bansystem_comm", BANSYSTEM_AUTOEXEC_FOLDER);
 
 	BSComm_OnPluginStart_Api();
 	BSComm_OnPluginStart_DB();
 	BSComm_OnPluginStart_Commands();
-	BSComm_OnPluginStart_Panels();
 	BSComm_OnPluginStart_Mutations();
 	BSComm_OnPluginStart_Detail();
 	BSComm_TryRegisterCoreModule();
 
-	BSComm_Debug("Comm scaffold initialized. core=%d", g_bBSCommHasCoreLibrary ? 1 : 0);
+	BSComm_Debug("Comm scaffold initialized. core=%d basecomm=%d", g_bBSCommHasCoreLibrary ? 1 : 0, g_bBSCommHasBaseComm ? 1 : 0);
 }
 
 public void OnConfigsExecuted()
@@ -107,12 +116,6 @@ public void OnConfigsExecuted()
 public void OnClientDisconnect(int iClient)
 {
 	BSComm_ResetResolvedDetail(iClient);
-	BSComm_ResetPanelState(iClient);
-}
-
-public Action OnClientSayCommand(int iClient, const char[] szCommand, const char[] szArgs)
-{
-	return BSComm_HandlePanelSayCommand(iClient, szCommand, szArgs);
 }
 
 public void OnLibraryAdded(const char[] szName)
@@ -121,11 +124,24 @@ public void OnLibraryAdded(const char[] szName)
 	{
 		g_bBSCommHasCoreLibrary = true;
 		BSComm_TryRegisterCoreModule();
+		return;
+	}
+
+	if (StrEqual(szName, "basecomm", false))
+	{
+		g_bBSCommHasBaseComm = true;
+		BSComm_ReapplyResolvedCommStateToAllClients();
 	}
 }
 
 public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
+	{
 		g_bBSCommHasCoreLibrary = false;
+		return;
+	}
+
+	if (StrEqual(szName, "basecomm", false))
+		g_bBSCommHasBaseComm = false;
 }

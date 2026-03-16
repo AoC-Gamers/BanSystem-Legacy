@@ -2,18 +2,24 @@
 			A P I
 *****************************************************************/
 
+bool g_bBSSpraysApiRegistered;
+
 stock void BSSprays_RegisterApiLibrary()
 {
+	if (g_bBSSpraysApiRegistered)
+		return;
+
+	CreateNative("BSSprays_AddBanByAccountId", Native_BSSpraysAddBanByAccountId);
+	CreateNative("BSSprays_RemoveBanByAccountId", Native_BSSpraysRemoveBanByAccountId);
+	CreateNative("BSSprays_HasResolvedDetail", Native_BSSpraysHasResolvedDetail);
+	CreateNative("BSSprays_IsClientBanned", Native_BSSpraysIsClientBanned);
 	RegPluginLibrary(BANSYSTEM_SPRAYS_LIBRARY);
+	g_bBSSpraysApiRegistered = true;
 	BSSprays_API("Registered bansystem_sprays API library.");
 }
 
 stock void BSSprays_OnPluginStart_Api()
 {
-	CreateNative("BSSprays_AddBanByAccountId", Native_BSSpraysAddBanByAccountId);
-	CreateNative("BSSprays_RemoveBanByAccountId", Native_BSSpraysRemoveBanByAccountId);
-	CreateNative("BSSprays_HasResolvedDetail", Native_BSSpraysHasResolvedDetail);
-	CreateNative("BSSprays_IsClientBanned", Native_BSSpraysIsClientBanned);
 }
 
 public int Native_BSSpraysAddBanByAccountId(Handle hPlugin, int iNumParams)
@@ -22,7 +28,7 @@ public int Native_BSSpraysAddBanByAccountId(Handle hPlugin, int iNumParams)
 	int iAccountId = GetNativeCell(2);
 	int iLength = GetNativeCell(3);
 
-	if (!BSSprays_CanUseDatabase() || iAccountId <= 0)
+	if (!BSSprays_CanUseDatabase() || iAccountId <= 0 || iLength < 0)
 		return false;
 
 	char szReason[BANSYSTEM_SPRAYS_MAX_REASON_LENGTH];

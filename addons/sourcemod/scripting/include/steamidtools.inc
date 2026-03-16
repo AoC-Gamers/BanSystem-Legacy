@@ -1,19 +1,7 @@
 /*
 	steamidtools.inc
-	Copyright (C) 2025 lechuga
-
-	This program is free software: you can redistribute it and/or modify
-	it under the terms of the GNU General Public License as published by
-	the Free Software Foundation, either version 3 of the License, or
-	(at your option) any later version.
-
-	This program is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-	GNU General Public License for more details.
-
-	You should have received a copy of the GNU General Public License
-	along with this program.  If not, see <http://www.gnu.org/licenses/>.
+	Copyright (C) 2025 AoC-Gamers
+	Version: 2.3.0
 */
 
 #if defined _steamidtools_included
@@ -24,6 +12,7 @@
 #include <sourcemod>
 #include <clients>
 
+#define STEAMIDTOOLS_INCLUDE_VERSION    "2.3.0"
 #define STEAMIDTOOLS_LIBRARY            "steamidtools"
 
 #define ACCOUNTID_LENGTH	   16
@@ -64,6 +53,10 @@ public SharedPlugin __pl_steamidtools =
 public void __pl_steamidtools_SetNTVOptional()
 {
 	MarkNativeAsOptional("SteamIDTools_IsProviderAvailable");
+	MarkNativeAsOptional("SteamIDTools_GetBackendStatus");
+	MarkNativeAsOptional("SteamIDTools_IsProviderReady");
+	MarkNativeAsOptional("SteamIDTools_RequestHealthCheck");
+	MarkNativeAsOptional("SteamIDTools_GetBackendStatusMessage");
 	MarkNativeAsOptional("SteamIDTools_GetApiBaseUrl");
 	MarkNativeAsOptional("SteamIDTools_RequestConversion");
 	MarkNativeAsOptional("SteamIDTools_RequestBatch");
@@ -75,6 +68,13 @@ enum SteamIDToolsProvider
 	SteamIDToolsProvider_Unknown = 0,
 	SteamIDToolsProvider_SteamWorks,
 	SteamIDToolsProvider_System2
+}
+
+enum SteamIDToolsBackendStatus
+{
+	SteamIDToolsBackendStatus_Unknown = 0,
+	SteamIDToolsBackendStatus_Online,
+	SteamIDToolsBackendStatus_Offline
 }
 
 /**
@@ -477,6 +477,43 @@ stock bool SteamIDTools_IsLibraryAvailable()
 native bool SteamIDTools_IsProviderAvailable(SteamIDToolsProvider provider);
 
 /**
+ * Returns the cached backend status for the selected provider.
+ *
+ * `Unknown` means no successful or failed health probe has been cached yet,
+ * or the provider is currently unavailable.
+ *
+ * @param provider      Provider enum value
+ * @return              Cached backend status enum
+ */
+native SteamIDToolsBackendStatus SteamIDTools_GetBackendStatus(SteamIDToolsProvider provider);
+
+/**
+ * Returns true when the provider extension is loaded and the backend is healthy.
+ *
+ * @param provider      Provider enum value
+ * @return              true when the provider is ready for online requests
+ */
+native bool SteamIDTools_IsProviderReady(SteamIDToolsProvider provider);
+
+/**
+ * Triggers an async backend health check for one provider.
+ *
+ * @param provider      Provider enum value
+ * @return              true when the health probe was queued
+ */
+native bool SteamIDTools_RequestHealthCheck(SteamIDToolsProvider provider);
+
+/**
+ * Returns the last cached backend health message for one provider.
+ *
+ * @param provider      Provider enum value
+ * @param szBuffer      Output buffer
+ * @param iMaxLen       Output buffer length
+ * @return              true on success, false when the provider is invalid
+ */
+native bool SteamIDTools_GetBackendStatusMessage(SteamIDToolsProvider provider, char[] szBuffer, int iMaxLen);
+
+/**
  * Gets the configured SteamIDTools backend base URL from the API plugin.
  *
  * @param szBuffer      Output buffer
@@ -520,3 +557,12 @@ native int SteamIDTools_RequestBatch(SteamIDToolsProvider provider, const char[]
  * @param szTag         Opaque caller tag passed to the request native
  */
 forward void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider provider, bool bSuccess, bool bBatch, const char[] szEndpoint, const char[] szInput, const char[] szResult, const char[] szTag);
+
+/**
+ * Fired whenever the cached backend status changes for one provider.
+ *
+ * @param provider      Provider that changed
+ * @param status        New cached backend status
+ * @param szMessage     Latest status text or error message
+ */
+forward void SteamIDTools_OnBackendStatusChanged(SteamIDToolsProvider provider, SteamIDToolsBackendStatus status, const char[] szMessage);

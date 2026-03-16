@@ -8,7 +8,7 @@ stock void BSComm_OnPluginStart_Detail()
 
 stock void BSComm_ClearClientCommState(int iClient)
 {
-	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || !g_bBSCommHasBaseComm)
 		return;
 
 	BaseComm_SetClientMute(iClient, false);
@@ -17,7 +17,7 @@ stock void BSComm_ClearClientCommState(int iClient)
 
 stock void BSComm_ApplyCommStateToClientByType(int iClient, eBSCommType eCommType, bool bEnabled)
 {
-	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || !g_bBSCommHasBaseComm)
 		return;
 
 	switch (eCommType)
@@ -47,6 +47,17 @@ stock void BSComm_ApplyResolvedCommState(int iClient)
 
 	BSComm_ClearClientCommState(iClient);
 	BSComm_ApplyCommStateToClientByType(iClient, view_as<eBSCommType>(g_eBSCommResolvedDetail[iClient].m_iCommType), true);
+}
+
+stock void BSComm_ReapplyResolvedCommStateToAllClients()
+{
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+	{
+		if (!IsClientInGame(iClient) || IsFakeClient(iClient) || !g_eBSCommResolvedDetail[iClient].m_bLoaded)
+			continue;
+
+		BSComm_ApplyResolvedCommState(iClient);
+	}
 }
 
 stock void BSComm_PrintResolvedDetailToClient(int iClient)
@@ -108,39 +119,39 @@ stock void BSComm_QueueResolvedDetailRefreshForClient(int iClient, int iAccountI
 	SQL_TQuery(g_dbBSComm, BSComm_OnResolvedDetailRefreshLoaded, szQuery, pContext, DBPrio_High);
 }
 
-public void BSCore_OnCommDetailRequested(int iClient, int iAccountId, int iBanId, int iCommType)
+public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, eBSCoreCommType commType)
 {
 	BSComm_Debug(
 		"Received core communication detail request: client=%d accountid=%d ban_id=%d comm_type=%d",
-		iClient,
-		iAccountId,
-		iBanId,
-		iCommType
+		client,
+		accountid,
+		banId,
+		commType
 	);
 
 	if (!BSComm_CanUseCoreLibrary())
 		return;
 
-	BSComm_ResetResolvedDetail(iClient);
+	BSComm_ResetResolvedDetail(client);
 
-	if (!BSComm_CanUseDatabase() || iBanId <= 0)
+	if (!BSComm_CanUseDatabase() || banId <= 0)
 	{
-		BSComm_SQL("Communication detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", iClient);
-		BSCore_MarkModuleDetailResolved(iClient, 2);
+		BSComm_SQL("Communication detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", client);
+		BSCore_MarkModuleDetailResolved(client, kBSCoreModule_Communication);
 		return;
 	}
 
 	char szQuery[512];
 	int iLen = 0;
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `id`, `accountid`, `steamid64`, `player_name`, `ban_type`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
-	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_comm_bans` WHERE `id` = %d ", iBanId);
+	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_comm_bans` WHERE `id` = %d ", banId);
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iClient));
-	pContext.WriteCell(iAccountId);
-	pContext.WriteCell(iBanId);
-	pContext.WriteCell(iCommType);
+	pContext.WriteCell(GetClientUserId(client));
+	pContext.WriteCell(accountid);
+	pContext.WriteCell(banId);
+	pContext.WriteCell(commType);
 
 	BSComm_SQL("Communication detail query: %s", szQuery);
 	SQL_TQuery(g_dbBSComm, BSComm_OnCommDetailLoaded, szQuery, pContext, DBPrio_High);
@@ -168,18 +179,39 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 		BSComm_SQL("Communication detail query failed for client %d ban_id %d: %s", iClient, iBanId, szError);
 		delete rsResult;
 		BSComm_ClearClientCommState(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, 2);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
 		return;
 	}
 
 	if (!rsResult.FetchRow())
 	{
 		if (BSComm_CanUseCoreLibrary())
-			BSCore_ClearSummaryModule(iExpectedAccountId, BANSYSTEM_COMM_MODULE_BIT);
+			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
 		BSComm_SQL("Communication detail query returned no row for client %d ban_id %d.", iClient, iBanId);
 		delete rsResult;
 		BSComm_ClearClientCommState(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, 2);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
+		return;
+	}
+
+	int iResolvedBanId = rsResult.FetchInt(0);
+	int iResolvedAccountId = rsResult.FetchInt(1);
+	eBSCommType eResolvedCommType = view_as<eBSCommType>(rsResult.FetchInt(4));
+	if (iResolvedAccountId != iExpectedAccountId || !BSComm_IsSupportedCommType(eResolvedCommType) || view_as<int>(eResolvedCommType) != iExpectedCommType)
+	{
+		BSComm_SQL(
+			"Communication detail query returned mismatched state for client %d: expected_accountid=%d actual_accountid=%d expected_type=%d actual_type=%d ban_id=%d",
+			iClient,
+			iExpectedAccountId,
+			iResolvedAccountId,
+			iExpectedCommType,
+			view_as<int>(eResolvedCommType),
+			iResolvedBanId
+		);
+		delete rsResult;
+		BSComm_ClearClientCommState(iClient);
+		BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
 		return;
 	}
 
@@ -199,7 +231,7 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 
 	BSComm_ApplyResolvedCommState(iClient);
 	BSComm_PrintResolvedDetailToClient(iClient);
-	BSCore_MarkModuleDetailResolved(iClient, 2);
+	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
 }
 
 public void BSComm_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)
@@ -231,7 +263,7 @@ public void BSComm_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsResu
 		BSComm_ClearClientCommState(iClient);
 		delete rsResult;
 		if (BSComm_CanUseCoreLibrary())
-			BSCore_ClearSummaryModule(iExpectedAccountId, BANSYSTEM_COMM_MODULE_BIT);
+			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
 		return;
 	}
 

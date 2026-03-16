@@ -2,19 +2,25 @@
 			A P I
 *****************************************************************/
 
+bool g_bBSAccessApiRegistered;
+
 stock void BSAccess_RegisterApiLibrary()
 {
-	RegPluginLibrary(BANSYSTEM_ACCESS_LIBRARY);
-	BSAccess_API("Registered bansystem_access API library.");
-}
+	if (g_bBSAccessApiRegistered)
+		return;
 
-stock void BSAccess_OnPluginStart_Api()
-{
 	CreateNative("BSAccess_AddBanByAccountId", Native_BSAccessAddBanByAccountId);
 	CreateNative("BSAccess_RemoveBanByAccountId", Native_BSAccessRemoveBanByAccountId);
 	CreateNative("BSAccess_HasResolvedDetail", Native_BSAccessHasResolvedDetail);
 	CreateNative("BSAccess_IsClientBanned", Native_BSAccessIsClientBanned);
 	CreateNative("BSAccess_GetResolvedAccountId", Native_BSAccessGetResolvedAccountId);
+	RegPluginLibrary(BANSYSTEM_ACCESS_LIBRARY);
+	g_bBSAccessApiRegistered = true;
+	BSAccess_API("Registered bansystem_access API library.");
+}
+
+stock void BSAccess_OnPluginStart_Api()
+{
 }
 
 public int Native_BSAccessAddBanByAccountId(Handle hPlugin, int iNumParams)

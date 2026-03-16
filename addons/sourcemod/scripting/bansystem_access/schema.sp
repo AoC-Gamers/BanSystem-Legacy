@@ -4,6 +4,9 @@
 
 #define BANSYSTEM_ACCESS_LIBRARY "bansystem_access"
 #define BANSYSTEM_ACCESS_MODULE_NAME "access"
+#define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
+#define BANSYSTEM_ACCESS_SCHEMA_COMPONENT "access"
+#define BANSYSTEM_ACCESS_SCHEMA_VERSION 1
 
 enum eBSAccessDebugMask
 {

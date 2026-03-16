@@ -4,7 +4,13 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+
+#undef REQUIRE_PLUGIN
 #include <steamidtools>
+#include <steamidtools_helpers>
+#define REQUIRE_PLUGIN
+
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <bansystem_core>
@@ -58,7 +64,6 @@ eBSAccessResolvedDetail g_eBSAccessResolvedDetail[MAXPLAYERS + 1];
 #include "bansystem_access/api.sp"
 #include "bansystem_access/db.sp"
 #include "bansystem_access/commands.sp"
-#include "bansystem_access/panels.sp"
 #include "bansystem_access/mutations.sp"
 #include "bansystem_access/detail.sp"
 
@@ -80,17 +85,19 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart()
 {
 	BuildPath(Path_SM, g_szBSAccessLogPath, sizeof(g_szBSAccessLogPath), BANSYSTEM_ACCESS_DEBUG_LOG);
-	LoadTranslations("bansystem_modular.phrases");
+	LoadTranslations("bansystem_access.phrases");
 	g_smBSAccessIdentityRequestContext = new StringMap();
-	g_cvBSAccessDebugMask = CreateConVar("sm_bs_access_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api.", FCVAR_NONE, true, 0.0);
+	g_cvBSAccessDebugMask = CreateConVar("sm_bs_access_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSAccessMysqlConfig = CreateConVar("sm_bs_access_mysql_config", "bansystem", "MySQL config used by BanSystem Access.", FCVAR_NONE);
 	g_cvBSAccessSteamIdProvider = CreateConVar("sm_bs_access_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
 	g_bBSAccessHasCoreLibrary = LibraryExists("bansystem_core");
 
+	BSEnsureAutoExecFolder();
+	AutoExecConfig(true, "bansystem_access", BANSYSTEM_AUTOEXEC_FOLDER);
+
 	BSAccess_OnPluginStart_Api();
 	BSAccess_OnPluginStart_DB();
 	BSAccess_OnPluginStart_Commands();
-	BSAccess_OnPluginStart_Panels();
 	BSAccess_OnPluginStart_Mutations();
 	BSAccess_OnPluginStart_Detail();
 	BSAccess_TryRegisterCoreModule();
@@ -106,12 +113,6 @@ public void OnConfigsExecuted()
 public void OnClientDisconnect(int iClient)
 {
 	BSAccess_ResetResolvedDetail(iClient);
-	BSAccess_ResetPanelState(iClient);
-}
-
-public Action OnClientSayCommand(int iClient, const char[] szCommand, const char[] szArgs)
-{
-	return BSAccess_HandlePanelSayCommand(iClient, szCommand, szArgs);
 }
 
 public void OnLibraryAdded(const char[] szName)

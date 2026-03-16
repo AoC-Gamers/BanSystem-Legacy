@@ -2,19 +2,25 @@
 			A P I
 *****************************************************************/
 
+bool g_bBSCommApiRegistered;
+
 stock void BSComm_RegisterApiLibrary()
 {
-	RegPluginLibrary(BANSYSTEM_COMM_LIBRARY);
-	BSComm_API("Registered bansystem_comm API library.");
-}
+	if (g_bBSCommApiRegistered)
+		return;
 
-stock void BSComm_OnPluginStart_Api()
-{
 	CreateNative("BSComm_AddBanByAccountId", Native_BSCommAddBanByAccountId);
 	CreateNative("BSComm_RemoveBanByAccountId", Native_BSCommRemoveBanByAccountId);
 	CreateNative("BSComm_HasResolvedDetail", Native_BSCommHasResolvedDetail);
 	CreateNative("BSComm_IsClientBanned", Native_BSCommIsClientBanned);
 	CreateNative("BSComm_GetResolvedCommType", Native_BSCommGetResolvedCommType);
+	RegPluginLibrary(BANSYSTEM_COMM_LIBRARY);
+	g_bBSCommApiRegistered = true;
+	BSComm_API("Registered bansystem_comm API library.");
+}
+
+stock void BSComm_OnPluginStart_Api()
+{
 }
 
 public int Native_BSCommAddBanByAccountId(Handle hPlugin, int iNumParams)
@@ -24,7 +30,7 @@ public int Native_BSCommAddBanByAccountId(Handle hPlugin, int iNumParams)
 	eBSCommType eCommType = view_as<eBSCommType>(GetNativeCell(3));
 	int iLength = GetNativeCell(4);
 
-	if (!BSComm_CanUseDatabase() || iAccountId <= 0 || eCommType == kBSCommType_None)
+	if (!BSComm_CanUseDatabase() || iAccountId <= 0 || iLength < 0 || !BSComm_IsSupportedCommType(eCommType))
 		return false;
 
 	char szReason[BANSYSTEM_COMM_MAX_REASON_LENGTH];

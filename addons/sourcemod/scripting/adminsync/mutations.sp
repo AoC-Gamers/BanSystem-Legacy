@@ -5,77 +5,106 @@ bool bTryResolveAccountIdTarget(int iClient, const char[] szInput, int &iAccount
 	TrimString(szTarget);
 	StripQuotes(szTarget);
 
+	SteamIDFormat eFormat = DetectSteamIDFormat(szTarget);
+	vAdminSyncDebug("Resolve target begin. input=%s normalized=%s format=%d", szInput, szTarget, view_as<int>(eFormat));
+
+	switch (eFormat)
+	{
+		case STEAMID_FORMAT_ACCOUNTID:
+		{
+			iAccountId = StringToInt(szTarget);
+			vAdminSyncDebug("Resolve target interpreted as accountid. value=%d", iAccountId);
+		}
+		case STEAMID_FORMAT_STEAMID2:
+		{
+			iAccountId = SteamID2ToAccountID(szTarget);
+			vAdminSyncDebug("Resolve target interpreted as steam2. accountid=%d", iAccountId);
+		}
+		case STEAMID_FORMAT_STEAMID3:
+		{
+			iAccountId = SteamID3ToAccountID(szTarget);
+			vAdminSyncDebug("Resolve target interpreted as steam3. accountid=%d", iAccountId);
+		}
+		case STEAMID_FORMAT_STEAMID64:
+		{
+			vAdminSyncDebug("Resolve target detected offline steam64. delegating to async path.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64ConnectedOnly");
+			return false;
+		}
+		default:
+		{
+			vAdminSyncDebug("Resolve target format unknown. falling back to FindTarget.");
+		}
+	}
+
+	if (iAccountId > 0)
+	{
+		int iResolvedClient = FindClientByAccountID(iAccountId);
+		vAdminSyncDebug("Resolve target got offline accountid=%d resolved_client=%d", iAccountId, iResolvedClient);
+		if (iResolvedClient > 0)
+		{
+			GetClientName(iResolvedClient, szName, iNameMax);
+			if (!GetClientAuthId(iResolvedClient, AuthId_SteamID64, szSteamId64, iSteamId64Max, true))
+				szSteamId64[0] = '\0';
+		}
+		else
+		{
+			strcopy(szName, iNameMax, szTarget);
+			szSteamId64[0] = '\0';
+		}
+		vAdminSyncDebug("Resolve target success. accountid=%d name=%s steamid64=%s", iAccountId, szName, szSteamId64);
+		return true;
+	}
+
+	vAdminSyncDebug("Resolve target using FindTarget fallback. query=%s", szTarget);
 	int iTarget = FindTarget(iClient, szTarget, true, false);
 	if (iTarget > 0)
 	{
+		vAdminSyncDebug("Resolve target FindTarget matched client=%d", iTarget);
 		iAccountId = GetClientAccountID(iTarget);
 		if (iAccountId <= 0)
 		{
-			ReplyToCommand(iClient, "[BS AdminSync] Unable to resolve accountid for target.");
+			vAdminSyncDebug("Resolve target FindTarget matched but accountid invalid.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncResolveAccountIdFailed");
 			return false;
 		}
 
 		GetClientName(iTarget, szName, iNameMax);
 		if (!GetClientAuthId(iTarget, AuthId_SteamID64, szSteamId64, iSteamId64Max))
 			szSteamId64[0] = '\0';
+		vAdminSyncDebug("Resolve target FindTarget success. accountid=%d name=%s steamid64=%s", iAccountId, szName, szSteamId64);
 		return true;
 	}
 
-	switch (DetectSteamIDFormat(szTarget))
-	{
-		case STEAMID_FORMAT_ACCOUNTID:
-		{
-			iAccountId = StringToInt(szTarget);
-		}
-		case STEAMID_FORMAT_STEAMID2:
-		{
-			iAccountId = SteamID2ToAccountID(szTarget);
-		}
-		case STEAMID_FORMAT_STEAMID3:
-		{
-			iAccountId = SteamID3ToAccountID(szTarget);
-		}
-		case STEAMID_FORMAT_STEAMID64:
-		{
-			ReplyToCommand(iClient, "[BS AdminSync] SteamID64 add requires a connected target for now.");
-			return false;
-		}
-		default:
-		{
-			ReplyToCommand(iClient, "[BS AdminSync] Invalid target identity.");
-			return false;
-		}
-	}
-
-	if (iAccountId <= 0)
-	{
-		ReplyToCommand(iClient, "[BS AdminSync] Invalid target identity.");
-		return false;
-	}
-
-	strcopy(szName, iNameMax, szTarget);
-	szSteamId64[0] = '\0';
-	return true;
+	vAdminSyncDebug("Resolve target failed. input=%s normalized=%s format=%d", szInput, szTarget, view_as<int>(eFormat));
+	CReplyToCommand(iClient, "%t", "BSAdminSyncInvalidTargetIdentity");
+	return false;
 }
 
 bool bQueueAdminIdentityLookup(int iClient, const char[] szSteamId64, AdminSyncIdentityAction eAction, const char[] szExtra, int iValue, const char[] szExtra2 = "")
 {
-	SteamIDToolsProvider eProvider = eGetSteamIdLookupProvider();
-	if (eProvider == SteamIDToolsProvider_Unknown)
-	{
-		ReplyToCommand(iClient, "[BS AdminSync] SteamID64 resolution is unavailable.");
+	SteamIDToolsProvider eProvider;
+	if (!bTryGetSteamIdLookupProvider(iClient, eProvider))
 		return false;
-	}
 
 	int iRequestId = SteamIDTools_RequestConversion(eProvider, API_SID64toAID, szSteamId64);
 	if (iRequestId <= 0)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Failed to queue SteamID64 resolution.");
+		char szProvider[16];
+		char szStatus[128];
+		vGetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
+		if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
+		{
+			CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64QueueFailed");
+			return false;
+		}
+
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64QueueFailedStatus", szProvider, szStatus);
 		return false;
 	}
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(view_as<int>(eAction));
 	pack.WriteCell(iValue);
 	pack.WriteString(szExtra);
@@ -84,23 +113,84 @@ bool bQueueAdminIdentityLookup(int iClient, const char[] szSteamId64, AdminSyncI
 	char szRequestId[16];
 	IntToString(iRequestId, szRequestId, sizeof(szRequestId));
 	g_smIdentityRequestContext.SetValue(szRequestId, pack);
-	ReplyToCommand(iClient, "[BS AdminSync] Resolving SteamID64...");
+	CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64Resolving");
+	return true;
+}
+
+bool bQueueAdminAddSteamId64Enrichment(int iClient, const char[] szIdentity, SteamIDFormat eFormat, int iAccountId, const char[] szName, const char[] szFlags, int iImmunity)
+{
+	SteamIDToolsProvider eProvider;
+	if (!bTryGetSteamIdLookupProviderSilent(eProvider))
+	{
+		return false;
+	}
+
+	char szEndpoint[STEAMIDTOOLS_MAX_ENDPOINT_LENGTH];
+	szEndpoint[0] = '\0';
+	switch (eFormat)
+	{
+		case STEAMID_FORMAT_STEAMID2:
+		{
+			szEndpoint = API_SID2toSID64;
+		}
+		case STEAMID_FORMAT_STEAMID3:
+		{
+			szEndpoint = API_SID3toSID64;
+		}
+		default:
+		{
+			return false;
+		}
+	}
+
+	int iRequestId = SteamIDTools_RequestConversion(eProvider, szEndpoint, szIdentity);
+	if (iRequestId <= 0)
+	{
+		return false;
+	}
+
+	DataPack pack = new DataPack();
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
+	pack.WriteCell(view_as<int>(IdentityAction_AdminAddResolveSteam64));
+	pack.WriteCell(iAccountId);
+	pack.WriteCell(iImmunity);
+	pack.WriteString(szName);
+	pack.WriteString(szFlags);
+
+	char szRequestId[16];
+	IntToString(iRequestId, szRequestId, sizeof(szRequestId));
+	g_smIdentityRequestContext.SetValue(szRequestId, pack);
+	vAdminSyncAPI("Queued offline SteamID64 enrichment. request=%d endpoint=%s input=%s accountid=%d", iRequestId, szEndpoint, szIdentity, iAccountId);
+	if (iClient > 0)
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64Resolving");
+	}
+
 	return true;
 }
 
 void vStartAdminMutationAdd(int iClient, int iAccountId, const char[] szName, const char[] szSteamId64, const char[] szFlags, int iImmunity)
 {
+	if (iAccountId <= 0 || iImmunity < 0 || !bAdminSyncHasText(szName) || !bAdminSyncHasText(szFlags))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedName[128];
+	char szNormalizedSteamId64[32];
+	char szNormalizedFlags[64];
+	vNormalizeAdminSyncText(szName, szNormalizedName, sizeof(szNormalizedName));
+	vNormalizeAdminSyncText(szSteamId64, szNormalizedSteamId64, sizeof(szNormalizedSteamId64));
+	vNormalizeAdminSyncText(szFlags, szNormalizedFlags, sizeof(szNormalizedFlags));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue admin add. accountid=%d name=%s flags=%s immunity=%d steamid64=%s", iAccountId, szName, szFlags, iImmunity, szSteamId64);
+	vAdminSyncSQL("Queue admin add. accountid=%d name=%s flags=%s immunity=%d steamid64=%s", iAccountId, szNormalizedName, szNormalizedFlags, iImmunity, szNormalizedSteamId64);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
 	pack.WriteCell(iImmunity);
-	pack.WriteString(szName);
-	pack.WriteString(szSteamId64);
-	pack.WriteString(szFlags);
+	pack.WriteString(szNormalizedName);
+	pack.WriteString(szNormalizedSteamId64);
+	pack.WriteString(szNormalizedFlags);
 
 	SQL_TConnect(vAdminMutationAddConnectCallback, szMysqlConfig, pack);
 }
@@ -126,7 +216,7 @@ public void vAdminMutationAddConnectCallback(Handle hOwner, Handle hndl, const c
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin add connection failed: %s", szError);
 		return;
 	}
@@ -151,12 +241,15 @@ public void vAdminMutationAddConnectCallback(Handle hOwner, Handle hndl, const c
 
 void vStartAdminMutationDelete(int iClient, int iAccountId)
 {
+	if (iAccountId <= 0)
+		return;
+
 	char szMysqlConfig[64];
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
 	vAdminSyncSQL("Queue admin delete. accountid=%d", iAccountId);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
 	SQL_TConnect(vAdminMutationDeleteConnectCallback, szMysqlConfig, pack);
 }
@@ -174,7 +267,7 @@ public void vAdminMutationDeleteConnectCallback(Handle hOwner, Handle hndl, cons
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin delete connection failed: %s", szError);
 		return;
 	}
@@ -202,7 +295,7 @@ public void vAdminDeleteMembershipsCallback(Database db, DBResultSet rsResult, c
 	if (szError[0] != '\0')
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] Failed to delete admin memberships.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMutationDeleteAdminMembershipsFailed");
 		LogError("[bansystem_adminsync] Admin delete memberships failed: %s", szError);
 		delete db;
 		return;
@@ -219,14 +312,19 @@ public void vAdminDeleteMembershipsCallback(Database db, DBResultSet rsResult, c
 
 void vStartAdminMutationSetFlags(int iClient, int iAccountId, const char[] szFlags)
 {
+	if (iAccountId <= 0 || !bAdminSyncHasText(szFlags))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedFlags[64];
+	vNormalizeAdminSyncText(szFlags, szNormalizedFlags, sizeof(szNormalizedFlags));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue admin flags update. accountid=%d flags=%s", iAccountId, szFlags);
+	vAdminSyncSQL("Queue admin flags update. accountid=%d flags=%s", iAccountId, szNormalizedFlags);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
-	pack.WriteString(szFlags);
+	pack.WriteString(szNormalizedFlags);
 	SQL_TConnect(vAdminMutationSetFlagsConnectCallback, szMysqlConfig, pack);
 }
 
@@ -245,7 +343,7 @@ public void vAdminMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, co
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin set flags connection failed: %s", szError);
 		return;
 	}
@@ -264,12 +362,15 @@ public void vAdminMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, co
 
 void vStartAdminMutationSetImmunity(int iClient, int iAccountId, int iImmunity)
 {
+	if (iAccountId <= 0 || iImmunity < 0)
+		return;
+
 	char szMysqlConfig[64];
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
 	vAdminSyncSQL("Queue admin immunity update. accountid=%d immunity=%d", iAccountId, iImmunity);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
 	pack.WriteCell(iImmunity);
 	SQL_TConnect(vAdminMutationSetImmunityConnectCallback, szMysqlConfig, pack);
@@ -289,7 +390,7 @@ public void vAdminMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl,
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin set immunity connection failed: %s", szError);
 		return;
 	}
@@ -305,15 +406,22 @@ public void vAdminMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl,
 
 void vStartGroupMutationAdd(int iClient, const char[] szName, const char[] szFlags, int iImmunity)
 {
+	if (iImmunity < 0 || !bAdminSyncHasText(szName) || !bAdminSyncHasText(szFlags))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedName[128];
+	char szNormalizedFlags[64];
+	vNormalizeAdminSyncText(szName, szNormalizedName, sizeof(szNormalizedName));
+	vNormalizeAdminSyncText(szFlags, szNormalizedFlags, sizeof(szNormalizedFlags));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue group add. name=%s flags=%s immunity=%d", szName, szFlags, iImmunity);
+	vAdminSyncSQL("Queue group add. name=%s flags=%s immunity=%d", szNormalizedName, szNormalizedFlags, iImmunity);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iImmunity);
-	pack.WriteString(szName);
-	pack.WriteString(szFlags);
+	pack.WriteString(szNormalizedName);
+	pack.WriteString(szNormalizedFlags);
 	SQL_TConnect(vGroupMutationAddConnectCallback, szMysqlConfig, pack);
 }
 
@@ -334,7 +442,7 @@ public void vGroupMutationAddConnectCallback(Handle hOwner, Handle hndl, const c
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Group add connection failed: %s", szError);
 		return;
 	}
@@ -356,13 +464,18 @@ public void vGroupMutationAddConnectCallback(Handle hOwner, Handle hndl, const c
 
 void vStartGroupMutationDelete(int iClient, const char[] szName)
 {
+	if (!bAdminSyncHasText(szName))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedName[128];
+	vNormalizeAdminSyncText(szName, szNormalizedName, sizeof(szNormalizedName));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue group delete. name=%s", szName);
+	vAdminSyncSQL("Queue group delete. name=%s", szNormalizedName);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
-	pack.WriteString(szName);
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
+	pack.WriteString(szNormalizedName);
 	SQL_TConnect(vGroupMutationDeleteConnectCallback, szMysqlConfig, pack);
 }
 
@@ -380,7 +493,7 @@ public void vGroupMutationDeleteConnectCallback(Handle hOwner, Handle hndl, cons
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Group delete connection failed: %s", szError);
 		return;
 	}
@@ -412,7 +525,7 @@ public void vGroupDeleteMembershipsCallback(Database db, DBResultSet rsResult, c
 	if (szError[0] != '\0')
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] Failed to delete group memberships.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMutationDeleteGroupMembershipsFailed");
 		LogError("[bansystem_adminsync] Group delete memberships failed: %s", szError);
 		delete db;
 		return;
@@ -432,14 +545,21 @@ public void vGroupDeleteMembershipsCallback(Database db, DBResultSet rsResult, c
 
 void vStartGroupMutationSetFlags(int iClient, const char[] szName, const char[] szFlags)
 {
+	if (!bAdminSyncHasText(szName) || !bAdminSyncHasText(szFlags))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedName[128];
+	char szNormalizedFlags[64];
+	vNormalizeAdminSyncText(szName, szNormalizedName, sizeof(szNormalizedName));
+	vNormalizeAdminSyncText(szFlags, szNormalizedFlags, sizeof(szNormalizedFlags));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue group flags update. name=%s flags=%s", szName, szFlags);
+	vAdminSyncSQL("Queue group flags update. name=%s flags=%s", szNormalizedName, szNormalizedFlags);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
-	pack.WriteString(szName);
-	pack.WriteString(szFlags);
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
+	pack.WriteString(szNormalizedName);
+	pack.WriteString(szNormalizedFlags);
 	SQL_TConnect(vGroupMutationSetFlagsConnectCallback, szMysqlConfig, pack);
 }
 
@@ -459,7 +579,7 @@ public void vGroupMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, co
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Group set flags connection failed: %s", szError);
 		return;
 	}
@@ -480,14 +600,19 @@ public void vGroupMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, co
 
 void vStartGroupMutationSetImmunity(int iClient, const char[] szName, int iImmunity)
 {
+	if (iImmunity < 0 || !bAdminSyncHasText(szName))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedName[128];
+	vNormalizeAdminSyncText(szName, szNormalizedName, sizeof(szNormalizedName));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue group immunity update. name=%s immunity=%d", szName, iImmunity);
+	vAdminSyncSQL("Queue group immunity update. name=%s immunity=%d", szNormalizedName, iImmunity);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iImmunity);
-	pack.WriteString(szName);
+	pack.WriteString(szNormalizedName);
 	SQL_TConnect(vGroupMutationSetImmunityConnectCallback, szMysqlConfig, pack);
 }
 
@@ -506,7 +631,7 @@ public void vGroupMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl,
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Group set immunity connection failed: %s", szError);
 		return;
 	}
@@ -525,14 +650,19 @@ public void vGroupMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl,
 
 void vStartAdminMutationAddGroup(int iClient, int iAccountId, const char[] szGroupName)
 {
+	if (iAccountId <= 0 || !bAdminSyncHasText(szGroupName))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedGroupName[128];
+	vNormalizeAdminSyncText(szGroupName, szNormalizedGroupName, sizeof(szNormalizedGroupName));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue admin add group. accountid=%d group=%s", iAccountId, szGroupName);
+	vAdminSyncSQL("Queue admin add group. accountid=%d group=%s", iAccountId, szNormalizedGroupName);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
-	pack.WriteString(szGroupName);
+	pack.WriteString(szNormalizedGroupName);
 	SQL_TConnect(vAdminMutationAddGroupConnectCallback, szMysqlConfig, pack);
 }
 
@@ -551,7 +681,7 @@ public void vAdminMutationAddGroupConnectCallback(Handle hOwner, Handle hndl, co
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin add group connection failed: %s", szError);
 		return;
 	}
@@ -572,14 +702,19 @@ public void vAdminMutationAddGroupConnectCallback(Handle hOwner, Handle hndl, co
 
 void vStartAdminMutationRemoveGroup(int iClient, int iAccountId, const char[] szGroupName)
 {
+	if (iAccountId <= 0 || !bAdminSyncHasText(szGroupName))
+		return;
+
 	char szMysqlConfig[64];
+	char szNormalizedGroupName[128];
+	vNormalizeAdminSyncText(szGroupName, szNormalizedGroupName, sizeof(szNormalizedGroupName));
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
-	vAdminSyncSQL("Queue admin remove group. accountid=%d group=%s", iAccountId, szGroupName);
+	vAdminSyncSQL("Queue admin remove group. accountid=%d group=%s", iAccountId, szNormalizedGroupName);
 
 	DataPack pack = new DataPack();
-	pack.WriteCell(GetClientUserId(iClient));
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
 	pack.WriteCell(iAccountId);
-	pack.WriteString(szGroupName);
+	pack.WriteString(szNormalizedGroupName);
 	SQL_TConnect(vAdminMutationRemoveGroupConnectCallback, szMysqlConfig, pack);
 }
 
@@ -598,7 +733,7 @@ public void vAdminMutationRemoveGroupConnectCallback(Handle hOwner, Handle hndl,
 	if (db == null)
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
 		LogError("[bansystem_adminsync] Admin remove group connection failed: %s", szError);
 		return;
 	}
@@ -632,14 +767,14 @@ public void vMutationSimpleCallback(Database db, DBResultSet rsResult, const cha
 	if (szError[0] != '\0')
 	{
 		if (iClient > 0)
-			ReplyToCommand(iClient, "[BS AdminSync] Mutation failed: %s", szError);
+			CReplyToCommand(iClient, "%t", "BSAdminSyncMutationFailed", szError);
 		LogError("[bansystem_adminsync] Mutation '%s' failed: %s", szAction, szError);
 		return;
 	}
 
 	vAdminSyncDebug("Mutation applied successfully: %s", szAction);
 	if (iClient > 0)
-		ReplyToCommand(iClient, "[BS AdminSync] Mutation applied: %s. Refreshing snapshot...", szAction);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncMutationApplied", szAction);
 
 	if (!g_bSyncInProgress)
 		vStartAdminSync();
@@ -647,7 +782,7 @@ public void vMutationSimpleCallback(Database db, DBResultSet rsResult, const cha
 
 public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider provider, bool bSuccess, bool bBatch, const char[] szEndpoint, const char[] szInput, const char[] szResult, const char[] szTag)
 {
-	if (bBatch || !StrEqual(szEndpoint, API_SID64toAID, false))
+	if (bBatch)
 		return;
 
 	char szRequestId[16];
@@ -662,6 +797,43 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 
 	int iUserId = pack.ReadCell();
 	AdminSyncIdentityAction eAction = view_as<AdminSyncIdentityAction>(pack.ReadCell());
+	int iClient = GetClientOfUserId(iUserId);
+	if (iUserId != 0 && iClient <= 0)
+	{
+		delete pack;
+		return;
+	}
+
+	if (eAction == IdentityAction_AdminAddResolveSteam64)
+	{
+		int iAccountId = pack.ReadCell();
+		int iImmunity = pack.ReadCell();
+		char szName[128];
+		char szFlags[64];
+		char szResolvedSteamId64[32];
+		pack.ReadString(szName, sizeof(szName));
+		pack.ReadString(szFlags, sizeof(szFlags));
+		delete pack;
+
+		szResolvedSteamId64[0] = '\0';
+		if (bSuccess && (StrEqual(szEndpoint, API_SID2toSID64, false) || StrEqual(szEndpoint, API_SID3toSID64, false)) && IsValidSteamID64(szResult))
+		{
+			strcopy(szResolvedSteamId64, sizeof(szResolvedSteamId64), szResult);
+			vAdminSyncAPI("Offline SteamID64 enrichment succeeded. request=%d input=%s accountid=%d steamid64=%s", iRequestId, szInput, iAccountId, szResolvedSteamId64);
+		}
+		else if (!bSuccess)
+		{
+			vAdminSyncAPI("Offline SteamID64 enrichment failed. request=%d input=%s", iRequestId, szInput);
+		}
+		else
+		{
+			vAdminSyncAPI("Offline SteamID64 enrichment returned invalid result. request=%d input=%s result=%s", iRequestId, szInput, szResult);
+		}
+
+		vStartAdminMutationAdd(iClient, iAccountId, szName, szResolvedSteamId64, szFlags, iImmunity);
+		return;
+	}
+
 	int iValue = pack.ReadCell();
 	char szExtra[128];
 	char szExtra2[128];
@@ -669,14 +841,17 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	pack.ReadString(szExtra2, sizeof(szExtra2));
 	delete pack;
 
-	int iClient = GetClientOfUserId(iUserId);
-	if (iClient <= 0)
+	if (!StrEqual(szEndpoint, API_SID64toAID, false))
+	{
+		vAdminSyncAPI("Ignoring unexpected identity callback. request=%d endpoint=%s action=%d", iRequestId, szEndpoint, view_as<int>(eAction));
 		return;
+	}
 
 	if (!bSuccess)
 	{
 		vAdminSyncAPI("SteamID64 resolution failed. request=%d input=%s", iRequestId, szInput);
-		ReplyToCommand(iClient, "[BS AdminSync] SteamID64 resolution failed.");
+		if (iClient > 0)
+			CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64ResolveFailed");
 		return;
 	}
 
@@ -684,7 +859,8 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	if (iAccountId <= 0)
 	{
 		vAdminSyncAPI("SteamID64 resolution returned invalid accountid. request=%d input=%s result=%s", iRequestId, szInput, szResult);
-		ReplyToCommand(iClient, "[BS AdminSync] SteamID64 resolution returned an invalid accountid.");
+		if (iClient > 0)
+			CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64ResolveInvalid");
 		return;
 	}
 

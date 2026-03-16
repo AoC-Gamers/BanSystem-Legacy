@@ -28,22 +28,23 @@ public Action Command_AdminSyncStatus(int iClient, int iArgs)
 {
 	char szBackend[16];
 	char szLastSync[64];
-	float flInterval = g_cvCheckInterval.FloatValue;
+	char szCheckMode[32];
 
 	g_cvBackend.GetString(szBackend, sizeof(szBackend));
 	if (g_iLastSyncAt > 0)
 		FormatTime(szLastSync, sizeof(szLastSync), "%Y-%m-%d %H:%M:%S", g_iLastSyncAt);
 	else
-		strcopy(szLastSync, sizeof(szLastSync), "never");
+		FormatEx(szLastSync, sizeof(szLastSync), "%T", "BSAdminSyncNever", iClient);
+	FormatEx(szCheckMode, sizeof(szCheckMode), "%T", "BSAdminSyncCheckModeMapChange", iClient);
 
-	ReplyToCommand(iClient, "[BS AdminSync] backend=%s syncing=%d admins=%d groups=%d memberships=%d version=%d poll=%.0fs last_sync=%s local_sqlite=%d kv=%s",
+	CReplyToCommand(iClient, "%t", "BSAdminSyncStatus",
 		szBackend,
 		g_bSyncInProgress ? 1 : 0,
 		g_iLastAdminCount,
 		g_iLastGroupCount,
 		g_iLastMembershipCount,
 		g_iLastSnapshotVersion,
-		flInterval,
+		szCheckMode,
 		szLastSync,
 		(g_dbLocal != null) ? 1 : 0,
 		g_szKvSnapshotPath);
@@ -95,51 +96,73 @@ public Action Command_AdminAdd(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_add <target|steamid|accountid> <flags> [immunity] [name]");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAdd");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
+	char szNormalizedTarget[64];
 	char szFlags[64];
 	char szName[128];
 	char szSteamId64[32];
 	char szNameArg[128];
+	char szImmunity[16];
 	int iAccountId = 0;
 	int iImmunity = 0;
+	int iNextArg = 0;
 
-	GetCmdArg(1, szTarget, sizeof(szTarget));
-	GetCmdArg(2, szFlags, sizeof(szFlags));
-	if (iArgs >= 3)
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
+	if (!SteamIDTools_GetCmdArgNormalized(iNextArg, iArgs, szFlags, sizeof(szFlags)))
 	{
-		char szImmunity[16];
-		GetCmdArg(3, szImmunity, sizeof(szImmunity));
-		iImmunity = StringToInt(szImmunity);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAdd");
+		return Plugin_Handled;
 	}
 
-	if (iArgs >= 4)
+	if (!bAdminSyncHasText(szFlags))
 	{
-		GetCmdArg(4, szNameArg, sizeof(szNameArg));
-		TrimString(szNameArg);
-		StripQuotes(szNameArg);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAdd");
+		return Plugin_Handled;
+	}
+
+	if (SteamIDTools_GetCmdArgNormalized(iNextArg + 1, iArgs, szImmunity, sizeof(szImmunity)) && SteamIDTools_IsNumericString(szImmunity))
+	{
+		iImmunity = StringToInt(szImmunity);
+		SteamIDTools_JoinCmdArgs(iNextArg + 2, iArgs, szNameArg, sizeof(szNameArg));
 	}
 	else
 	{
-		szNameArg[0] = '\0';
+		iImmunity = 0;
+		SteamIDTools_JoinCmdArgs(iNextArg + 1, iArgs, szNameArg, sizeof(szNameArg));
 	}
 
-	switch (DetectSteamIDFormat(szTarget))
+	strcopy(szNormalizedTarget, sizeof(szNormalizedTarget), szTarget);
+	TrimString(szNormalizedTarget);
+	StripQuotes(szNormalizedTarget);
+
+	SteamIDFormat eFormat = DetectSteamIDFormat(szNormalizedTarget);
+	vAdminSyncDebug(
+		"Command_AdminAdd input. raw=%s normalized=%s format=%d flags=%s immunity=%d namearg=%s",
+		szTarget,
+		szNormalizedTarget,
+		view_as<int>(eFormat),
+		szFlags,
+		iImmunity,
+		szNameArg
+	);
+
+	switch (eFormat)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
 			if (szNameArg[0] == '\0')
 				strcopy(szNameArg, sizeof(szNameArg), "UNKNOWN");
 
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminAdd, szFlags, iImmunity, szNameArg);
+			bQueueAdminIdentityLookup(iClient, szNormalizedTarget, IdentityAction_AdminAdd, szFlags, iImmunity, szNameArg);
 			return Plugin_Handled;
 		}
 	}
 
-	if (!bTryResolveAccountIdTarget(iClient, szTarget, iAccountId, szName, sizeof(szName), szSteamId64, sizeof(szSteamId64)))
+	if (!bTryResolveAccountIdTarget(iClient, szNormalizedTarget, iAccountId, szName, sizeof(szName), szSteamId64, sizeof(szSteamId64)))
 		return Plugin_Handled;
 
 	if (iAccountId <= 0)
@@ -147,6 +170,24 @@ public Action Command_AdminAdd(int iClient, int iArgs)
 
 	if (szNameArg[0] != '\0')
 		strcopy(szName, sizeof(szName), szNameArg);
+
+	vAdminSyncDebug(
+		"Command_AdminAdd resolved. normalized=%s accountid=%d name=%s steamid64=%s",
+		szNormalizedTarget,
+		iAccountId,
+		szName,
+		szSteamId64
+	);
+
+	if (szSteamId64[0] == '\0' && (eFormat == STEAMID_FORMAT_STEAMID2 || eFormat == STEAMID_FORMAT_STEAMID3))
+	{
+		if (bQueueAdminAddSteamId64Enrichment(iClient, szNormalizedTarget, eFormat, iAccountId, szName, szFlags, iImmunity))
+		{
+			return Plugin_Handled;
+		}
+
+		vAdminSyncDebug("Command_AdminAdd could not enrich offline SteamID64. Falling back to direct insert. accountid=%d format=%d", iAccountId, view_as<int>(eFormat));
+	}
 
 	vStartAdminMutationAdd(iClient, iAccountId, szName, szSteamId64, szFlags, iImmunity);
 	return Plugin_Handled;
@@ -156,12 +197,13 @@ public Action Command_AdminDelete(int iClient, int iArgs)
 {
 	if (iArgs < 1)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_del <target|steamid|accountid>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminDelete");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
-	GetCmdArg(1, szTarget, sizeof(szTarget));
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
 
 	switch (DetectSteamIDFormat(szTarget))
 	{
@@ -187,14 +229,25 @@ public Action Command_AdminSetFlags(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_set_flags <target|steamid|accountid> <flags>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetFlags");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
 	char szFlags[64];
-	GetCmdArg(1, szTarget, sizeof(szTarget));
-	GetCmdArg(2, szFlags, sizeof(szFlags));
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
+	if (!SteamIDTools_GetCmdArgNormalized(iNextArg, iArgs, szFlags, sizeof(szFlags)))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetFlags");
+		return Plugin_Handled;
+	}
+
+	if (!bAdminSyncHasText(szFlags))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetFlags");
+		return Plugin_Handled;
+	}
 
 	switch (DetectSteamIDFormat(szTarget))
 	{
@@ -220,15 +273,25 @@ public Action Command_AdminSetImmunity(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_set_immunity <target|steamid|accountid> <immunity>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetImmunity");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
 	char szImmunity[16];
-	GetCmdArg(1, szTarget, sizeof(szTarget));
-	GetCmdArg(2, szImmunity, sizeof(szImmunity));
-	int iImmunity = StringToInt(szImmunity);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
+	if (!SteamIDTools_GetCmdArgNormalized(iNextArg, iArgs, szImmunity, sizeof(szImmunity)))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetImmunity");
+		return Plugin_Handled;
+	}
+	int iImmunity;
+	if (!bTryParseAdminSyncNonNegativeInt(szImmunity, iImmunity))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetImmunity");
+		return Plugin_Handled;
+	}
 
 	switch (DetectSteamIDFormat(szTarget))
 	{
@@ -254,14 +317,21 @@ public Action Command_AdminAddGroup(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_add_group <target|steamid|accountid> <group>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAddGroup");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
 	char szGroup[128];
-	GetCmdArg(1, szTarget, sizeof(szTarget));
-	GetCmdArg(2, szGroup, sizeof(szGroup));
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
+	SteamIDTools_JoinCmdArgs(iNextArg, iArgs, szGroup, sizeof(szGroup));
+	if (szGroup[0] == '\0')
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAddGroup");
+		return Plugin_Handled;
+	}
+	vNormalizeAdminSyncText(szGroup, szGroup, sizeof(szGroup));
 
 	switch (DetectSteamIDFormat(szTarget))
 	{
@@ -287,14 +357,21 @@ public Action Command_AdminRemoveGroup(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_admin_remove_group <target|steamid|accountid> <group>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminRemoveGroup");
 		return Plugin_Handled;
 	}
 
 	char szTarget[64];
 	char szGroup[128];
-	GetCmdArg(1, szTarget, sizeof(szTarget));
-	GetCmdArg(2, szGroup, sizeof(szGroup));
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szTarget, sizeof(szTarget), iNextArg);
+	SteamIDTools_JoinCmdArgs(iNextArg, iArgs, szGroup, sizeof(szGroup));
+	if (szGroup[0] == '\0')
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminRemoveGroup");
+		return Plugin_Handled;
+	}
+	vNormalizeAdminSyncText(szGroup, szGroup, sizeof(szGroup));
 
 	switch (DetectSteamIDFormat(szTarget))
 	{
@@ -320,20 +397,29 @@ public Action Command_GroupAdd(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_group_add <name> <flags> [immunity]");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupAdd");
 		return Plugin_Handled;
 	}
 
 	char szName[128];
 	char szFlags[64];
-	GetCmdArg(1, szName, sizeof(szName));
-	GetCmdArg(2, szFlags, sizeof(szFlags));
+	SteamIDTools_GetCmdArgNormalized(1, iArgs, szName, sizeof(szName));
+	SteamIDTools_GetCmdArgNormalized(2, iArgs, szFlags, sizeof(szFlags));
+	if (!bAdminSyncHasText(szName) || !bAdminSyncHasText(szFlags))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupAdd");
+		return Plugin_Handled;
+	}
 	int iImmunity = 0;
 	if (iArgs >= 3)
 	{
 		char szImmunity[16];
-		GetCmdArg(3, szImmunity, sizeof(szImmunity));
-		iImmunity = StringToInt(szImmunity);
+		SteamIDTools_GetCmdArgNormalized(3, iArgs, szImmunity, sizeof(szImmunity));
+		if (!bTryParseAdminSyncNonNegativeInt(szImmunity, iImmunity))
+		{
+			CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupAdd");
+			return Plugin_Handled;
+		}
 	}
 
 	vStartGroupMutationAdd(iClient, szName, szFlags, iImmunity);
@@ -344,12 +430,17 @@ public Action Command_GroupDelete(int iClient, int iArgs)
 {
 	if (iArgs < 1)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_group_del <name>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupDelete");
 		return Plugin_Handled;
 	}
 
 	char szName[128];
-	GetCmdArg(1, szName, sizeof(szName));
+	SteamIDTools_GetCmdArgNormalized(1, iArgs, szName, sizeof(szName));
+	if (!bAdminSyncHasText(szName))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupDelete");
+		return Plugin_Handled;
+	}
 	vStartGroupMutationDelete(iClient, szName);
 	return Plugin_Handled;
 }
@@ -358,14 +449,19 @@ public Action Command_GroupSetFlags(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_group_set_flags <name> <flags>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetFlags");
 		return Plugin_Handled;
 	}
 
 	char szName[128];
 	char szFlags[64];
-	GetCmdArg(1, szName, sizeof(szName));
-	GetCmdArg(2, szFlags, sizeof(szFlags));
+	SteamIDTools_GetCmdArgNormalized(1, iArgs, szName, sizeof(szName));
+	SteamIDTools_GetCmdArgNormalized(2, iArgs, szFlags, sizeof(szFlags));
+	if (!bAdminSyncHasText(szName) || !bAdminSyncHasText(szFlags))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetFlags");
+		return Plugin_Handled;
+	}
 	vStartGroupMutationSetFlags(iClient, szName, szFlags);
 	return Plugin_Handled;
 }
@@ -374,14 +470,20 @@ public Action Command_GroupSetImmunity(int iClient, int iArgs)
 {
 	if (iArgs < 2)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] Use: sm_bs_group_set_immunity <name> <immunity>");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetImmunity");
 		return Plugin_Handled;
 	}
 
 	char szName[128];
 	char szImmunity[16];
-	GetCmdArg(1, szName, sizeof(szName));
-	GetCmdArg(2, szImmunity, sizeof(szImmunity));
-	vStartGroupMutationSetImmunity(iClient, szName, StringToInt(szImmunity));
+	SteamIDTools_GetCmdArgNormalized(1, iArgs, szName, sizeof(szName));
+	SteamIDTools_GetCmdArgNormalized(2, iArgs, szImmunity, sizeof(szImmunity));
+	int iImmunity;
+	if (!bAdminSyncHasText(szName) || !bTryParseAdminSyncNonNegativeInt(szImmunity, iImmunity))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetImmunity");
+		return Plugin_Handled;
+	}
+	vStartGroupMutationSetImmunity(iClient, szName, iImmunity);
 	return Plugin_Handled;
 }

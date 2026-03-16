@@ -4,7 +4,12 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+
+#undef REQUIRE_PLUGIN
 #include <steamidtools>
+#define REQUIRE_PLUGIN
+
+#include <bansystem_shared>
 
 #define BANSYSTEM_CORE_VERSION "0.1.0-dev"
 #define BANSYSTEM_CORE_DEBUG_LOG "logs/BanSystem_Core.log"
@@ -73,20 +78,23 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart()
 {
 	BuildPath(Path_SM, g_szCoreLogPath, sizeof(g_szCoreLogPath), BANSYSTEM_CORE_DEBUG_LOG);
-	LoadTranslations("bansystem_modular.phrases");
+	LoadTranslations("bansystem_core.phrases");
 
 	g_cvCoreMysqlConfig = CreateConVar("sm_bs_core_mysql_config", "bansystem", "MySQL config used by BanSystem Core.");
 	g_cvCoreSqliteCache = CreateConVar("sm_bs_core_sqlitecache", "1", "Enable the BanSystem Core SQLite summary cache.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvCoreCacheConfig = CreateConVar("sm_bs_core_cache_config", "bansystemcache", "SQLite config used by BanSystem Core.");
 	g_cvCoreLocalCache = CreateConVar("sm_bs_core_localcache", "1", "Enable the BanSystem Core local clean cache.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvCoreAuthTimeout = CreateConVar("sm_bs_core_auth_timeout", "8.0", "Seconds to keep a core auth request pending before timing it out.", FCVAR_NONE, true, 1.0);
-	g_cvCoreDebugMask = CreateConVar("sm_bs_core_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=transition, 8=api.", FCVAR_NONE, true, 0.0);
+	g_cvCoreDebugMask = CreateConVar("sm_bs_core_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=transition, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 
 	g_alCoreLocalCleanCache = new ArrayList();
 	g_smCoreRegisteredModules = new StringMap();
 	g_bCoreMapTransitionActive = true;
 	g_bCoreHasL4D2ChangeLevel = LibraryExists("l4d2_changelevel");
 	g_iCoreRegisteredModuleMask = 0;
+
+	BSEnsureAutoExecFolder();
+	AutoExecConfig(true, "bansystem_core", BANSYSTEM_AUTOEXEC_FOLDER);
 
 	RegAdminCmd("sm_bs_core_status", Command_BSCoreStatus, ADMFLAG_ROOT, "Show BanSystem Core runtime status.");
 	RegAdminCmd("sm_bs_core_cache_install", Command_BSCoreCacheInstall, ADMFLAG_ROOT, "Install the BanSystem Core SQLite summary cache schema.");

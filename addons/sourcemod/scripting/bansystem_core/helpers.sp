@@ -2,7 +2,7 @@
 			H E L P E R S
 *****************************************************************/
 
-stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage, int iVFormatArg)
+stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
 	if (g_cvCoreDebugMask == null)
 		return;
@@ -11,29 +11,59 @@ stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] s
 	if ((iMask & view_as<int>(eMask)) == 0)
 		return;
 
-	static char szBuffer[1024];
-	VFormat(szBuffer, sizeof(szBuffer), szMessage, iVFormatArg);
-	LogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szBuffer);
+	LogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
+}
+
+stock void BSCore_LogFormatted(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage)
+{
+	if (g_cvCoreDebugMask == null)
+		return;
+
+	int iMask = g_cvCoreDebugMask.IntValue;
+	if ((iMask & view_as<int>(eMask)) == 0)
+		return;
+
+	LogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSCore_Debug(const char[] szMessage, any ...)
 {
-	BSCore_Log(kBSCoreDebug_General, "Debug", szMessage, 2);
+	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_General)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSCore_LogFormatted(kBSCoreDebug_General, "Debug", szBuffer);
 }
 
 stock void BSCore_SQL(const char[] szMessage, any ...)
 {
-	BSCore_Log(kBSCoreDebug_SQL, "SQL", szMessage, 2);
+	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_SQL)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSCore_LogFormatted(kBSCoreDebug_SQL, "SQL", szBuffer);
 }
 
 stock void BSCore_TransitionLog(const char[] szMessage, any ...)
 {
-	BSCore_Log(kBSCoreDebug_Transition, "Transition", szMessage, 2);
+	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_Transition)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSCore_LogFormatted(kBSCoreDebug_Transition, "Transition", szBuffer);
 }
 
 stock void BSCore_API(const char[] szMessage, any ...)
 {
-	BSCore_Log(kBSCoreDebug_API, "API", szMessage, 2);
+	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_API)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSCore_LogFormatted(kBSCoreDebug_API, "API", szBuffer);
 }
 
 stock void BSCore_NormalizeInput(const char[] szInput, char[] szOutput, int iMaxLength)

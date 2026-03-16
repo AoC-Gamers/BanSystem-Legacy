@@ -5,6 +5,9 @@
 #define BANSYSTEM_SPRAYS_LIBRARY "bansystem_sprays"
 #define BANSYSTEM_SPRAYS_MODULE_NAME "sprays"
 #define BANSYSTEM_SPRAYS_MODULE_BIT 4
+#define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
+#define BANSYSTEM_SPRAYS_SCHEMA_COMPONENT "sprays"
+#define BANSYSTEM_SPRAYS_SCHEMA_VERSION 1
 
 enum eBSSpraysDebugMask
 {

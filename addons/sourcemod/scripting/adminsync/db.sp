@@ -3,7 +3,7 @@ void vStartAdminSync(int iClient = 0)
 	if (g_bSyncInProgress)
 	{
 		vAdminSyncDebug("Reload skipped because a sync is already in progress.");
-		ReplyToCommand(iClient, "[BS AdminSync] Sync already in progress.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSyncInProgress");
 		return;
 	}
 
@@ -17,39 +17,24 @@ void vStartAdminSync(int iClient = 0)
 	SQL_TConnect(vAdminSyncConnectCallback, szMysqlConfig, iClient);
 }
 
-void vRestartVersionCheckTimer()
+void vBuildAdminSyncSchemaMetaQuery(char[] szQuery, int iMaxLength)
 {
-	if (g_hVersionCheckTimer != null)
-	{
-		delete g_hVersionCheckTimer;
-		g_hVersionCheckTimer = null;
-	}
-
-	float flInterval = g_cvCheckInterval.FloatValue;
-	if (flInterval <= 0.0)
-	{
-		vAdminSyncDebug("Version polling disabled.");
-		return;
-	}
-
-	g_hVersionCheckTimer = CreateTimer(flInterval, Timer_AdminSyncVersionCheck, _, TIMER_REPEAT | TIMER_FLAG_NO_MAPCHANGE);
-	vAdminSyncDebug("Version polling timer started with interval %.2f seconds.", flInterval);
+	Format(szQuery, iMaxLength, "SELECT `version_num` FROM `%s` WHERE `component` = '%s' LIMIT 1;", MYSQL_TABLE_SCHEMA_META, ADMINSYNC_SCHEMA_COMPONENT);
 }
 
-Action Timer_AdminSyncVersionCheck(Handle hTimer, any data)
+void vRequestSnapshotVersionCheck()
 {
 	if (g_bSyncInProgress || g_bVersionCheckInFlight)
 	{
 		vAdminSyncDebug("Version check skipped. sync_in_progress=%d version_check_in_flight=%d", g_bSyncInProgress ? 1 : 0, g_bVersionCheckInFlight ? 1 : 0);
-		return Plugin_Continue;
+		return;
 	}
 
 	char szMysqlConfig[64];
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
 	g_bVersionCheckInFlight = true;
-	vAdminSyncSQL("Running lightweight version check using MySQL config '%s'.", szMysqlConfig);
+	vAdminSyncSQL("Running snapshot version check using MySQL config '%s'.", szMysqlConfig);
 	SQL_TConnect(vAdminSyncVersionConnectCallback, szMysqlConfig);
-	return Plugin_Continue;
 }
 
 public void vAdminSyncVersionConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
@@ -63,8 +48,44 @@ public void vAdminSyncVersionConnectCallback(Handle hOwner, Handle hndl, const c
 	}
 
 	char szQuery[160];
+	vBuildAdminSyncSchemaMetaQuery(szQuery, sizeof(szQuery));
+	vAdminSyncSQL("Version check connected. Validating schema component '%s'.", ADMINSYNC_SCHEMA_COMPONENT);
+	SQL_TQuery(db, vAdminSyncVersionSchemaValidationCallback, szQuery);
+}
+
+public void vAdminSyncVersionSchemaValidationCallback(Database db, DBResultSet rsResult, const char[] szError, any data)
+{
+	if (rsResult == null || szError[0] != '\0')
+	{
+		LogError("[bansystem_adminsync] Version check schema validation failed: %s", szError);
+		g_bVersionCheckInFlight = false;
+		delete rsResult;
+		delete db;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		LogError("[bansystem_adminsync] Version check schema validation failed: component '%s' not found.", ADMINSYNC_SCHEMA_COMPONENT);
+		g_bVersionCheckInFlight = false;
+		delete rsResult;
+		delete db;
+		return;
+	}
+
+	int iVersion = rsResult.FetchInt(0);
+	delete rsResult;
+	if (iVersion != ADMINSYNC_SCHEMA_VERSION)
+	{
+		LogError("[bansystem_adminsync] Version check schema validation failed: expected %d but found %d for component '%s'.", ADMINSYNC_SCHEMA_VERSION, iVersion, ADMINSYNC_SCHEMA_COMPONENT);
+		g_bVersionCheckInFlight = false;
+		delete db;
+		return;
+	}
+
+	char szQuery[160];
 	Format(szQuery, sizeof(szQuery), "SELECT `meta_value` FROM `adminsync_meta` WHERE `meta_key` = 'snapshot_version';");
-	vAdminSyncSQL("Version check connected. Querying snapshot version.");
+	vAdminSyncSQL("Schema validated for version check. Querying snapshot version.");
 	SQL_TQuery(db, vAdminSyncVersionQueryCallback, szQuery);
 }
 
@@ -90,7 +111,6 @@ public void vAdminSyncVersionQueryCallback(Database db, DBResultSet rsResult, co
 	int iVersion = rsResult.FetchInt(0);
 	delete rsResult;
 	delete db;
-	vAdminSyncDebug("Version check returned snapshot_version=%d (current=%d).", iVersion, g_iLastSnapshotVersion);
 
 	if (g_iLastSnapshotVersion == 0)
 	{
@@ -112,7 +132,46 @@ public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] s
 	if (db == null)
 	{
 		LogError("[bansystem_adminsync] MySQL connection failed: %s", szError);
-		ReplyToCommand(iClient, "[BS AdminSync] MySQL connection failed.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
+		g_bSyncInProgress = false;
+		return;
+	}
+
+	char szQuery[160];
+	vBuildAdminSyncSchemaMetaQuery(szQuery, sizeof(szQuery));
+	vAdminSyncSQL("Connected to MySQL for full sync. Validating schema component '%s'.", ADMINSYNC_SCHEMA_COMPONENT);
+	SQL_TQuery(db, vAdminSyncSchemaValidationCallback, szQuery, iClient);
+}
+
+public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
+{
+	if (rsResult == null || szError[0] != '\0')
+	{
+		LogError("[bansystem_adminsync] Schema validation failed: %s", szError);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaValidationFailed");
+		delete rsResult;
+		delete db;
+		g_bSyncInProgress = false;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		LogError("[bansystem_adminsync] Schema validation failed: component '%s' not found.", ADMINSYNC_SCHEMA_COMPONENT);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaComponentMissing");
+		delete rsResult;
+		delete db;
+		g_bSyncInProgress = false;
+		return;
+	}
+
+	int iVersion = rsResult.FetchInt(0);
+	delete rsResult;
+	if (iVersion != ADMINSYNC_SCHEMA_VERSION)
+	{
+		LogError("[bansystem_adminsync] Schema validation failed: expected %d but found %d for component '%s'.", ADMINSYNC_SCHEMA_VERSION, iVersion, ADMINSYNC_SCHEMA_COMPONENT);
+		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaVersionMismatch");
+		delete db;
 		g_bSyncInProgress = false;
 		return;
 	}
@@ -120,7 +179,7 @@ public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] s
 	g_iLastAdminCount = 0;
 	g_iLastGroupCount = 0;
 	g_iLastMembershipCount = 0;
-	vAdminSyncSQL("Connected to MySQL for full sync. backend=%d", view_as<int>(GetSnapshotBackend()));
+	vAdminSyncSQL("Schema validated for full sync. backend=%d", view_as<int>(GetSnapshotBackend()));
 
 	if (GetSnapshotBackend() == Backend_SQLite)
 		vClearLocalSQLiteSnapshot();
@@ -145,7 +204,7 @@ public void vAdminSyncAdminsCallback(Database db, DBResultSet rsResult, const ch
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Admin snapshot query failed: %s", szError);
-		ReplyToCommand(iClient, "[BS AdminSync] Admin query failed.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncAdminQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -170,7 +229,7 @@ public void vAdminSyncGroupsCallback(Database db, DBResultSet rsResult, const ch
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Group snapshot query failed: %s", szError);
-		ReplyToCommand(iClient, "[BS AdminSync] Group query failed.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncGroupQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -195,7 +254,7 @@ public void vAdminSyncMembershipsCallback(Database db, DBResultSet rsResult, con
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Membership snapshot query failed: %s", szError);
-		ReplyToCommand(iClient, "[BS AdminSync] Membership query failed.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncMembershipQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -215,5 +274,5 @@ public void vAdminSyncMembershipsCallback(Database db, DBResultSet rsResult, con
 	g_bSyncInProgress = false;
 	vAdminSyncDebug("Snapshot sync finished. admins=%d groups=%d memberships=%d version=%d", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount, g_iLastSnapshotVersion);
 	vApplySnapshotToAdminCache();
-	ReplyToCommand(iClient, "[BS AdminSync] Snapshot synchronized. admins=%d groups=%d memberships=%d", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncSnapshotSynchronized", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount);
 }

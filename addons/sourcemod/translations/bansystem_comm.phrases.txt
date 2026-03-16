@@ -1,0 +1,290 @@
+"Phrases"
+{
+	"BSCommStatus"
+	{
+		"#format"	"{1:d},{2:d},{3:d}"
+		"en"		"{olive}[BS Comm]{default} core={1} registered={2} db_ready={3}"
+		"es"		"{olive}[BS Comm]{default} core={1} registrado={2} db_lista={3}"
+	}
+
+	"BSCommUsageAdd"
+	{
+		"en"		"{olive}[BS Comm]{default} Use: sm_bs_comm_add <mic|chat|all> <target|steamid|accountid> <minutes> <reason> [context]"
+		"es"		"{olive}[BS Comm]{default} Uso: sm_bs_comm_add <mic|chat|all> <target|steamid|accountid> <minutos> <razon> [contexto]"
+	}
+
+	"BSCommUsageRemove"
+	{
+		"en"		"{olive}[BS Comm]{default} Use: sm_bs_comm_remove <target|steamid|accountid>"
+		"es"		"{olive}[BS Comm]{default} Uso: sm_bs_comm_remove <target|steamid|accountid>"
+	}
+
+	"BSCommUsageInfo"
+	{
+		"en"		"{olive}[BS Comm]{default} Use: sm_bs_comm_info <target|steamid|accountid>"
+		"es"		"{olive}[BS Comm]{default} Uso: sm_bs_comm_info <target|steamid|accountid>"
+	}
+
+	"BSCommUsageDetail"
+	{
+		"en"		"{olive}[BS Comm]{default} Use: sm_bs_comm_detail <#userid|name>"
+		"es"		"{olive}[BS Comm]{default} Uso: sm_bs_comm_detail <#userid|name>"
+	}
+
+	"BSCommDatabaseNotReady"
+	{
+		"en"		"{olive}[BS Comm]{default} Database is not ready."
+		"es"		"{olive}[BS Comm]{default} La base de datos no esta lista."
+	}
+
+	"BSCommInvalidType"
+	{
+		"en"		"{olive}[BS Comm]{default} Invalid communication type. Use mic, chat or all."
+		"es"		"{olive}[BS Comm]{default} El tipo de comunicacion es invalido. Use mic, chat o all."
+	}
+
+	"BSCommInvalidTypeShort"
+	{
+		"en"		"{olive}[BS Comm]{default} Invalid communication type."
+		"es"		"{olive}[BS Comm]{default} El tipo de comunicacion es invalido."
+	}
+
+	"BSCommInvalidDuration"
+	{
+		"en"		"{olive}[BS Comm]{default} Invalid duration."
+		"es"		"{olive}[BS Comm]{default} La duracion es invalida."
+	}
+
+	"BSCommResolveFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Comm]{default} Could not resolve '{1}' to a supported offline identity or connected target."
+		"es"		"{olive}[BS Comm]{default} No se pudo resolver '{1}' como una identidad offline soportada o un objetivo conectado."
+	}
+
+	"BSCommNoResolvedDetail"
+	{
+		"#format"	"{1:N}"
+		"en"		"{olive}[BS Comm]{default} No resolved communication detail cached for {1}."
+		"es"		"{olive}[BS Comm]{default} No hay detalle resuelto de comunicacion cacheado para {1}."
+	}
+
+	"BSCommResolvedDetail"
+	{
+		"#format"	"{1:N},{2:d},{3:d},{4:d},{5:d},{6:s},{7:s},{8:s},{9:d},{10:s},{11:s}"
+		"en"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} type={4} length={5} steamid64={6} reason={7} context={8} banned_by={9} banned_by_name={10} expire={11}"
+		"es"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} tipo={4} duracion={5} steamid64={6} razon={7} contexto={8} banned_by={9} banned_by_name={10} expira={11}"
+	}
+
+	"BSCommNoTargets"
+	{
+		"en"		"{olive}[BS Comm]{default} No connected targets available."
+		"es"		"{olive}[BS Comm]{default} No hay objetivos conectados disponibles."
+	}
+
+	"BSCommReasonCannotBeEmpty"
+	{
+		"en"		"{olive}[BS Comm]{default} Reason cannot be empty."
+		"es"		"{olive}[BS Comm]{default} La razon no puede estar vacia."
+	}
+
+	"BSCommContextPrompt"
+	{
+		"en"		"{olive}[BS Comm]{default} Type communication context in chat or '-' to skip."
+		"es"		"{olive}[BS Comm]{default} Escriba el contexto del ban de comunicacion en el chat o '-' para omitirlo."
+	}
+
+	"BSCommNoPanelFlow"
+	{
+		"en"		"{olive}[BS Comm]{default} No panel flow is pending."
+		"es"		"{olive}[BS Comm]{default} No hay un flujo de panel pendiente."
+	}
+
+	"BSCommPanelAborted"
+	{
+		"en"		"{olive}[BS Comm]{default} Panel flow aborted."
+		"es"		"{olive}[BS Comm]{default} El flujo del panel fue abortado."
+	}
+
+	"BSCommTargetUnavailable"
+	{
+		"en"		"{olive}[BS Comm]{default} Target is no longer available."
+		"es"		"{olive}[BS Comm]{default} El objetivo ya no esta disponible."
+	}
+
+	"BSCommReasonPrompt"
+	{
+		"en"		"{olive}[BS Comm]{default} Type communication reason in chat."
+		"es"		"{olive}[BS Comm]{default} Escriba la razon del ban de comunicacion en el chat."
+	}
+
+	"BSCommSteam64Unavailable"
+	{
+		"en"		"{olive}[BS Comm]{default} SteamID64 resolution is unavailable."
+		"es"		"{olive}[BS Comm]{default} La resolucion de SteamID64 no esta disponible."
+	}
+
+	"BSCommSteam64BackendNotReady"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Comm]{default} SteamID64 backend '{1}' is not ready: {2}"
+		"es"		"{olive}[BS Comm]{default} El backend de SteamID64 '{1}' no esta listo: {2}"
+	}
+
+	"BSCommSteam64QueueFailed"
+	{
+		"en"		"{olive}[BS Comm]{default} Failed to queue SteamID64 resolution."
+		"es"		"{olive}[BS Comm]{default} No se pudo encolar la resolucion de SteamID64."
+	}
+
+	"BSCommSteam64QueueFailedStatus"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Comm]{default} Failed to queue SteamID64 resolution through '{1}': {2}"
+		"es"		"{olive}[BS Comm]{default} No se pudo encolar la resolucion de SteamID64 a traves de '{1}': {2}"
+	}
+
+	"BSCommSteam64Resolving"
+	{
+		"en"		"{olive}[BS Comm]{default} Resolving SteamID64..."
+		"es"		"{olive}[BS Comm]{default} Resolviendo SteamID64..."
+	}
+
+	"BSCommSteam64ResolveFailed"
+	{
+		"en"		"{olive}[BS Comm]{default} SteamID64 resolution failed."
+		"es"		"{olive}[BS Comm]{default} La resolucion de SteamID64 fallo."
+	}
+
+	"BSCommSteam64ResolveInvalid"
+	{
+		"en"		"{olive}[BS Comm]{default} SteamID64 resolution returned an invalid accountid."
+		"es"		"{olive}[BS Comm]{default} La resolucion de SteamID64 devolvio un accountid invalido."
+	}
+
+	"BSCommPersistFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Comm]{default} Failed to persist communication ban for accountid {1}."
+		"es"		"{olive}[BS Comm]{default} No se pudo persistir el ban de comunicacion para accountid {1}."
+	}
+
+	"BSCommStoredTarget"
+	{
+		"#format"	"{1:s},{2:N},{3:d},{4:s}"
+		"en"		"{olive}[BS Comm]{default} {1} ban stored for {2} ({3} min, reason={4})."
+		"es"		"{olive}[BS Comm]{default} Ban de {1} guardado para {2} ({3} min, razon={4})."
+	}
+
+	"BSCommStoredAccount"
+	{
+		"#format"	"{1:s},{2:d},{3:d},{4:s}"
+		"en"		"{olive}[BS Comm]{default} {1} ban stored for accountid {2} ({3} min, reason={4})."
+		"es"		"{olive}[BS Comm]{default} Ban de {1} guardado para accountid {2} ({3} min, razon={4})."
+	}
+
+	"BSCommRemoveFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Comm]{default} Failed to remove communication ban for accountid {1}."
+		"es"		"{olive}[BS Comm]{default} No se pudo eliminar el ban de comunicacion para accountid {1}."
+	}
+
+	"BSCommRemoved"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Comm]{default} Communication ban removed for accountid {1}."
+		"es"		"{olive}[BS Comm]{default} Ban de comunicacion eliminado para accountid {1}."
+	}
+
+	"BSCommPlayerUnbanned"
+	{
+		"en"		"{olive}[BS Comm]{default} Your communication restriction has been removed."
+		"es"		"{olive}[BS Comm]{default} Tu restriccion de comunicacion fue eliminada."
+	}
+
+	"BSCommInfoLoadFailed"
+	{
+		"en"		"{olive}[BS Comm]{default} Failed to load communication info."
+		"es"		"{olive}[BS Comm]{default} No se pudo cargar la informacion del ban de comunicacion."
+	}
+
+	"BSCommNoActiveBan"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Comm]{default} No active communication ban found for accountid {1}."
+		"es"		"{olive}[BS Comm]{default} No se encontro un ban de comunicacion activo para accountid {1}."
+	}
+
+	"BSCommInfoPrinted"
+	{
+		"en"		"{olive}[BS Comm]{default} Communication info printed to console."
+		"es"		"{olive}[BS Comm]{default} La informacion del ban de comunicacion fue impresa en consola."
+	}
+
+	"BSCommListLoadFailed"
+	{
+		"en"		"{olive}[BS Comm]{default} Failed to list communication bans."
+		"es"		"{olive}[BS Comm]{default} No se pudo listar los bans de comunicacion."
+	}
+
+	"BSCommNoActiveBans"
+	{
+		"en"		"{olive}[BS Comm]{default} No active modular communication bans found."
+		"es"		"{olive}[BS Comm]{default} No se encontraron bans modulares de comunicacion activos."
+	}
+
+	"BSCommListPrinted"
+	{
+		"en"		"{olive}[BS Comm]{default} Communication ban list printed to console."
+		"es"		"{olive}[BS Comm]{default} La lista de bans de comunicacion fue impresa en consola."
+	}
+
+	"BSCommConsoleReceived"
+	{
+		"en"		"| You received a communication ban"
+		"es"		"| Usted recibio un ban de comunicacion"
+	}
+
+	"BSCommConsoleExecutedBy"
+	{
+		"#format"	"{1:s}"
+		"en"		"| Executed by: {1}"
+		"es"		"| Ejecutado por: {1}"
+	}
+
+	"BSCommConsoleDurationMinutes"
+	{
+		"#format"	"{1:d}"
+		"en"		"| Duration: {1} minutes"
+		"es"		"| Duracion: {1} minutos"
+	}
+
+	"BSCommConsoleDurationPermanent"
+	{
+		"en"		"| Duration: Permanent"
+		"es"		"| Duracion: Permanente"
+	}
+
+	"BSCommConsoleType"
+	{
+		"#format"	"{1:s}"
+		"en"		"| Type: {1}"
+		"es"		"| Tipo: {1}"
+	}
+
+	"BSCommConsoleReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"| Reason: {1}"
+		"es"		"| Razon: {1}"
+	}
+
+	"BSCommConsoleContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"| Context: {1}"
+		"es"		"| Contexto: {1}"
+	}
+
+}

@@ -23,14 +23,15 @@ public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBan
 	if (!BSAccess_CanUseDatabase() || iBanId <= 0)
 	{
 		BSAccess_SQL("Access detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", iClient);
-		BSCore_MarkModuleDetailResolved(iClient, 1);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
 	char szQuery[512];
 	int iLen = 0;
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `accountid`, `steamid64`, `player_name`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE `id` = %d LIMIT 1;", iBanId);
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE `id` = %d ", iBanId);
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iClient));
@@ -61,23 +62,33 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 	{
 		BSAccess_SQL("Access detail query failed for client %d ban_id %d: %s", iClient, iBanId, szError);
 		delete rsResult;
-		BSCore_MarkModuleDetailResolved(iClient, 1);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
 	if (!rsResult.FetchRow())
 	{
 		if (BSAccess_CanUseCoreLibrary())
-			BSCore_ClearSummaryModule(iExpectedAccountId, 1);
+			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Access);
 		BSAccess_SQL("Access detail query returned no row for client %d ban_id %d.", iClient, iBanId);
 		delete rsResult;
-		BSCore_MarkModuleDetailResolved(iClient, 1);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
+		return;
+	}
+
+	int iResolvedAccountId = rsResult.FetchInt(0);
+	if (iResolvedAccountId != iExpectedAccountId)
+	{
+		BSAccess_SQL("Access detail query returned mismatched accountid for client %d ban_id %d: expected=%d actual=%d", iClient, iBanId, iExpectedAccountId, iResolvedAccountId);
+		delete rsResult;
+		BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Access);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
 	g_eBSAccessResolvedDetail[iClient].m_bLoaded = true;
 	g_eBSAccessResolvedDetail[iClient].m_iBanId = iBanId;
-	g_eBSAccessResolvedDetail[iClient].m_iAccountId = rsResult.FetchInt(0);
+	g_eBSAccessResolvedDetail[iClient].m_iAccountId = iResolvedAccountId;
 	g_eBSAccessResolvedDetail[iClient].m_iLength = rsResult.FetchInt(3);
 	g_eBSAccessResolvedDetail[iClient].m_iBannedBy = rsResult.FetchInt(6);
 	rsResult.FetchString(1, g_eBSAccessResolvedDetail[iClient].m_szSteamId64, sizeof(g_eBSAccessResolvedDetail[].m_szSteamId64));
@@ -98,6 +109,6 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 		g_eBSAccessResolvedDetail[iClient].m_iLength
 	);
 
-	BSCore_MarkModuleDetailResolved(iClient, 1);
+	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 	BSAccess_ApplyResolvedBanToClient(iClient);
 }

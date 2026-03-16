@@ -1,0 +1,45 @@
+"Phrases"
+{
+	"BSAdminMenuCategory"
+	{
+		"en"		"BanSystem"
+		"es"		"BanSystem"
+	}
+
+	"BSAdminMenuAccess"
+	{
+		"en"		"Access Panel"
+		"es"		"Panel de acceso"
+	}
+
+	"BSAdminMenuComm"
+	{
+		"en"		"Comm Panel"
+		"es"		"Panel de comunicacion"
+	}
+
+	"BSAdminMenuSprays"
+	{
+		"en"		"Sprays Panel"
+		"es"		"Panel de sprays"
+	}
+
+	"BSAdminMenuAdmins"
+	{
+		"en"		"Admins Panel"
+		"es"		"Panel de admins"
+	}
+
+	"BSAdminMenuGroups"
+	{
+		"en"		"Groups Panel"
+		"es"		"Panel de grupos"
+	}
+
+	"BSAdminMenuModuleUnavailable"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BanSystem]{default} The module '{1}' is not loaded."
+		"es"		"{olive}[BanSystem]{default} El modulo '{1}' no esta cargado."
+	}
+}

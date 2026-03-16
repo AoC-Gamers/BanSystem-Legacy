@@ -637,7 +637,7 @@ stock void CSetupProfile()
 		/* hl2mp profile is based on mp_teamplay convar */
 		static ConVar hCvarMpTeamPlay = null;
 		if (hCvarMpTeamPlay == null) {
-			hCvarMpTeamPlay = FindConVar("mp_teamplay")
+			hCvarMpTeamPlay = FindConVar("mp_teamplay");
 		}
 
 		if (hCvarMpTeamPlay.BoolValue) {

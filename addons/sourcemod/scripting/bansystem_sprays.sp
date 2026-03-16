@@ -4,7 +4,13 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+
+#undef REQUIRE_PLUGIN
 #include <steamidtools>
+#include <steamidtools_helpers>
+#define REQUIRE_PLUGIN
+
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <bansystem_core>
@@ -57,7 +63,6 @@ eBSSpraysResolvedDetail g_eBSSpraysResolvedDetail[MAXPLAYERS + 1];
 #include "bansystem_sprays/api.sp"
 #include "bansystem_sprays/db.sp"
 #include "bansystem_sprays/commands.sp"
-#include "bansystem_sprays/panels.sp"
 #include "bansystem_sprays/mutations.sp"
 #include "bansystem_sprays/detail.sp"
 
@@ -79,17 +84,19 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 public void OnPluginStart()
 {
 	BuildPath(Path_SM, g_szBSSpraysLogPath, sizeof(g_szBSSpraysLogPath), BANSYSTEM_SPRAYS_DEBUG_LOG);
-	LoadTranslations("bansystem_modular.phrases");
+	LoadTranslations("bansystem_sprays.phrases");
 	g_smBSSpraysIdentityRequestContext = new StringMap();
-	g_cvBSSpraysDebugMask = CreateConVar("sm_bs_sprays_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api.", FCVAR_NONE, true, 0.0);
+	g_cvBSSpraysDebugMask = CreateConVar("sm_bs_sprays_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSSpraysMysqlConfig = CreateConVar("sm_bs_sprays_mysql_config", "bansystem", "MySQL config used by BanSystem Sprays.", FCVAR_NONE);
 	g_cvBSSpraysSteamIdProvider = CreateConVar("sm_bs_sprays_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
 	g_bBSSpraysHasCoreLibrary = LibraryExists("bansystem_core");
 
+	BSEnsureAutoExecFolder();
+	AutoExecConfig(true, "bansystem_sprays", BANSYSTEM_AUTOEXEC_FOLDER);
+
 	BSSprays_OnPluginStart_Api();
 	BSSprays_OnPluginStart_DB();
 	BSSprays_OnPluginStart_Commands();
-	BSSprays_OnPluginStart_Panels();
 	BSSprays_OnPluginStart_Mutations();
 	BSSprays_OnPluginStart_Detail();
 	BSSprays_TryRegisterCoreModule();

@@ -4,7 +4,9 @@
 
 #define BANSYSTEM_CORE_LIBRARY "bansystem_core"
 
-#define BANSYSTEM_CORE_MYSQL_TABLE_SCHEMA_VERSION "bansystem_core_schema_version"
+#define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
+#define BANSYSTEM_CORE_SCHEMA_COMPONENT "core"
+#define BANSYSTEM_CORE_SCHEMA_VERSION 1
 #define BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY "bansystem_summary"
 #define BANSYSTEM_CORE_MYSQL_PROCEDURE_GET_AUTH_SUMMARY "bansystem_get_auth_summary"
 

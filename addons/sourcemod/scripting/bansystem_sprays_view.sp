@@ -4,7 +4,12 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+
+#undef REQUIRE_PLUGIN
 #include <steamidtools>
+#define REQUIRE_PLUGIN
+
+#include <bansystem_shared>
 
 #define BANSYSTEM_SPRAYS_VIEW_VERSION "0.1.0-dev"
 #define BANSYSTEM_SPRAYS_VIEW_LOG "logs/BanSystem_SpraysView.log"
@@ -52,13 +57,16 @@ public Plugin myinfo =
 public void OnPluginStart()
 {
 	BuildPath(Path_SM, g_szBSSpraysViewLogPath, sizeof(g_szBSSpraysViewLogPath), BANSYSTEM_SPRAYS_VIEW_LOG);
-	LoadTranslations("bansystem_modular.phrases");
+	LoadTranslations("bansystem_sprays_view.phrases");
 
 	g_cvBSSpraysViewEnabled = CreateConVar("sm_bs_sprays_view_enabled", "1", "Enable BanSystem spray owner display.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvBSSpraysViewTextLoc = CreateConVar("sm_bs_sprays_view_textloc", "1", "Where spray owner info is displayed. 0=disabled, 1=keyhint, 2=hint, 3=center, 4=hud, 5=top-left.", FCVAR_NONE, true, 0.0, true, 5.0);
 	g_cvBSSpraysViewInfoMask = CreateConVar("sm_bs_sprays_view_info_mask", "3", "Spray owner info bitmask. 1=name, 2=accountid, 4=steam2, 8=steamid64, 16=ip.", FCVAR_NONE, true, 1.0);
 	g_cvBSSpraysViewDistance = CreateConVar("sm_bs_sprays_view_distance", "50.0", "Distance in units for detecting an aimed spray owner.", FCVAR_NONE, true, 1.0);
-	g_cvBSSpraysViewDebugMask = CreateConVar("sm_bs_sprays_view_debug_mask", "0", "Debug bitmask: 1=general.", FCVAR_NONE, true, 0.0);
+	g_cvBSSpraysViewDebugMask = CreateConVar("sm_bs_sprays_view_debug_mask", "0", "Debug bitmask: 1=general (all=1).", FCVAR_NONE, true, 0.0);
+
+	BSEnsureAutoExecFolder();
+	AutoExecConfig(true, "bansystem_sprays_view", BANSYSTEM_AUTOEXEC_FOLDER);
 
 	RegAdminCmd("sm_bs_sprays_view_status", Command_BSSpraysViewStatus, ADMFLAG_ROOT, "Show BanSystem Sprays View status.");
 
@@ -71,6 +79,17 @@ public void OnPluginStart()
 		g_cvBSSpraysViewTextLoc.SetInt(view_as<int>(kBSSpraysViewTextLoc_KeyHint), true);
 		BSSpraysView_Debug("HUD messages are unavailable in this game. Falling back to keyhint display.");
 	}
+}
+
+public void OnMapStart()
+{
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+		BSSpraysView_ResetClient(iClient);
+}
+
+public void OnClientPutInServer(int iClient)
+{
+	BSSpraysView_ResetClient(iClient);
 }
 
 public void OnClientDisconnect(int iClient)
@@ -275,7 +294,7 @@ stock bool BSSpraysView_GetClientEyeEndLocation(int iClient, float vecPosition[3
 
 public bool BSSpraysView_ValidSprayTrace(int iEntity, int iContentsMask)
 {
-	return (iEntity > MaxClients);
+	return (iEntity == 0 || iEntity > MaxClients);
 }
 
 stock void BSSpraysView_TopText(int iClient, const char[] szMessage)

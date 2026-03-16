@@ -25,6 +25,43 @@ native bool bBSASIsSyncInProgress();
 native int iBSASGetSnapshotVersion();
 
 /**
+ * Get the number of enabled admins currently available in the local snapshot.
+ *
+ * @return              Snapshot admin count, or 0 if unavailable.
+ */
+native int iBSASGetAdminCount();
+
+/**
+ * Fetch an enabled admin from the local snapshot by zero-based display index.
+ *
+ * @param iIndex        Zero-based snapshot index ordered by local display order.
+ * @param iAccountId    Receives the admin accountid.
+ * @param szName        Buffer receiving the admin display name.
+ * @param iMaxLength    Maximum buffer length.
+ *
+ * @return              True if the index exists in the snapshot.
+ */
+native bool bBSASGetAdminByIndex(int iIndex, int &iAccountId, char[] szName, int iMaxLength);
+
+/**
+ * Get the number of enabled groups currently available in the local snapshot.
+ *
+ * @return              Snapshot group count, or 0 if unavailable.
+ */
+native int iBSASGetGroupCount();
+
+/**
+ * Fetch an enabled group from the local snapshot by zero-based display index.
+ *
+ * @param iIndex        Zero-based snapshot index ordered by local display order.
+ * @param szName        Buffer receiving the group name.
+ * @param iMaxLength    Maximum buffer length.
+ *
+ * @return              True if the index exists in the snapshot.
+ */
+native bool bBSASGetGroupByIndex(int iIndex, char[] szName, int iMaxLength);
+
+/**
  * Check whether an admin exists in the local snapshot.
  *
  * @param iAccountId    Internal Steam account id of the admin.
@@ -182,6 +219,10 @@ public void __pl_bansystem_adminsync_SetNTVOptional()
 	MarkNativeAsOptional("bBSASReload");
 	MarkNativeAsOptional("bBSASIsSyncInProgress");
 	MarkNativeAsOptional("iBSASGetSnapshotVersion");
+	MarkNativeAsOptional("iBSASGetAdminCount");
+	MarkNativeAsOptional("bBSASGetAdminByIndex");
+	MarkNativeAsOptional("iBSASGetGroupCount");
+	MarkNativeAsOptional("bBSASGetGroupByIndex");
 	MarkNativeAsOptional("bBSASIsAdmin");
 	MarkNativeAsOptional("bBSASAdminHasGroup");
 	MarkNativeAsOptional("bBSASGetAdminFlags");

@@ -75,9 +75,11 @@ stock void BSCore_ValidatePrimarySummarySchema()
 		return;
 
 	char szQuery[256];
-	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY);
-	BSCore_SQL("Primary summary validation query: %s", szQuery);
-	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySummarySchemaValidated, szQuery);
+	int iLen = 0;
+	iLen += g_dbCorePrimary.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `version_num` FROM `%s` ", BANSYSTEM_SCHEMA_META_TABLE);
+	iLen += g_dbCorePrimary.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `component` = '%s' LIMIT 1;", BANSYSTEM_CORE_SCHEMA_COMPONENT);
+	BSCore_SQL("Primary schema meta validation query: %s", szQuery);
+	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySchemaMetaValidated, szQuery);
 }
 
 stock void BSCore_ValidateCacheSummarySchema()
@@ -89,6 +91,39 @@ stock void BSCore_ValidateCacheSummarySchema()
 	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
 	BSCore_SQL("Cache summary validation query: %s", szQuery);
 	SQL_TQuery(g_dbCoreCache, BSCore_OnCacheSummarySchemaValidated, szQuery);
+}
+
+public void BSCore_OnPrimarySchemaMetaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)
+{
+	if (rsResult == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Primary schema meta validation failed: %s", szError);
+		g_bCorePrimaryReady = false;
+		delete rsResult;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		BSCore_SQL("Primary schema meta validation failed: component '%s' not found.", BANSYSTEM_CORE_SCHEMA_COMPONENT);
+		g_bCorePrimaryReady = false;
+		delete rsResult;
+		return;
+	}
+
+	int iVersion = rsResult.FetchInt(0);
+	delete rsResult;
+	if (iVersion != BANSYSTEM_CORE_SCHEMA_VERSION)
+	{
+		BSCore_SQL("Primary schema meta validation failed: component '%s' expected version %d but found %d.", BANSYSTEM_CORE_SCHEMA_COMPONENT, BANSYSTEM_CORE_SCHEMA_VERSION, iVersion);
+		g_bCorePrimaryReady = false;
+		return;
+	}
+
+	char szQuery[256];
+	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY);
+	BSCore_SQL("Primary summary validation query: %s", szQuery);
+	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySummarySchemaValidated, szQuery);
 }
 
 public void BSCore_OnPrimarySummarySchemaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)

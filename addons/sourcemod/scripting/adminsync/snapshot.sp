@@ -226,7 +226,7 @@ void vVerifySQLiteSnapshot(int iClient)
 {
 	if (g_dbLocal == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] verify: local SQLite snapshot is not available.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncVerifySQLiteUnavailable");
 		return;
 	}
 
@@ -258,7 +258,7 @@ void vVerifySQLiteSnapshot(int iClient)
 	delete rsMemberships;
 	delete rsOrphans;
 
-	ReplyToCommand(iClient, "[BS AdminSync] verify sqlite: admins=%d distinct_accountid=%d groups=%d memberships=%d orphan_memberships=%d",
+	CReplyToCommand(iClient, "%t", "BSAdminSyncVerifySQLite",
 		iAdmins, iDistinctAdmins, iGroups, iMemberships, iOrphans);
 }
 
@@ -268,7 +268,7 @@ void vVerifyKvSnapshot(int iClient)
 	if (!kv.ImportFromFile(g_szKvSnapshotPath))
 	{
 		delete kv;
-		ReplyToCommand(iClient, "[BS AdminSync] verify: KV snapshot file is missing or unreadable.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncVerifyKvUnreadable");
 		return;
 	}
 
@@ -306,7 +306,7 @@ void vVerifyKvSnapshot(int iClient)
 	}
 
 	delete kv;
-	ReplyToCommand(iClient, "[BS AdminSync] verify kv: admins=%d groups=%d memberships=%d file=%s",
+	CReplyToCommand(iClient, "%t", "BSAdminSyncVerifyKv",
 		iAdmins, iGroups, iMemberships, g_szKvSnapshotPath);
 }
 
@@ -314,19 +314,22 @@ void vListSQLiteAdmins(int iClient)
 {
 	if (g_dbLocal == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list admins: local SQLite snapshot is not available.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListAdminsSQLiteUnavailable");
 		return;
 	}
 
 	DBResultSet rsResult = SQL_Query(g_dbLocal, "SELECT `accountid`, `name`, `flags`, `immunity` FROM `adminsync_admins` WHERE `enabled` = 1 ORDER BY `id` ASC;");
 	if (rsResult == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list admins: failed to query local SQLite snapshot.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListAdminsSQLiteFailed");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Admins from local SQLite snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderSQLiteAdmins", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	while (rsResult.FetchRow())
@@ -344,26 +347,30 @@ void vListSQLiteAdmins(int iClient)
 	}
 
 	delete rsResult;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d admins to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelAdmins", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
 }
 
 void vListSQLiteGroups(int iClient)
 {
 	if (g_dbLocal == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list groups: local SQLite snapshot is not available.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListGroupsSQLiteUnavailable");
 		return;
 	}
 
 	DBResultSet rsResult = SQL_Query(g_dbLocal, "SELECT `name`, `flags`, `immunity_level` FROM `adminsync_groups` WHERE `enabled` = 1 ORDER BY `id` ASC;");
 	if (rsResult == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list groups: failed to query local SQLite snapshot.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListGroupsSQLiteFailed");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Groups from local SQLite snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderSQLiteGroups", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	while (rsResult.FetchRow())
@@ -378,7 +385,8 @@ void vListSQLiteGroups(int iClient)
 	}
 
 	delete rsResult;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d groups to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelGroups", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
 }
 
 void vListKvAdmins(int iClient)
@@ -387,12 +395,15 @@ void vListKvAdmins(int iClient)
 	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("admins", false))
 	{
 		delete kv;
-		ReplyToCommand(iClient, "[BS AdminSync] list admins: KV snapshot file is missing or unreadable.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListAdminsKvUnreadable");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Admins from local KV snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderKvAdmins", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	if (kv.GotoFirstSubKey(false))
@@ -414,7 +425,8 @@ void vListKvAdmins(int iClient)
 	}
 
 	delete kv;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d admins to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelAdmins", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
 }
 
 void vListKvGroups(int iClient)
@@ -423,12 +435,15 @@ void vListKvGroups(int iClient)
 	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("groups", false))
 	{
 		delete kv;
-		ReplyToCommand(iClient, "[BS AdminSync] list groups: KV snapshot file is missing or unreadable.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListGroupsKvUnreadable");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Groups from local KV snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderKvGroups", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	if (kv.GotoFirstSubKey(false))
@@ -447,26 +462,30 @@ void vListKvGroups(int iClient)
 	}
 
 	delete kv;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d groups to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelGroups", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
 }
 
 void vListSQLiteMemberships(int iClient)
 {
 	if (g_dbLocal == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list memberships: local SQLite snapshot is not available.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListMembershipsSQLiteUnavailable");
 		return;
 	}
 
 	DBResultSet rsResult = SQL_Query(g_dbLocal, "SELECT a.`accountid`, a.`name`, g.`name`, ag.`inherit_order` FROM `adminsync_admins_groups` ag INNER JOIN `adminsync_admins` a ON a.`id` = ag.`admin_id` INNER JOIN `adminsync_groups` g ON g.`id` = ag.`group_id` WHERE a.`enabled` = 1 AND g.`enabled` = 1 ORDER BY a.`id` ASC, ag.`inherit_order` ASC, g.`id` ASC;");
 	if (rsResult == null)
 	{
-		ReplyToCommand(iClient, "[BS AdminSync] list memberships: failed to query local SQLite snapshot.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListMembershipsSQLiteFailed");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Admin-group memberships from local SQLite snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderSQLiteMemberships", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	while (rsResult.FetchRow())
@@ -481,7 +500,8 @@ void vListSQLiteMemberships(int iClient)
 	}
 
 	delete rsResult;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d memberships to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelMemberships", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
 }
 
 void vListKvMemberships(int iClient)
@@ -490,12 +510,15 @@ void vListKvMemberships(int iClient)
 	if (!kv.ImportFromFile(g_szKvSnapshotPath))
 	{
 		delete kv;
-		ReplyToCommand(iClient, "[BS AdminSync] list memberships: KV snapshot file is missing or unreadable.");
+		CReplyToCommand(iClient, "%t", "BSAdminSyncListMembershipsKvUnreadable");
 		return;
 	}
 
+	char szHeader[192];
+	char szLabel[64];
 	PrintToConsole(iClient, " ");
-	PrintToConsole(iClient, "[BS AdminSync] Admin-group memberships from local KV snapshot");
+	FormatEx(szHeader, sizeof(szHeader), "%T", "BSAdminSyncConsoleHeaderKvMemberships", iClient);
+	PrintToConsole(iClient, "%s", szHeader);
 
 	int iCount = 0;
 	if (kv.JumpToKey("memberships", false) && kv.GotoFirstSubKey(false))
@@ -546,7 +569,211 @@ void vListKvMemberships(int iClient)
 	}
 
 	delete kv;
-	ReplyToCommand(iClient, "[BS AdminSync] printed %d memberships to console.", iCount);
+	FormatEx(szLabel, sizeof(szLabel), "%T", "BSAdminSyncConsoleLabelMemberships", iClient);
+	CReplyToCommand(iClient, "%t", "BSAdminSyncPrintedToConsole", iCount, szLabel);
+}
+
+int iSnapshotGetAdminCount()
+{
+	if (GetSnapshotBackend() == Backend_SQLite)
+	{
+		if (g_dbLocal == null)
+			return 0;
+
+		DBResultSet rsResult = SQL_Query(g_dbLocal, "SELECT COUNT(*) FROM `adminsync_admins` WHERE `enabled` = 1;");
+		if (rsResult == null || !rsResult.FetchRow())
+		{
+			delete rsResult;
+			return 0;
+		}
+
+		int iCount = rsResult.FetchInt(0);
+		delete rsResult;
+		return iCount;
+	}
+
+	KeyValues kv = new KeyValues("BanSystemAdminSync");
+	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("admins", false))
+	{
+		delete kv;
+		return 0;
+	}
+
+	int iCount = 0;
+	if (kv.GotoFirstSubKey(false))
+	{
+		do
+		{
+			if (kv.GetNum("enabled", 1) != 0)
+				iCount++;
+		}
+		while (kv.GotoNextKey(false));
+	}
+
+	delete kv;
+	return iCount;
+}
+
+bool bSnapshotGetAdminByIndex(int iIndex, int &iAccountId, char[] szName, int iMaxLength)
+{
+	iAccountId = 0;
+	szName[0] = '\0';
+
+	if (iIndex < 0)
+		return false;
+
+	if (GetSnapshotBackend() == Backend_SQLite)
+	{
+		if (g_dbLocal == null)
+			return false;
+
+		char szQuery[256];
+		Format(szQuery, sizeof(szQuery), "SELECT `accountid`, `name` FROM `adminsync_admins` WHERE `enabled` = 1 ORDER BY `id` ASC LIMIT 1 OFFSET %d;", iIndex);
+		DBResultSet rsResult = SQL_Query(g_dbLocal, szQuery);
+		if (rsResult == null || !rsResult.FetchRow())
+		{
+			delete rsResult;
+			return false;
+		}
+
+		iAccountId = rsResult.FetchInt(0);
+		rsResult.FetchString(1, szName, iMaxLength);
+		delete rsResult;
+		return true;
+	}
+
+	KeyValues kv = new KeyValues("BanSystemAdminSync");
+	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("admins", false))
+	{
+		delete kv;
+		return false;
+	}
+
+	int iCurrentIndex = 0;
+	bool bFound = false;
+	if (kv.GotoFirstSubKey(false))
+	{
+		do
+		{
+			if (kv.GetNum("enabled", 1) == 0)
+				continue;
+
+			if (iCurrentIndex != iIndex)
+			{
+				iCurrentIndex++;
+				continue;
+			}
+
+			iAccountId = kv.GetNum("accountid", 0);
+			kv.GetString("name", szName, iMaxLength);
+			bFound = true;
+			break;
+		}
+		while (kv.GotoNextKey(false));
+	}
+
+	delete kv;
+	return bFound;
+}
+
+int iSnapshotGetGroupCount()
+{
+	if (GetSnapshotBackend() == Backend_SQLite)
+	{
+		if (g_dbLocal == null)
+			return 0;
+
+		DBResultSet rsResult = SQL_Query(g_dbLocal, "SELECT COUNT(*) FROM `adminsync_groups` WHERE `enabled` = 1;");
+		if (rsResult == null || !rsResult.FetchRow())
+		{
+			delete rsResult;
+			return 0;
+		}
+
+		int iCount = rsResult.FetchInt(0);
+		delete rsResult;
+		return iCount;
+	}
+
+	KeyValues kv = new KeyValues("BanSystemAdminSync");
+	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("groups", false))
+	{
+		delete kv;
+		return 0;
+	}
+
+	int iCount = 0;
+	if (kv.GotoFirstSubKey(false))
+	{
+		do
+		{
+			if (kv.GetNum("enabled", 1) != 0)
+				iCount++;
+		}
+		while (kv.GotoNextKey(false));
+	}
+
+	delete kv;
+	return iCount;
+}
+
+bool bSnapshotGetGroupByIndex(int iIndex, char[] szName, int iMaxLength)
+{
+	szName[0] = '\0';
+
+	if (iIndex < 0)
+		return false;
+
+	if (GetSnapshotBackend() == Backend_SQLite)
+	{
+		if (g_dbLocal == null)
+			return false;
+
+		char szQuery[256];
+		Format(szQuery, sizeof(szQuery), "SELECT `name` FROM `adminsync_groups` WHERE `enabled` = 1 ORDER BY `id` ASC LIMIT 1 OFFSET %d;", iIndex);
+		DBResultSet rsResult = SQL_Query(g_dbLocal, szQuery);
+		if (rsResult == null || !rsResult.FetchRow())
+		{
+			delete rsResult;
+			return false;
+		}
+
+		rsResult.FetchString(0, szName, iMaxLength);
+		delete rsResult;
+		return true;
+	}
+
+	KeyValues kv = new KeyValues("BanSystemAdminSync");
+	if (!kv.ImportFromFile(g_szKvSnapshotPath) || !kv.JumpToKey("groups", false))
+	{
+		delete kv;
+		return false;
+	}
+
+	int iCurrentIndex = 0;
+	bool bFound = false;
+	if (kv.GotoFirstSubKey(false))
+	{
+		do
+		{
+			if (kv.GetNum("enabled", 1) == 0)
+				continue;
+
+			if (iCurrentIndex != iIndex)
+			{
+				iCurrentIndex++;
+				continue;
+			}
+
+			kv.GetString("name", szName, iMaxLength);
+			bFound = true;
+			break;
+		}
+		while (kv.GotoNextKey(false));
+	}
+
+	delete kv;
+	return bFound;
 }
 
 bool bSnapshotAdminHasGroup(int iAccountId, const char[] szGroupName)

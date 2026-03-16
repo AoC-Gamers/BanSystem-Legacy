@@ -87,12 +87,11 @@ Action Command_BSSpraysAdd(int iClient, int iArgs)
 	char szMinutes[16];
 	char szReason[BANSYSTEM_SPRAYS_MAX_REASON_LENGTH];
 	char szContext[sizeof(g_eBSSpraysResolvedDetail[].m_szContext)];
-	GetCmdArg(1, szInput, sizeof(szInput));
-	GetCmdArg(2, szMinutes, sizeof(szMinutes));
-	GetCmdArg(3, szReason, sizeof(szReason));
-	GetCmdArg(4, szContext, sizeof(szContext));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
+	SteamIDTools_GetCmdArgNormalized(iNextArg, iArgs, szMinutes, sizeof(szMinutes));
+	SteamIDTools_GetCmdArgNormalized(iNextArg + 1, iArgs, szReason, sizeof(szReason));
+	SteamIDTools_JoinCmdArgs(iNextArg + 2, iArgs, szContext, sizeof(szContext));
 
 	int iLength = StringToInt(szMinutes);
 	if (iLength < 0)
@@ -134,9 +133,8 @@ Action Command_BSSpraysRemove(int iClient, int iArgs)
 	}
 
 	char szInput[64];
-	GetCmdArg(1, szInput, sizeof(szInput));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
@@ -171,9 +169,8 @@ Action Command_BSSpraysInfo(int iClient, int iArgs)
 	}
 
 	char szInput[64];
-	GetCmdArg(1, szInput, sizeof(szInput));
-	TrimString(szInput);
-	StripQuotes(szInput);
+	int iNextArg = 0;
+	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{

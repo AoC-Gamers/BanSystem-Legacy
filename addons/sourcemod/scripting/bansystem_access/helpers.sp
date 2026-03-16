@@ -2,7 +2,7 @@
 			H E L P E R S
 *****************************************************************/
 
-stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage, int iVFormatArg)
+stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
 	if (g_cvBSAccessDebugMask == null)
 		return;
@@ -10,29 +10,69 @@ stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, co
 	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	static char szBuffer[1024];
-	VFormat(szBuffer, sizeof(szBuffer), szMessage, iVFormatArg);
-	LogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szBuffer);
+	LogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
+}
+
+stock void BSAccess_LogCategoryFormatted(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage)
+{
+	if (g_cvBSAccessDebugMask == null)
+		return;
+
+	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
+		return;
+
+	LogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSAccess_Debug(const char[] szMessage, any ...)
 {
-	BSAccess_LogCategory(kBSAccessDebug_General, "Debug", szMessage, 2);
+	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_General)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSAccess_LogCategoryFormatted(kBSAccessDebug_General, "Debug", szBuffer);
 }
 
 stock void BSAccess_SQL(const char[] szMessage, any ...)
 {
-	BSAccess_LogCategory(kBSAccessDebug_SQL, "SQL", szMessage, 2);
+	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_SQL)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSAccess_LogCategoryFormatted(kBSAccessDebug_SQL, "SQL", szBuffer);
 }
 
 stock void BSAccess_Menu(const char[] szMessage, any ...)
 {
-	BSAccess_LogCategory(kBSAccessDebug_Menu, "Menu", szMessage, 2);
+	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_Menu)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSAccess_LogCategoryFormatted(kBSAccessDebug_Menu, "Menu", szBuffer);
 }
 
 stock void BSAccess_API(const char[] szMessage, any ...)
 {
-	BSAccess_LogCategory(kBSAccessDebug_API, "API", szMessage, 2);
+	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_API)) == 0)
+		return;
+
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 2);
+	BSAccess_LogCategoryFormatted(kBSAccessDebug_API, "API", szBuffer);
+}
+
+stock void BSAccess_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, any ...)
+{
+	static char szBuffer[1024];
+	VFormat(szBuffer, sizeof(szBuffer), szMessage, 3);
+
+	if (iAdmin > 0)
+		PrintToConsole(iAdmin, "%s", szBuffer);
+	else
+		PrintToServer("%s", szBuffer);
 }
 
 stock bool BSAccess_CanUseCoreLibrary()
@@ -77,30 +117,110 @@ stock SteamIDToolsProvider BSAccess_GetSteamIdLookupProvider()
 	return SteamIDToolsProvider_Unknown;
 }
 
+stock void BSAccess_GetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] szBuffer, int iMaxLength)
+{
+	switch (eProvider)
+	{
+		case SteamIDToolsProvider_SteamWorks:
+			strcopy(szBuffer, iMaxLength, "steamworks");
+		case SteamIDToolsProvider_System2:
+			strcopy(szBuffer, iMaxLength, "system2");
+		default:
+			strcopy(szBuffer, iMaxLength, "unknown");
+	}
+}
+
+stock bool BSAccess_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &eProvider)
+{
+	eProvider = SteamIDToolsProvider_Unknown;
+
+	if (!SteamIDTools_IsLibraryAvailable())
+	{
+		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64Unavailable");
+		return false;
+	}
+
+	char szConfigured[16];
+	g_cvBSAccessSteamIdProvider.GetString(szConfigured, sizeof(szConfigured));
+	TrimString(szConfigured);
+
+	if (StrEqual(szConfigured, "steamworks", false))
+	{
+		eProvider = SteamIDToolsProvider_SteamWorks;
+	}
+	else if (StrEqual(szConfigured, "system2", false))
+	{
+		eProvider = SteamIDToolsProvider_System2;
+	}
+	else
+	{
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_SteamWorks))
+		{
+			eProvider = SteamIDToolsProvider_SteamWorks;
+			return true;
+		}
+
+		if (SteamIDTools_IsProviderReady(SteamIDToolsProvider_System2))
+		{
+			eProvider = SteamIDToolsProvider_System2;
+			return true;
+		}
+
+		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
+			eProvider = SteamIDToolsProvider_SteamWorks;
+		else if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
+			eProvider = SteamIDToolsProvider_System2;
+	}
+
+	if (eProvider == SteamIDToolsProvider_Unknown)
+	{
+		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64Unavailable");
+		return false;
+	}
+
+	if (SteamIDTools_IsProviderReady(eProvider))
+	{
+		return true;
+	}
+
+	char szProvider[16];
+	char szStatus[128];
+	BSAccess_GetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
+	if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
+	{
+		strcopy(szStatus, sizeof(szStatus), "backend unavailable");
+	}
+
+	CReplyToCommand(iAdmin, "%t", "BSAccessSteam64BackendNotReady", szProvider, szStatus);
+	return false;
+}
+
 stock bool BSAccess_TryResolveInputAccountId(int iAdmin, const char[] szInput, int &iAccountId, int &iTargetClient)
 {
 	iAccountId = 0;
 	iTargetClient = 0;
 
-	SteamIDFormat eFormat = DetectSteamIDFormat(szInput);
+	char szNormalized[64];
+	strcopy(szNormalized, sizeof(szNormalized), szInput);
+	TrimString(szNormalized);
+	StripQuotes(szNormalized);
+
+	SteamIDFormat eFormat = DetectSteamIDFormat(szNormalized);
 	switch (eFormat)
 	{
 		case STEAMID_FORMAT_ACCOUNTID:
 		{
-			iAccountId = StringToInt(szInput);
-			return (iAccountId > 0);
+			iAccountId = StringToInt(szNormalized);
 		}
 
 		case STEAMID_FORMAT_STEAMID2:
 		{
-			iAccountId = SteamID2ToAccountID(szInput);
-			return (iAccountId > 0);
+			iAccountId = SteamID2ToAccountID(szNormalized);
 		}
 
 		case STEAMID_FORMAT_STEAMID3:
 		{
-			iAccountId = SteamID3ToAccountID(szInput);
-			return (iAccountId > 0);
+			iAccountId = SteamID3ToAccountID(szNormalized);
 		}
 
 		case STEAMID_FORMAT_STEAMID64:
@@ -114,7 +234,7 @@ stock bool BSAccess_TryResolveInputAccountId(int iAdmin, const char[] szInput, i
 				if (!GetClientAuthId(iClient, AuthId_SteamID64, szSteamId64, sizeof(szSteamId64), true))
 					continue;
 
-				if (!StrEqual(szSteamId64, szInput, false))
+				if (!StrEqual(szSteamId64, szNormalized, false))
 					continue;
 
 				iTargetClient = iClient;
@@ -126,7 +246,16 @@ stock bool BSAccess_TryResolveInputAccountId(int iAdmin, const char[] szInput, i
 		}
 	}
 
-	int iTarget = FindTarget(iAdmin, szInput, true, false);
+	if (iAccountId > 0)
+	{
+		int iResolvedClient = FindClientByAccountID(iAccountId);
+		if (iResolvedClient > 0)
+			iTargetClient = iResolvedClient;
+
+		return true;
+	}
+
+	int iTarget = FindTarget(iAdmin, szNormalized, true, false);
 	if (iTarget <= 0)
 		return false;
 
@@ -179,23 +308,29 @@ stock void BSAccess_TryRegisterCoreModule()
 	if (!BSAccess_CanUseCoreLibrary())
 		return;
 
-	BSCore_RegisterModule(BANSYSTEM_ACCESS_MODULE_NAME, 1);
+	BSCore_RegisterModule(BANSYSTEM_ACCESS_MODULE_NAME, kBSCoreModule_Access);
 	BSAccess_API("Registered access module in bansystem_core.");
 }
 
 stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSAccessIdentityAction eAction, int iValue, const char[] szReason = "", const char[] szContext = "")
 {
-	SteamIDToolsProvider eProvider = BSAccess_GetSteamIdLookupProvider();
-	if (eProvider == SteamIDToolsProvider_Unknown)
-	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64Unavailable");
+	SteamIDToolsProvider eProvider;
+	if (!BSAccess_TryGetSteamIdLookupProvider(iAdmin, eProvider))
 		return false;
-	}
 
 	int iRequestId = SteamIDTools_RequestConversion(eProvider, API_SID64toAID, szSteamId64);
 	if (iRequestId <= 0)
 	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64QueueFailed");
+		char szProvider[16];
+		char szStatus[128];
+		BSAccess_GetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
+		if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
+		{
+			CReplyToCommand(iAdmin, "%t", "BSAccessSteam64QueueFailed");
+			return false;
+		}
+
+		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64QueueFailedStatus", szProvider, szStatus);
 		return false;
 	}
 
