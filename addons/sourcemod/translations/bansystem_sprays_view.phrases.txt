@@ -1,12 +1,5 @@
 "Phrases"
 {
-	"BSSpraysViewStatus"
-	{
-		"#format"	"{1:d},{2:d},{3:d},{4:f},{5:d}"
-		"en"		"{olive}[BS Sprays View]{default} enabled={1} textloc={2} info_mask={3} distance={4} hud={5}"
-		"es"		"{olive}[BS Sprays View]{default} enabled={1} textloc={2} info_mask={3} distance={4} hud={5}"
-	}
-
 	"BSSpraysViewSprayedBy"
 	{
 		"en"		"Sprayed by"

@@ -51,6 +51,119 @@ BEGIN
     END IF;
 END $$
 
+DROP VIEW IF EXISTS `view_bansystem_spray_bans_active` $$
+CREATE VIEW `view_bansystem_spray_bans_active` AS
+SELECT
+    `id`,
+    `accountid`,
+    `steamid64`,
+    `player_name`,
+    `ip_address`,
+    `ban_length`,
+    `ban_reason`,
+    `ban_context`,
+    `banned_by`,
+    `banned_by_name`,
+    `banned_by_steamid64`,
+    `date_expire`,
+    `date_reg`,
+    IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts`
+FROM `bansystem_spray_bans`
+WHERE (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) $$
+
+DROP PROCEDURE IF EXISTS `bansystem_spray_ban_save` $$
+CREATE PROCEDURE `bansystem_spray_ban_save`(
+    IN inAccountId INT,
+    IN inSteamId64 VARCHAR(20),
+    IN inPlayerName VARCHAR(128),
+    IN inIpAddress VARCHAR(64),
+    IN inBanLength INT,
+    IN inBanReason VARCHAR(250),
+    IN inBanContext VARCHAR(512),
+    IN inBannedBy INT,
+    IN inBannedByName VARCHAR(128),
+    IN inBannedBySteamId64 VARCHAR(20)
+)
+BEGIN
+    INSERT INTO `bansystem_spray_bans` (
+        `accountid`, `steamid64`, `player_name`, `ip_address`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`
+    ) VALUES (
+        inAccountId, inSteamId64, inPlayerName, inIpAddress, inBanLength, inBanReason, inBanContext, inBannedBy, inBannedByName, inBannedBySteamId64
+    )
+    ON DUPLICATE KEY UPDATE
+        `steamid64` = VALUES(`steamid64`),
+        `player_name` = VALUES(`player_name`),
+        `ip_address` = VALUES(`ip_address`),
+        `ban_length` = VALUES(`ban_length`),
+        `ban_reason` = VALUES(`ban_reason`),
+        `ban_context` = VALUES(`ban_context`),
+        `banned_by` = VALUES(`banned_by`),
+        `banned_by_name` = VALUES(`banned_by_name`),
+        `banned_by_steamid64` = VALUES(`banned_by_steamid64`);
+
+    CALL `bansystem_rebuild_summary_account`(inAccountId);
+
+    SELECT `id`
+    FROM `view_bansystem_spray_bans_active`
+    WHERE `accountid` = inAccountId
+    LIMIT 1;
+END $$
+
+DROP PROCEDURE IF EXISTS `bansystem_spray_ban_delete` $$
+CREATE PROCEDURE `bansystem_spray_ban_delete`(
+    IN inAccountId INT
+)
+BEGIN
+    DELETE FROM `bansystem_spray_bans`
+    WHERE `accountid` = inAccountId;
+
+    CALL `bansystem_rebuild_summary_account`(inAccountId);
+END $$
+
+DROP PROCEDURE IF EXISTS `bansystem_spray_get_active_by_accountid` $$
+CREATE PROCEDURE `bansystem_spray_get_active_by_accountid`(
+    IN inAccountId INT
+)
+BEGIN
+    SELECT
+        `id`,
+        `accountid`,
+        `steamid64`,
+        `player_name`,
+        `ban_length`,
+        `ban_reason`,
+        `ban_context`,
+        `banned_by`,
+        `banned_by_name`,
+        `banned_by_steamid64`,
+                `date_expire_ts`
+        FROM `view_bansystem_spray_bans_active`
+    WHERE `accountid` = inAccountId
+    LIMIT 1;
+END $$
+
+DROP PROCEDURE IF EXISTS `bansystem_spray_get_active_by_banid` $$
+CREATE PROCEDURE `bansystem_spray_get_active_by_banid`(
+    IN inBanId INT
+)
+BEGIN
+    SELECT
+        `id`,
+        `accountid`,
+        `steamid64`,
+        `player_name`,
+        `ban_length`,
+        `ban_reason`,
+        `ban_context`,
+        `banned_by`,
+        `banned_by_name`,
+        `banned_by_steamid64`,
+                `date_expire_ts`
+        FROM `view_bansystem_spray_bans_active`
+    WHERE `id` = inBanId
+    LIMIT 1;
+END $$
+
 INSERT INTO `bansystem_schema_meta` (`component`, `version_num`)
 VALUES ('sprays', 1)
 ON DUPLICATE KEY UPDATE `version_num` = VALUES(`version_num`) $$

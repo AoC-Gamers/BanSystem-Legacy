@@ -1,24 +1,5 @@
 "Phrases"
 {
-	"BSAdminSyncNever"
-	{
-		"en"		"never"
-		"es"		"nunca"
-	}
-
-	"BSAdminSyncStatus"
-	{
-		"#format"	"{1:s},{2:d},{3:d},{4:d},{5:d},{6:d},{7:s},{8:s},{9:d},{10:s}"
-		"en"		"{olive}[BS AdminSync]{default} backend={1} syncing={2} admins={3} groups={4} memberships={5} version={6} check={7} last_sync={8} local_sqlite={9} kv={10}"
-		"es"		"{olive}[BS AdminSync]{default} backend={1} sincronizando={2} admins={3} grupos={4} membresias={5} version={6} verificacion={7} ultima_sync={8} sqlite_local={9} kv={10}"
-	}
-
-	"BSAdminSyncCheckModeMapChange"
-	{
-		"en"		"mapchange"
-		"es"		"cambio_mapa"
-	}
-
 	"BSAdminSyncUsageAdminAdd"
 	{
 		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_add <target|steamid|accountid> <flags> [immunity] [name]"

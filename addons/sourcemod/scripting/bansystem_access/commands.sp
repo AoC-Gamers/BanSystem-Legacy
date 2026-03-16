@@ -4,7 +4,6 @@
 
 stock void BSAccess_OnPluginStart_Commands()
 {
-	RegAdminCmd("sm_bs_access_status", Command_BSAccessStatus, ADMFLAG_ROOT, "Show BanSystem Access scaffold status.");
 	RegAdminCmd("sm_bs_access_detail", Command_BSAccessDetail, ADMFLAG_ROOT, "Show resolved access detail for a connected client.");
 	RegAdminCmd("sm_bs_access_add", Command_BSAccessAdd, ADMFLAG_ROOT, "Add or update an access ban in the modular access table.");
 	RegAdminCmd("sm_bs_access_remove", Command_BSAccessRemove, ADMFLAG_ROOT, "Remove an access ban from the modular access table.");
@@ -12,22 +11,10 @@ stock void BSAccess_OnPluginStart_Commands()
 	RegAdminCmd("sm_bs_access_list", Command_BSAccessList, ADMFLAG_ROOT, "List active modular access bans.");
 }
 
-Action Command_BSAccessStatus(int iClient, int iArgs)
-{
-	CReplyToCommand(
-		iClient,
-		"%t",
-		"BSAccessStatus",
-		BSAccess_CanUseCoreLibrary() ? 1 : 0,
-		BSAccess_CanUseCoreLibrary() ? (BSCore_IsModuleRegistered(BANSYSTEM_ACCESS_MODULE_NAME) ? 1 : 0) : 0,
-		BSAccess_CanUseDatabase() ? 1 : 0
-	);
-
-	return Plugin_Handled;
-}
-
 Action Command_BSAccessAdd(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 3)
 	{
 		CReplyToCommand(iClient, "%t", "BSAccessUsageAdd");
@@ -59,7 +46,7 @@ Action Command_BSAccessAdd(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Add, iLength, szReason, szContext))
+		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Add, iLength, szReason, szContext, eReplySource))
 			return Plugin_Handled;
 		return Plugin_Handled;
 	}
@@ -72,12 +59,14 @@ Action Command_BSAccessAdd(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSAccess_QueueAddBan(iClient, iAccountId, iTargetClient, iLength, szReason, szContext);
+	BSAccess_QueueAddBan(iClient, iAccountId, iTargetClient, iLength, szReason, szContext, "", "UNKNOWN", eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSAccessRemove(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSAccessUsageRemove");
@@ -96,7 +85,7 @@ Action Command_BSAccessRemove(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Remove, 0))
+		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Remove, 0, "", "", eReplySource))
 			return Plugin_Handled;
 		return Plugin_Handled;
 	}
@@ -109,12 +98,14 @@ Action Command_BSAccessRemove(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSAccess_QueueRemoveBan(iClient, iAccountId);
+	BSAccess_QueueRemoveBan(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSAccessInfo(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSAccessUsageInfo");
@@ -133,7 +124,7 @@ Action Command_BSAccessInfo(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Info, 0))
+		if (BSAccess_QueueIdentityLookup(iClient, szInput, kBSAccessIdentityAction_Info, 0, "", "", eReplySource))
 			return Plugin_Handled;
 		return Plugin_Handled;
 	}
@@ -146,12 +137,14 @@ Action Command_BSAccessInfo(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSAccess_QueueInfoByAccountId(iClient, iAccountId);
+	BSAccess_QueueInfoByAccountId(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSAccessList(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (!BSAccess_CanUseDatabase())
 	{
 		CReplyToCommand(iClient, "%t", "BSAccessDatabaseNotReady");
@@ -170,7 +163,7 @@ Action Command_BSAccessList(int iClient, int iArgs)
 			iLimit = 200;
 	}
 
-	BSAccess_QueueList(iClient, iLimit);
+	BSAccess_QueueList(iClient, iLimit, eReplySource);
 	return Plugin_Handled;
 }
 
@@ -196,7 +189,10 @@ Action Command_BSAccessDetail(int iClient, int iArgs)
 	}
 
 	char szDateExpire[64];
+	char szSteam2[32];
 	BSAccess_FormatExpireDisplay(g_eBSAccessResolvedDetail[iTarget].m_iDateExpireTs, szDateExpire, sizeof(szDateExpire));
+	if (!AccountIDToSteamID2(g_eBSAccessResolvedDetail[iTarget].m_iAccountId, szSteam2, sizeof(szSteam2)))
+		strcopy(szSteam2, sizeof(szSteam2), "UNKNOWN");
 
 	CReplyToCommand(
 		iClient,
@@ -206,7 +202,7 @@ Action Command_BSAccessDetail(int iClient, int iArgs)
 		g_eBSAccessResolvedDetail[iTarget].m_iBanId,
 		g_eBSAccessResolvedDetail[iTarget].m_iAccountId,
 		g_eBSAccessResolvedDetail[iTarget].m_iLength,
-		g_eBSAccessResolvedDetail[iTarget].m_szSteamId64,
+		szSteam2,
 		g_eBSAccessResolvedDetail[iTarget].m_szReason,
 		g_eBSAccessResolvedDetail[iTarget].m_szContext[0] != '\0' ? g_eBSAccessResolvedDetail[iTarget].m_szContext : "<none>",
 		g_eBSAccessResolvedDetail[iTarget].m_iBannedBy,

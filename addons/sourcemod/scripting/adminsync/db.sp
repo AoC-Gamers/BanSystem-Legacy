@@ -1,9 +1,9 @@
-void vStartAdminSync(int iClient = 0)
+void vStartAdminSync(int iClient = 0, ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	if (g_bSyncInProgress)
 	{
 		vAdminSyncDebug("Reload skipped because a sync is already in progress.");
-		CReplyToCommand(iClient, "%t", "BSAdminSyncSyncInProgress");
+		vAdminSyncCReplyToCommandWithSource(iClient, eReplySource, "%t", "BSAdminSyncSyncInProgress");
 		return;
 	}
 
@@ -14,7 +14,10 @@ void vStartAdminSync(int iClient = 0)
 	char szMysqlConfig[64];
 	g_cvMysqlConfig.GetString(szMysqlConfig, sizeof(szMysqlConfig));
 	vAdminSyncDebug("Starting snapshot sync using MySQL config '%s'.", szMysqlConfig);
-	SQL_TConnect(vAdminSyncConnectCallback, szMysqlConfig, iClient);
+	DataPack pack = new DataPack();
+	pack.WriteCell(iGetAdminSyncCommandUserId(iClient));
+	pack.WriteCell(view_as<int>(eReplySource));
+	SQL_TConnect(vAdminSyncConnectCallback, szMysqlConfig, pack);
 }
 
 void vBuildAdminSyncSchemaMetaQuery(char[] szQuery, int iMaxLength)
@@ -128,11 +131,18 @@ public void vAdminSyncVersionQueryCallback(Database db, DBResultSet rsResult, co
 
 public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any iClient)
 {
+	DataPack pack = view_as<DataPack>(iClient);
+	pack.Reset();
+	int iUserId = pack.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	delete pack;
+
 	Database db = view_as<Database>(hndl);
+	int iClientIndex = GetClientOfUserId(iUserId);
 	if (db == null)
 	{
 		LogError("[bansystem_adminsync] MySQL connection failed: %s", szError);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncMysqlConnectionFailed");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncMysqlConnectionFailed");
 		g_bSyncInProgress = false;
 		return;
 	}
@@ -140,15 +150,25 @@ public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] s
 	char szQuery[160];
 	vBuildAdminSyncSchemaMetaQuery(szQuery, sizeof(szQuery));
 	vAdminSyncSQL("Connected to MySQL for full sync. Validating schema component '%s'.", ADMINSYNC_SCHEMA_COMPONENT);
-	SQL_TQuery(db, vAdminSyncSchemaValidationCallback, szQuery, iClient);
+	DataPack pQuery = new DataPack();
+	pQuery.WriteCell(iUserId);
+	pQuery.WriteCell(view_as<int>(eReplySource));
+	SQL_TQuery(db, vAdminSyncSchemaValidationCallback, szQuery, pQuery);
 }
 
 public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
+	DataPack pack = view_as<DataPack>(iClient);
+	pack.Reset();
+	int iUserId = pack.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	delete pack;
+
+	int iClientIndex = GetClientOfUserId(iUserId);
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Schema validation failed: %s", szError);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaValidationFailed");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncSchemaValidationFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -158,7 +178,7 @@ public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult
 	if (!rsResult.FetchRow())
 	{
 		LogError("[bansystem_adminsync] Schema validation failed: component '%s' not found.", ADMINSYNC_SCHEMA_COMPONENT);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaComponentMissing");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncSchemaComponentMissing");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -170,7 +190,7 @@ public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult
 	if (iVersion != ADMINSYNC_SCHEMA_VERSION)
 	{
 		LogError("[bansystem_adminsync] Schema validation failed: expected %d but found %d for component '%s'.", ADMINSYNC_SCHEMA_VERSION, iVersion, ADMINSYNC_SCHEMA_COMPONENT);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncSchemaVersionMismatch");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncSchemaVersionMismatch");
 		delete db;
 		g_bSyncInProgress = false;
 		return;
@@ -196,15 +216,25 @@ public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult
 
 	char szQuery[256];
 	Format(szQuery, sizeof(szQuery), "SELECT `id`, `accountid`, `name`, `flags`, `immunity`, `enabled` FROM `%s` WHERE `enabled` = 1 ORDER BY `id` ASC;", MYSQL_TABLE_ADMINS);
-	SQL_TQuery(db, vAdminSyncAdminsCallback, szQuery, iClient);
+	DataPack pQuery = new DataPack();
+	pQuery.WriteCell(iUserId);
+	pQuery.WriteCell(view_as<int>(eReplySource));
+	SQL_TQuery(db, vAdminSyncAdminsCallback, szQuery, pQuery);
 }
 
 public void vAdminSyncAdminsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
+	DataPack pack = view_as<DataPack>(iClient);
+	pack.Reset();
+	int iUserId = pack.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	delete pack;
+
+	int iClientIndex = GetClientOfUserId(iUserId);
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Admin snapshot query failed: %s", szError);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncAdminQueryFailed");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncAdminQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -221,15 +251,25 @@ public void vAdminSyncAdminsCallback(Database db, DBResultSet rsResult, const ch
 
 	char szQuery[256];
 	Format(szQuery, sizeof(szQuery), "SELECT `id`, `name`, `flags`, `immunity_level`, `enabled` FROM `%s` WHERE `enabled` = 1 ORDER BY `id` ASC;", MYSQL_TABLE_GROUPS);
-	SQL_TQuery(db, vAdminSyncGroupsCallback, szQuery, iClient);
+	DataPack pQuery = new DataPack();
+	pQuery.WriteCell(iUserId);
+	pQuery.WriteCell(view_as<int>(eReplySource));
+	SQL_TQuery(db, vAdminSyncGroupsCallback, szQuery, pQuery);
 }
 
 public void vAdminSyncGroupsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
+	DataPack pack = view_as<DataPack>(iClient);
+	pack.Reset();
+	int iUserId = pack.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	delete pack;
+
+	int iClientIndex = GetClientOfUserId(iUserId);
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Group snapshot query failed: %s", szError);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncGroupQueryFailed");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncGroupQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -246,15 +286,25 @@ public void vAdminSyncGroupsCallback(Database db, DBResultSet rsResult, const ch
 
 	char szQuery[256];
 	Format(szQuery, sizeof(szQuery), "SELECT `admin_id`, `group_id`, `inherit_order` FROM `%s` ORDER BY `admin_id` ASC, `inherit_order` ASC;", MYSQL_TABLE_ADMINS_GROUPS);
-	SQL_TQuery(db, vAdminSyncMembershipsCallback, szQuery, iClient);
+	DataPack pQuery = new DataPack();
+	pQuery.WriteCell(iUserId);
+	pQuery.WriteCell(view_as<int>(eReplySource));
+	SQL_TQuery(db, vAdminSyncMembershipsCallback, szQuery, pQuery);
 }
 
 public void vAdminSyncMembershipsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
+	DataPack pack = view_as<DataPack>(iClient);
+	pack.Reset();
+	int iUserId = pack.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	delete pack;
+
+	int iClientIndex = GetClientOfUserId(iUserId);
 	if (rsResult == null || szError[0] != '\0')
 	{
 		LogError("[bansystem_adminsync] Membership snapshot query failed: %s", szError);
-		CReplyToCommand(iClient, "%t", "BSAdminSyncMembershipQueryFailed");
+		vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncMembershipQueryFailed");
 		delete rsResult;
 		delete db;
 		g_bSyncInProgress = false;
@@ -270,9 +320,8 @@ public void vAdminSyncMembershipsCallback(Database db, DBResultSet rsResult, con
 	delete rsResult;
 	delete db;
 
-	g_iLastSyncAt = GetTime();
 	g_bSyncInProgress = false;
 	vAdminSyncDebug("Snapshot sync finished. admins=%d groups=%d memberships=%d version=%d", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount, g_iLastSnapshotVersion);
 	vApplySnapshotToAdminCache();
-	CReplyToCommand(iClient, "%t", "BSAdminSyncSnapshotSynchronized", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount);
+	vAdminSyncCReplyToCommandWithSource(iClientIndex, eReplySource, "%t", "BSAdminSyncSnapshotSynchronized", g_iLastAdminCount, g_iLastGroupCount, g_iLastMembershipCount);
 }

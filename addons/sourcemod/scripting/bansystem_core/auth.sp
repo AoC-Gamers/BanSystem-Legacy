@@ -240,15 +240,15 @@ stock void BSCore_HandleClientAuthorization(int iClient, const char[] szAuthId)
 		return;
 	}
 
-	if (BSCore_CanUsePrimaryDatabase())
-	{
-		BSCore_RequestPrimarySummary(iClient, iAccountId);
-		return;
-	}
-
 	if (BSCore_CanUseCacheDatabase())
 	{
 		BSCore_RequestCacheSummary(iClient, iAccountId);
+		return;
+	}
+
+	if (BSCore_CanUsePrimaryDatabase())
+	{
+		BSCore_RequestPrimarySummary(iClient, iAccountId);
 		return;
 	}
 
@@ -284,7 +284,7 @@ stock void BSCore_ProcessQueuedAuthorizationChecks()
 			continue;
 		}
 
-		if (BSCore_CanUsePrimaryDatabase() || BSCore_CanUseCacheDatabase())
+		if (BSCore_CanUseCacheDatabase() || BSCore_CanUsePrimaryDatabase())
 		{
 			g_eCoreAuthState[i] = kBSCoreAuthState_Checking;
 			BSCore_HandleClientAuthorization(i, szAuthId);
@@ -343,17 +343,34 @@ public void BSCore_OnPrimarySummaryResolved(Database db, DBResultSet rsResult, c
 		BSCore_SQL("Primary summary query failed for accountid %d: %s", iAccountId, szError);
 		delete rsResult;
 
-		if (BSCore_CanUseCacheDatabase())
-		{
-			BSCore_RequestCacheSummary(iClient, iAccountId);
-			return;
-		}
-
 		g_eCoreAuthState[iClient] = kBSCoreAuthState_Queued;
 		return;
 	}
 
-	BSCore_ApplySummaryResult(iClient, iAccountId, rsResult);
+	if (!rsResult.FetchRow())
+	{
+		delete rsResult;
+		BSCore_MarkAccountIdClean(iClient, iAccountId);
+		return;
+	}
+
+	int iModuleMask = rsResult.FetchInt(0);
+	int iAccessBanId = rsResult.FetchInt(1);
+	int iCommBanId = rsResult.FetchInt(2);
+	int iSprayBanId = rsResult.FetchInt(3);
+	eBSCoreCommType eCommType = view_as<eBSCoreCommType>(rsResult.FetchInt(4));
+	if (BSCore_CanUseCacheDatabase())
+		BSCore_UpsertCacheSummary(iAccountId, iModuleMask, iAccessBanId, iCommBanId, iSprayBanId, eCommType);
+
+	BSCore_ApplyFetchedSummaryResult(
+		iClient,
+		iAccountId,
+		iModuleMask,
+		iAccessBanId,
+		iCommBanId,
+		iSprayBanId,
+		eCommType
+	);
 	delete rsResult;
 }
 
@@ -374,42 +391,76 @@ public void BSCore_OnCacheSummaryResolved(Database db, DBResultSet rsResult, con
 	{
 		BSCore_SQL("Cache summary query failed for accountid %d: %s", iAccountId, szError);
 		delete rsResult;
+		if (BSCore_CanUsePrimaryDatabase())
+		{
+			BSCore_RequestPrimarySummary(iClient, iAccountId);
+			return;
+		}
+
 		g_eCoreAuthState[iClient] = kBSCoreAuthState_Queued;
 		return;
 	}
 
-	BSCore_ApplySummaryResult(iClient, iAccountId, rsResult);
-	delete rsResult;
-}
-
-stock void BSCore_ApplySummaryResult(int iClient, int iAccountId, DBResultSet rsResult)
-{
 	if (!rsResult.FetchRow())
 	{
-		BSCore_AddLocalCleanCacheAccountId(iAccountId);
-		BSCore_ResetResolvedClientState(iClient);
-		g_iCoreResolvedAccountId[iClient] = iAccountId;
-		BSCore_Debug("No active summary state for %N (%d). Registered as clean.", iClient, iAccountId);
-		BSCore_CompleteClientAuthorizationCheck(iClient);
+		delete rsResult;
+		if (BSCore_CanUsePrimaryDatabase())
+		{
+			BSCore_RequestPrimarySummary(iClient, iAccountId);
+			return;
+		}
+
+		g_eCoreAuthState[iClient] = kBSCoreAuthState_Queued;
 		return;
 	}
 
+	BSCore_ApplyFetchedSummaryResult(
+		iClient,
+		iAccountId,
+		rsResult.FetchInt(0),
+		rsResult.FetchInt(1),
+		rsResult.FetchInt(2),
+		rsResult.FetchInt(3),
+		view_as<eBSCoreCommType>(rsResult.FetchInt(4))
+	);
+	delete rsResult;
+}
+
+stock void BSCore_MarkAccountIdClean(int iClient, int iAccountId)
+{
+	BSCore_AddLocalCleanCacheAccountId(iAccountId);
+	BSCore_ResetResolvedClientState(iClient);
 	g_iCoreResolvedAccountId[iClient] = iAccountId;
-	g_iCoreResolvedModuleMask[iClient] = rsResult.FetchInt(0);
-	g_iCoreResolvedAccessBanId[iClient] = rsResult.FetchInt(1);
-	g_iCoreResolvedCommBanId[iClient] = rsResult.FetchInt(2);
-	g_iCoreResolvedSprayBanId[iClient] = rsResult.FetchInt(3);
-	g_eCoreResolvedCommType[iClient] = view_as<eBSCoreCommType>(rsResult.FetchInt(4));
+	BSCore_Debug("No active summary state for %N (%d). Registered as clean.", iClient, iAccountId);
+	BSCore_CompleteClientAuthorizationCheck(iClient);
+}
+
+stock void BSCore_ApplyFetchedSummaryResult(int iClient, int iAccountId, int iModuleMask, int iAccessBanId, int iCommBanId, int iSprayBanId, eBSCoreCommType eCommType)
+{
+	if (iModuleMask == 0)
+	{
+		BSCore_MarkAccountIdClean(iClient, iAccountId);
+		return;
+	}
+
+	BSCore_RemoveLocalCleanCacheAccountId(iAccountId);
+
+	g_iCoreResolvedAccountId[iClient] = iAccountId;
+	g_iCoreResolvedModuleMask[iClient] = iModuleMask;
+	g_iCoreResolvedAccessBanId[iClient] = iAccessBanId;
+	g_iCoreResolvedCommBanId[iClient] = iCommBanId;
+	g_iCoreResolvedSprayBanId[iClient] = iSprayBanId;
+	g_eCoreResolvedCommType[iClient] = eCommType;
 
 	BSCore_Debug(
 		"Resolved summary for %N: accountid=%d module_mask=%d access_ban_id=%d comm_ban_id=%d spray_ban_id=%d comm_type=%d",
 		iClient,
 		iAccountId,
-		g_iCoreResolvedModuleMask[iClient],
-		g_iCoreResolvedAccessBanId[iClient],
-		g_iCoreResolvedCommBanId[iClient],
-		g_iCoreResolvedSprayBanId[iClient],
-		g_eCoreResolvedCommType[iClient]
+		iModuleMask,
+		iAccessBanId,
+		iCommBanId,
+		iSprayBanId,
+		eCommType
 	);
 
 	BSCore_BeginModuleDetailResolution(iClient);

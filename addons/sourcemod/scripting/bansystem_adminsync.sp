@@ -12,7 +12,7 @@
 #include <bansystem_shared>
 
 #define PLUGIN_VERSION "0.1.0"
-#define ADMINSYNC_DEBUG_LOG "logs/BanSystem_AdminSync.log"
+#define ADMINSYNC_DEBUG_LOG "logs/bansystem/BanSystem_AdminSync.log"
 
 #define MYSQL_TABLE_ADMINS "adminsync_admins"
 #define MYSQL_TABLE_GROUPS "adminsync_groups"
@@ -60,7 +60,6 @@ bool g_bVersionCheckInFlight;
 int g_iLastAdminCount;
 int g_iLastGroupCount;
 int g_iLastMembershipCount;
-int g_iLastSyncAt;
 int g_iLastSnapshotVersion;
 StringMap g_smIdentityRequestContext;
 
@@ -86,6 +85,7 @@ enum AdminSyncIdentityAction
 
 public void OnPluginStart()
 {
+	BSEnsureLogFolder();
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_adminsync.phrases");
 	g_cvMysqlConfig = CreateConVar("sm_bs_adminsync_mysql_config", "bansystem", "MySQL config name used by BanSystem Admin Sync.");

@@ -17,7 +17,7 @@
 #define REQUIRE_PLUGIN
 
 #define BANSYSTEM_SPRAYS_VERSION "0.1.0-dev"
-#define BANSYSTEM_SPRAYS_DEBUG_LOG "logs/BanSystem_Sprays.log"
+#define BANSYSTEM_SPRAYS_DEBUG_LOG "logs/bansystem/BanSystem_Sprays.log"
 #define BANSYSTEM_SPRAYS_MAX_REASON_LENGTH 256
 
 Database g_dbBSSprays;
@@ -83,6 +83,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSSpraysLogPath, sizeof(g_szBSSpraysLogPath), BANSYSTEM_SPRAYS_DEBUG_LOG);
 	LoadTranslations("bansystem_sprays.phrases");
 	g_smBSSpraysIdentityRequestContext = new StringMap();

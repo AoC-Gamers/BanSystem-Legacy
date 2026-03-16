@@ -1,12 +1,5 @@
 "Phrases"
 {
-	"BSAccessStatus"
-	{
-		"#format"	"{1:d},{2:d},{3:d}"
-		"en"		"{olive}[BS Access]{default} core={1} registered={2} db_ready={3}"
-		"es"		"{olive}[BS Access]{default} core={1} registrado={2} db_lista={3}"
-	}
-
 	"BSAccessUsageAdd"
 	{
 		"en"		"{olive}[BS Access]{default} Use: sm_bs_access_add <target|steamid|accountid> <minutes> <reason> [context]"
@@ -60,8 +53,8 @@
 	"BSAccessResolvedDetail"
 	{
 		"#format"	"{1:N},{2:d},{3:d},{4:d},{5:s},{6:s},{7:s},{8:d},{9:s},{10:s}"
-		"en"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} length={4} steamid64={5} reason={6} context={7} banned_by={8} banned_by_name={9} expire={10}"
-		"es"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} duracion={4} steamid64={5} razon={6} contexto={7} banned_by={8} banned_by_name={9} expira={10}"
+		"en"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} length={4} steam2={5} reason={6} context={7} banned_by={8} banned_by_name={9} expire={10}"
+		"es"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} duracion={4} steam2={5} razon={6} contexto={7} banned_by={8} banned_by_name={9} expira={10}"
 	}
 
 	"BSAccessNoTargets"

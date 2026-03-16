@@ -101,6 +101,8 @@ stock bool BSCore_SetAccessSummary(int iAccountId, int iBanId)
 	if (!BSCore_CanUsePrimaryDatabase() || iAccountId <= 0 || iBanId <= 0)
 		return false;
 
+	BSCore_RemoveLocalCleanCacheAccountId(iAccountId);
+
 	char szQuery[512];
 	Format(
 		szQuery,
@@ -126,6 +128,8 @@ stock bool BSCore_SetCommSummary(int iAccountId, int iBanId, eBSCoreCommType eCo
 {
 	if (!BSCore_CanUsePrimaryDatabase() || iAccountId <= 0 || iBanId <= 0)
 		return false;
+
+	BSCore_RemoveLocalCleanCacheAccountId(iAccountId);
 
 	char szQuery[512];
 	Format(
@@ -154,6 +158,8 @@ stock bool BSCore_SetSpraySummary(int iAccountId, int iBanId)
 {
 	if (!BSCore_CanUsePrimaryDatabase() || iAccountId <= 0 || iBanId <= 0)
 		return false;
+
+	BSCore_RemoveLocalCleanCacheAccountId(iAccountId);
 
 	char szQuery[512];
 	Format(

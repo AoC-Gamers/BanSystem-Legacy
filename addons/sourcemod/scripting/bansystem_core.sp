@@ -12,7 +12,7 @@
 #include <bansystem_shared>
 
 #define BANSYSTEM_CORE_VERSION "0.1.0-dev"
-#define BANSYSTEM_CORE_DEBUG_LOG "logs/BanSystem_Core.log"
+#define BANSYSTEM_CORE_DEBUG_LOG "logs/bansystem/BanSystem_Core.log"
 
 Database g_dbCorePrimary;
 Database g_dbCoreCache;
@@ -77,6 +77,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szCoreLogPath, sizeof(g_szCoreLogPath), BANSYSTEM_CORE_DEBUG_LOG);
 	LoadTranslations("bansystem_core.phrases");
 

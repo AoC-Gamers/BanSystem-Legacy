@@ -75,6 +75,24 @@ stock void BSSprays_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 		PrintToServer("%s", szBuffer);
 }
 
+stock void BSSprays_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
+{
+	ReplySource eOldSource = SetCmdReplySource(eReplySource);
+
+	static char szBuffer[1024];
+	if (iAdmin > 0)
+		SetGlobalTransTarget(iAdmin);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
+	CReplyToCommand(iAdmin, "%s", szBuffer);
+	SetCmdReplySource(eOldSource);
+}
+
+stock void BSSprays_NotifyConsolePrinted(int iAdmin, ReplySource eReplySource, const char[] szPhrase)
+{
+	BSSprays_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", szPhrase);
+}
+
 stock bool BSSprays_CanUseCoreLibrary()
 {
 	return g_bBSSpraysHasCoreLibrary;
@@ -312,7 +330,7 @@ stock void BSSprays_TryRegisterCoreModule()
 	BSSprays_API("Registered sprays module in bansystem_core.");
 }
 
-stock bool BSSprays_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSSpraysIdentityAction eAction, int iValue, const char[] szExtra = "", const char[] szContext = "")
+stock bool BSSprays_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSSpraysIdentityAction eAction, int iValue, const char[] szExtra = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	SteamIDToolsProvider eProvider;
 	if (!BSSprays_TryGetSteamIdLookupProvider(iAdmin, eProvider))
@@ -338,6 +356,7 @@ stock bool BSSprays_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eB
 	pContext.WriteCell(GetClientUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eAction));
 	pContext.WriteCell(iValue);
+	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteString(szExtra);
 	pContext.WriteString(szContext);
 

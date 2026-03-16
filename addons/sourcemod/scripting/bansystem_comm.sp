@@ -18,7 +18,7 @@
 #define REQUIRE_PLUGIN
 
 #define BANSYSTEM_COMM_VERSION "0.1.0-dev"
-#define BANSYSTEM_COMM_DEBUG_LOG "logs/BanSystem_Comm.log"
+#define BANSYSTEM_COMM_DEBUG_LOG "logs/bansystem/BanSystem_Comm.log"
 #define BANSYSTEM_COMM_MAX_REASON_LENGTH 256
 
 Database g_dbBSComm;
@@ -86,6 +86,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSCommLogPath, sizeof(g_szBSCommLogPath), BANSYSTEM_COMM_DEBUG_LOG);
 	LoadTranslations("bansystem_comm.phrases");
 	g_smBSCommIdentityRequestContext = new StringMap();

@@ -24,6 +24,19 @@ void vGetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] szBuffer, in
 	}
 }
 
+void vAdminSyncCReplyToCommandWithSource(int iClient, ReplySource eReplySource, const char[] szFormat, any ...)
+{
+	ReplySource eOldSource = SetCmdReplySource(eReplySource);
+
+	static char szBuffer[1024];
+	if (iClient > 0)
+		SetGlobalTransTarget(iClient);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
+	CReplyToCommand(iClient, "%s", szBuffer);
+	SetCmdReplySource(eOldSource);
+}
+
 bool bTryGetSteamIdLookupProvider(int iClient, SteamIDToolsProvider &eProvider)
 {
 	eProvider = SteamIDToolsProvider_Unknown;

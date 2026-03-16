@@ -4,26 +4,11 @@
 
 stock void BSSprays_OnPluginStart_Commands()
 {
-	RegAdminCmd("sm_bs_sprays_status", Command_BSSpraysStatus, ADMFLAG_ROOT, "Show BanSystem Sprays scaffold status.");
 	RegAdminCmd("sm_bs_sprays_detail", Command_BSSpraysDetail, ADMFLAG_ROOT, "Show resolved spray detail for a connected client.");
 	RegAdminCmd("sm_bs_sprays_add", Command_BSSpraysAdd, ADMFLAG_ROOT, "Add or update a spray ban in the modular sprays table.");
 	RegAdminCmd("sm_bs_sprays_remove", Command_BSSpraysRemove, ADMFLAG_ROOT, "Remove a spray ban from the modular sprays table.");
 	RegAdminCmd("sm_bs_sprays_info", Command_BSSpraysInfo, ADMFLAG_ROOT, "Show active spray ban info for an identity.");
 	RegAdminCmd("sm_bs_sprays_list", Command_BSSpraysList, ADMFLAG_ROOT, "List active modular spray bans.");
-}
-
-Action Command_BSSpraysStatus(int iClient, int iArgs)
-{
-	CReplyToCommand(
-		iClient,
-		"%t",
-		"BSSpraysStatus",
-		BSSprays_CanUseCoreLibrary() ? 1 : 0,
-		BSSprays_CanUseCoreLibrary() ? (BSCore_IsModuleRegistered(BANSYSTEM_SPRAYS_MODULE_NAME) ? 1 : 0) : 0,
-		BSSprays_CanUseDatabase() ? 1 : 0
-	);
-
-	return Plugin_Handled;
 }
 
 Action Command_BSSpraysDetail(int iClient, int iArgs)
@@ -48,7 +33,10 @@ Action Command_BSSpraysDetail(int iClient, int iArgs)
 	}
 
 	char szDateExpire[64];
+	char szSteam2[32];
 	BSSprays_FormatExpireDisplay(g_eBSSpraysResolvedDetail[iTarget].m_iDateExpireTs, szDateExpire, sizeof(szDateExpire));
+	if (!AccountIDToSteamID2(g_eBSSpraysResolvedDetail[iTarget].m_iAccountId, szSteam2, sizeof(szSteam2)))
+		strcopy(szSteam2, sizeof(szSteam2), "UNKNOWN");
 
 	CReplyToCommand(
 		iClient,
@@ -58,7 +46,7 @@ Action Command_BSSpraysDetail(int iClient, int iArgs)
 		g_eBSSpraysResolvedDetail[iTarget].m_iBanId,
 		g_eBSSpraysResolvedDetail[iTarget].m_iAccountId,
 		g_eBSSpraysResolvedDetail[iTarget].m_iLength,
-		g_eBSSpraysResolvedDetail[iTarget].m_szSteamId64,
+		szSteam2,
 		g_eBSSpraysResolvedDetail[iTarget].m_szReason,
 		g_eBSSpraysResolvedDetail[iTarget].m_szContext[0] != '\0' ? g_eBSSpraysResolvedDetail[iTarget].m_szContext : "<none>",
 		g_eBSSpraysResolvedDetail[iTarget].m_iBannedBy,
@@ -71,6 +59,8 @@ Action Command_BSSpraysDetail(int iClient, int iArgs)
 
 Action Command_BSSpraysAdd(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 3)
 	{
 		CReplyToCommand(iClient, "%t", "BSSpraysUsageAdd");
@@ -102,7 +92,7 @@ Action Command_BSSpraysAdd(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Add, iLength, szReason, szContext);
+		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Add, iLength, szReason, szContext, eReplySource);
 		return Plugin_Handled;
 	}
 
@@ -114,12 +104,14 @@ Action Command_BSSpraysAdd(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSSprays_QueueAddBan(iClient, iAccountId, iTargetClient, iLength, szReason, szContext);
+	BSSprays_QueueAddBan(iClient, iAccountId, iTargetClient, iLength, szReason, szContext, "", "UNKNOWN", eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSSpraysRemove(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSSpraysUsageRemove");
@@ -138,7 +130,7 @@ Action Command_BSSpraysRemove(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Remove, 0);
+		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Remove, 0, "", "", eReplySource);
 		return Plugin_Handled;
 	}
 
@@ -150,12 +142,14 @@ Action Command_BSSpraysRemove(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSSprays_QueueRemoveBan(iClient, iAccountId);
+	BSSprays_QueueRemoveBan(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSSpraysInfo(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSSpraysUsageInfo");
@@ -174,7 +168,7 @@ Action Command_BSSpraysInfo(int iClient, int iArgs)
 
 	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Info, 0);
+		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Info, 0, "", "", eReplySource);
 		return Plugin_Handled;
 	}
 
@@ -186,12 +180,14 @@ Action Command_BSSpraysInfo(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	BSSprays_QueueInfoByAccountId(iClient, iAccountId);
+	BSSprays_QueueInfoByAccountId(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
 
 Action Command_BSSpraysList(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (!BSSprays_CanUseDatabase())
 	{
 		CReplyToCommand(iClient, "%t", "BSSpraysDatabaseNotReady");
@@ -210,6 +206,6 @@ Action Command_BSSpraysList(int iClient, int iArgs)
 			iLimit = 200;
 	}
 
-	BSSprays_QueueList(iClient, iLimit);
+	BSSprays_QueueList(iClient, iLimit, eReplySource);
 	return Plugin_Handled;
 }

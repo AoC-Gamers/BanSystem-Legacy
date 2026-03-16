@@ -75,6 +75,24 @@ stock void BSAccess_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 		PrintToServer("%s", szBuffer);
 }
 
+stock void BSAccess_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
+{
+	ReplySource eOldSource = SetCmdReplySource(eReplySource);
+
+	static char szBuffer[1024];
+	if (iAdmin > 0)
+		SetGlobalTransTarget(iAdmin);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
+	CReplyToCommand(iAdmin, "%s", szBuffer);
+	SetCmdReplySource(eOldSource);
+}
+
+stock void BSAccess_NotifyConsolePrinted(int iAdmin, ReplySource eReplySource, const char[] szPhrase)
+{
+	BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", szPhrase);
+}
+
 stock bool BSAccess_CanUseCoreLibrary()
 {
 	return g_bBSAccessHasCoreLibrary;
@@ -312,7 +330,7 @@ stock void BSAccess_TryRegisterCoreModule()
 	BSAccess_API("Registered access module in bansystem_core.");
 }
 
-stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSAccessIdentityAction eAction, int iValue, const char[] szReason = "", const char[] szContext = "")
+stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSAccessIdentityAction eAction, int iValue, const char[] szReason = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	SteamIDToolsProvider eProvider;
 	if (!BSAccess_TryGetSteamIdLookupProvider(iAdmin, eProvider))
@@ -326,11 +344,11 @@ stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eB
 		BSAccess_GetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
 		if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
 		{
-			CReplyToCommand(iAdmin, "%t", "BSAccessSteam64QueueFailed");
+			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessSteam64QueueFailed");
 			return false;
 		}
 
-		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64QueueFailedStatus", szProvider, szStatus);
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessSteam64QueueFailedStatus", szProvider, szStatus);
 		return false;
 	}
 
@@ -338,13 +356,14 @@ stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eB
 	pContext.WriteCell(GetClientUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eAction));
 	pContext.WriteCell(iValue);
+	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteString(szReason);
 	pContext.WriteString(szContext);
 
 	char szRequestId[16];
 	IntToString(iRequestId, szRequestId, sizeof(szRequestId));
 	g_smBSAccessIdentityRequestContext.SetValue(szRequestId, pContext);
-	CReplyToCommand(iAdmin, "%t", "BSAccessSteam64Resolving");
+	BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessSteam64Resolving");
 	return true;
 }
 

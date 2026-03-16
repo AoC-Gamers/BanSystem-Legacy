@@ -59,40 +59,42 @@ stock void BSAccess_RefreshCoreSummaryForAccountId(int iAccountId)
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnCoreSummaryRefreshLoaded, szQuery, pContext, DBPrio_Normal);
 }
 
-stock void BSAccess_QueueInfoByAccountId(int iAdmin, int iAccountId)
+stock void BSAccess_QueueInfoByAccountId(int iAdmin, int iAccountId, ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	if (!BSAccess_CanUseDatabase() || iAccountId <= 0)
 		return;
 
 	char szQuery[512];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `steamid64`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE `accountid` = %d ", iAccountId);
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnInfoLoaded, szQuery, pContext, DBPrio_Normal);
 }
 
-stock void BSAccess_QueueList(int iAdmin, int iLimit)
+stock void BSAccess_QueueList(int iAdmin, int iLimit, ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	if (!BSAccess_CanUseDatabase())
 		return;
 
 	char szQuery[768];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `accountid`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `accountid`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(view_as<int>(eReplySource));
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnListLoaded, szQuery, pContext, DBPrio_Normal);
 }
 
-stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, int iLength, const char[] szReason, const char[] szContext, const char[] szSteamId64Override = "", const char[] szPlayerNameOverride = "UNKNOWN")
+stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, int iLength, const char[] szReason, const char[] szContext, const char[] szSteamId64Override = "", const char[] szPlayerNameOverride = "UNKNOWN", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	if (!BSAccess_CanUseDatabase() || iAccountId <= 0 || iLength < 0)
 		return;
@@ -137,6 +139,7 @@ stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iTargetClient);
 	pContext.WriteCell(iLength);
@@ -146,7 +149,7 @@ stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnAddBanCompleted, szQuery, pContext, DBPrio_High);
 }
 
-stock void BSAccess_QueueRemoveBan(int iAdmin, int iAccountId)
+stock void BSAccess_QueueRemoveBan(int iAdmin, int iAccountId, ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	if (!BSAccess_CanUseDatabase() || iAccountId <= 0)
 		return;
@@ -157,6 +160,7 @@ stock void BSAccess_QueueRemoveBan(int iAdmin, int iAccountId)
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 
 	BSAccess_SQL("Queueing access remove mutation for accountid=%d query=%s", iAccountId, szQuery);
@@ -168,6 +172,7 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 	DataPack pContext = view_as<DataPack>(pData);
 	pContext.Reset();
 	int iAdminUserId = pContext.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	int iAccountId = pContext.ReadCell();
 	int iTargetClient = pContext.ReadCell();
 	int iLength = pContext.ReadCell();
@@ -182,7 +187,7 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 	{
 		BSAccess_SQL("Access add mutation failed for accountid=%d: %s", iAccountId, szError);
 		if (bCanReply)
-			CReplyToCommand(iAdmin, "%t", "BSAccessPersistFailed", iAccountId);
+			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessPersistFailed", iAccountId);
 		return;
 	}
 
@@ -216,9 +221,9 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 	if (bCanReply)
 	{
 		if (iLiveTarget > 0 && IsClientInGame(iLiveTarget))
-			CReplyToCommand(iAdmin, "%t", "BSAccessStoredTarget", iLiveTarget, iLength, szReason);
+			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessStoredTarget", iLiveTarget, iLength, szReason);
 		else
-			CReplyToCommand(iAdmin, "%t", "BSAccessStoredAccount", iAccountId, iLength, szReason);
+			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessStoredAccount", iAccountId, iLength, szReason);
 	}
 }
 
@@ -227,6 +232,7 @@ public void BSAccess_OnRemoveBanCompleted(Database db, DBResultSet rsResult, con
 	DataPack pContext = view_as<DataPack>(pData);
 	pContext.Reset();
 	int iAdminUserId = pContext.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	int iAccountId = pContext.ReadCell();
 	delete pContext;
 	delete rsResult;
@@ -237,7 +243,7 @@ public void BSAccess_OnRemoveBanCompleted(Database db, DBResultSet rsResult, con
 	{
 		BSAccess_SQL("Access remove mutation failed for accountid=%d: %s", iAccountId, szError);
 		if (bCanReply)
-			CReplyToCommand(iAdmin, "%t", "BSAccessRemoveFailed", iAccountId);
+			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessRemoveFailed", iAccountId);
 		return;
 	}
 
@@ -245,7 +251,7 @@ public void BSAccess_OnRemoveBanCompleted(Database db, DBResultSet rsResult, con
 		BSCore_ClearSummaryModule(iAccountId, kBSCoreModule_Access);
 
 	if (bCanReply)
-		CReplyToCommand(iAdmin, "%t", "BSAccessRemoved", iAccountId);
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessRemoved", iAccountId);
 }
 
 public void BSAccess_OnCoreSummaryRefreshLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)
@@ -382,6 +388,7 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	int iUserId = pContext.ReadCell();
 	eBSAccessIdentityAction eAction = view_as<eBSAccessIdentityAction>(pContext.ReadCell());
 	int iValue = pContext.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	char szReason[sizeof(g_eBSAccessResolvedDetail[].m_szReason)];
 	char szContext[sizeof(g_eBSAccessResolvedDetail[].m_szContext)];
 	pContext.ReadString(szReason, sizeof(szReason));
@@ -395,7 +402,7 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	if (!bSuccess)
 	{
 		BSAccess_API("SteamID64 resolution failed. request=%d input=%s", iRequestId, szInput);
-		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64ResolveFailed");
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessSteam64ResolveFailed");
 		return;
 	}
 
@@ -403,7 +410,7 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	if (iAccountId <= 0)
 	{
 		BSAccess_API("SteamID64 resolution returned invalid accountid. request=%d input=%s result=%s", iRequestId, szInput, szResult);
-		CReplyToCommand(iAdmin, "%t", "BSAccessSteam64ResolveInvalid");
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessSteam64ResolveInvalid");
 		return;
 	}
 
@@ -412,15 +419,15 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	{
 		case kBSAccessIdentityAction_Add:
 		{
-			BSAccess_QueueAddBan(iAdmin, iAccountId, 0, iValue, szReason, szContext, szInput, "UNKNOWN");
+			BSAccess_QueueAddBan(iAdmin, iAccountId, 0, iValue, szReason, szContext, szInput, "UNKNOWN", eReplySource);
 		}
 		case kBSAccessIdentityAction_Remove:
 		{
-			BSAccess_QueueRemoveBan(iAdmin, iAccountId);
+			BSAccess_QueueRemoveBan(iAdmin, iAccountId, eReplySource);
 		}
 		case kBSAccessIdentityAction_Info:
 		{
-			BSAccess_QueueInfoByAccountId(iAdmin, iAccountId);
+			BSAccess_QueueInfoByAccountId(iAdmin, iAccountId, eReplySource);
 		}
 	}
 }
@@ -430,6 +437,7 @@ public void BSAccess_OnInfoLoaded(Database db, DBResultSet rsResult, const char[
 	DataPack pContext = view_as<DataPack>(pData);
 	pContext.Reset();
 	int iUserId = pContext.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	int iAccountId = pContext.ReadCell();
 	delete pContext;
 
@@ -442,7 +450,7 @@ public void BSAccess_OnInfoLoaded(Database db, DBResultSet rsResult, const char[
 
 	if (rsResult == null || szError[0] != '\0')
 	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessInfoLoadFailed");
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessInfoLoadFailed");
 		BSAccess_SQL("Access info query failed for accountid=%d: %s", iAccountId, szError);
 		delete rsResult;
 		return;
@@ -450,48 +458,46 @@ public void BSAccess_OnInfoLoaded(Database db, DBResultSet rsResult, const char[
 
 	if (!rsResult.FetchRow())
 	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessNoActiveBan", iAccountId);
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessNoActiveBan", iAccountId);
 		delete rsResult;
 		return;
 	}
 
 	char szPlayerName[MAX_NAME_LENGTH];
-	char szSteamId64[32];
 	char szReason[BANSYSTEM_ACCESS_MAX_REASON_LENGTH];
 	char szContext[512];
 	char szBannedByName[MAX_NAME_LENGTH];
-	char szBannedBySteamId64[32];
 	char szDateExpire[64];
 	char szSteam2[32];
-	int iLength = rsResult.FetchInt(2);
-	int iBannedBy = rsResult.FetchInt(5);
-	int iDateExpireTs = rsResult.FetchInt(8);
+	char szBannedBySteam2[32];
+	int iLength = rsResult.FetchInt(1);
+	int iBannedBy = rsResult.FetchInt(4);
+	int iDateExpireTs = rsResult.FetchInt(6);
 	rsResult.FetchString(0, szPlayerName, sizeof(szPlayerName));
-	rsResult.FetchString(1, szSteamId64, sizeof(szSteamId64));
-	rsResult.FetchString(3, szReason, sizeof(szReason));
-	rsResult.FetchString(4, szContext, sizeof(szContext));
-	rsResult.FetchString(6, szBannedByName, sizeof(szBannedByName));
-	rsResult.FetchString(7, szBannedBySteamId64, sizeof(szBannedBySteamId64));
+	rsResult.FetchString(2, szReason, sizeof(szReason));
+	rsResult.FetchString(3, szContext, sizeof(szContext));
+	rsResult.FetchString(5, szBannedByName, sizeof(szBannedByName));
 	delete rsResult;
 	BSAccess_FormatExpireDisplay(iDateExpireTs, szDateExpire, sizeof(szDateExpire));
 
 	if (!AccountIDToSteamID2(iAccountId, szSteam2, sizeof(szSteam2)))
 		strcopy(szSteam2, sizeof(szSteam2), "UNKNOWN");
+	if (!AccountIDToSteamID2(iBannedBy, szBannedBySteam2, sizeof(szBannedBySteam2)))
+		strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 
 	BSAccess_PrintAdminConsoleLine(iAdmin, "== BanSystem Access Info ==");
 	BSAccess_PrintAdminConsoleLine(iAdmin, "Player: %s", szPlayerName);
 	BSAccess_PrintAdminConsoleLine(iAdmin, "AccountId: %d", iAccountId);
 	BSAccess_PrintAdminConsoleLine(iAdmin, "Steam2: %s", szSteam2);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "SteamID64: %s", szSteamId64[0] != '\0' ? szSteamId64 : "<none>");
 	BSAccess_PrintAdminConsoleLine(iAdmin, "Length: %s", iLength > 0 ? "Temporary" : "Permanent");
 	if (iLength > 0)
 		BSAccess_PrintAdminConsoleLine(iAdmin, "Minutes: %d", iLength);
 	BSAccess_PrintAdminConsoleLine(iAdmin, "Reason: %s", szReason);
 	if (szContext[0] != '\0')
 		BSAccess_PrintAdminConsoleLine(iAdmin, "Context: %s", szContext);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Banned by: %d (%s / %s)", iBannedBy, szBannedByName, szBannedBySteamId64[0] != '\0' ? szBannedBySteamId64 : "<none>");
+	BSAccess_PrintAdminConsoleLine(iAdmin, "Banned by: %d (%s / %s)", iBannedBy, szBannedByName, szBannedBySteam2);
 	BSAccess_PrintAdminConsoleLine(iAdmin, "Expire: %s", szDateExpire);
-	CReplyToCommand(iAdmin, "%t", "BSAccessInfoPrinted");
+	BSAccess_NotifyConsolePrinted(iAdmin, eReplySource, "BSAccessInfoPrinted");
 }
 
 public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)
@@ -499,6 +505,7 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 	DataPack pContext = view_as<DataPack>(pData);
 	pContext.Reset();
 	int iUserId = pContext.ReadCell();
+	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	delete pContext;
 
 	int iAdmin = GetClientOfUserId(iUserId);
@@ -510,7 +517,7 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 
 	if (rsResult == null || szError[0] != '\0')
 	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessListLoadFailed");
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessListLoadFailed");
 		BSAccess_SQL("Access list query failed: %s", szError);
 		delete rsResult;
 		return;
@@ -518,7 +525,7 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 
 	if (!rsResult.FetchRow())
 	{
-		CReplyToCommand(iAdmin, "%t", "BSAccessNoActiveBans");
+		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessNoActiveBans");
 		delete rsResult;
 		return;
 	}
@@ -530,30 +537,29 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 		char szReason[BANSYSTEM_ACCESS_MAX_REASON_LENGTH];
 		char szContext[512];
 		char szBannedByName[MAX_NAME_LENGTH];
-		char szBannedBySteamId64[32];
 		char szDateExpire[64];
 		char szSteam2[32];
+		char szBannedBySteam2[32];
 		int iAccountId = rsResult.FetchInt(1);
 		int iLength = rsResult.FetchInt(2);
 		int iBannedBy = rsResult.FetchInt(5);
-		int iDateExpireTs = rsResult.FetchInt(8);
+		int iDateExpireTs = rsResult.FetchInt(7);
 		rsResult.FetchString(0, szPlayerName, sizeof(szPlayerName));
 		rsResult.FetchString(3, szReason, sizeof(szReason));
 		rsResult.FetchString(4, szContext, sizeof(szContext));
 		rsResult.FetchString(6, szBannedByName, sizeof(szBannedByName));
-		rsResult.FetchString(7, szBannedBySteamId64, sizeof(szBannedBySteamId64));
 		if (!AccountIDToSteamID2(iAccountId, szSteam2, sizeof(szSteam2)))
 			strcopy(szSteam2, sizeof(szSteam2), "UNKNOWN");
+		if (!AccountIDToSteamID2(iBannedBy, szBannedBySteam2, sizeof(szBannedBySteam2)))
+			strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 		BSAccess_FormatExpireDisplay(iDateExpireTs, szDateExpire, sizeof(szDateExpire));
 
-		BSAccess_PrintAdminConsoleLine(iAdmin, "> %s | %s | %s | by=%d (%s)", szPlayerName, szSteam2, iLength > 0 ? szDateExpire : "Permanent", iBannedBy, szBannedByName);
+		BSAccess_PrintAdminConsoleLine(iAdmin, "> %s | %s | %s | by=%d (%s / %s)", szPlayerName, szSteam2, iLength > 0 ? szDateExpire : "Permanent", iBannedBy, szBannedByName, szBannedBySteam2);
 		BSAccess_PrintAdminConsoleLine(iAdmin, "  reason=%s", szReason);
 		if (szContext[0] != '\0')
 			BSAccess_PrintAdminConsoleLine(iAdmin, "  context=%s", szContext);
-		if (szBannedBySteamId64[0] != '\0')
-			BSAccess_PrintAdminConsoleLine(iAdmin, "  banned_by_steamid64=%s", szBannedBySteamId64);
 	} while (rsResult.FetchRow());
 
 	delete rsResult;
-	CReplyToCommand(iAdmin, "%t", "BSAccessListPrinted");
+	BSAccess_NotifyConsolePrinted(iAdmin, eReplySource, "BSAccessListPrinted");
 }

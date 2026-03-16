@@ -1,7 +1,6 @@
 void vOnPluginStart_Commands()
 {
 	RegAdminCmd("sm_bs_adminsync_reload", Command_AdminSyncReload, ADMFLAG_ROOT, "Reload the local admin snapshot from MySQL.");
-	RegAdminCmd("sm_bs_adminsync_status", Command_AdminSyncStatus, ADMFLAG_ROOT, "Show BanSystem Admin Sync status.");
 	RegAdminCmd("sm_bs_adminsync_verify", Command_AdminSyncVerify, ADMFLAG_ROOT, "Verify the local admin snapshot consistency.");
 	RegAdminCmd("sm_bs_adminsync_ls_admins", Command_AdminSyncListAdmins, ADMFLAG_ROOT, "List admins from the local snapshot.");
 	RegAdminCmd("sm_bs_adminsync_ls_groups", Command_AdminSyncListGroups, ADMFLAG_ROOT, "List groups from the local snapshot.");
@@ -20,35 +19,8 @@ void vOnPluginStart_Commands()
 
 public Action Command_AdminSyncReload(int iClient, int iArgs)
 {
-	vStartAdminSync(iClient);
-	return Plugin_Handled;
-}
-
-public Action Command_AdminSyncStatus(int iClient, int iArgs)
-{
-	char szBackend[16];
-	char szLastSync[64];
-	char szCheckMode[32];
-
-	g_cvBackend.GetString(szBackend, sizeof(szBackend));
-	if (g_iLastSyncAt > 0)
-		FormatTime(szLastSync, sizeof(szLastSync), "%Y-%m-%d %H:%M:%S", g_iLastSyncAt);
-	else
-		FormatEx(szLastSync, sizeof(szLastSync), "%T", "BSAdminSyncNever", iClient);
-	FormatEx(szCheckMode, sizeof(szCheckMode), "%T", "BSAdminSyncCheckModeMapChange", iClient);
-
-	CReplyToCommand(iClient, "%t", "BSAdminSyncStatus",
-		szBackend,
-		g_bSyncInProgress ? 1 : 0,
-		g_iLastAdminCount,
-		g_iLastGroupCount,
-		g_iLastMembershipCount,
-		g_iLastSnapshotVersion,
-		szCheckMode,
-		szLastSync,
-		(g_dbLocal != null) ? 1 : 0,
-		g_szKvSnapshotPath);
-
+	ReplySource eReplySource = GetCmdReplySource();
+	vStartAdminSync(iClient, eReplySource);
 	return Plugin_Handled;
 }
 
@@ -94,6 +66,8 @@ public Action Command_AdminSyncListMemberships(int iClient, int iArgs)
 
 public Action Command_AdminAdd(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAdd");
@@ -157,7 +131,7 @@ public Action Command_AdminAdd(int iClient, int iArgs)
 			if (szNameArg[0] == '\0')
 				strcopy(szNameArg, sizeof(szNameArg), "UNKNOWN");
 
-			bQueueAdminIdentityLookup(iClient, szNormalizedTarget, IdentityAction_AdminAdd, szFlags, iImmunity, szNameArg);
+			bQueueAdminIdentityLookup(iClient, szNormalizedTarget, IdentityAction_AdminAdd, szFlags, iImmunity, szNameArg, eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -181,7 +155,7 @@ public Action Command_AdminAdd(int iClient, int iArgs)
 
 	if (szSteamId64[0] == '\0' && (eFormat == STEAMID_FORMAT_STEAMID2 || eFormat == STEAMID_FORMAT_STEAMID3))
 	{
-		if (bQueueAdminAddSteamId64Enrichment(iClient, szNormalizedTarget, eFormat, iAccountId, szName, szFlags, iImmunity))
+		if (bQueueAdminAddSteamId64Enrichment(iClient, szNormalizedTarget, eFormat, iAccountId, szName, szFlags, iImmunity, eReplySource))
 		{
 			return Plugin_Handled;
 		}
@@ -189,12 +163,14 @@ public Action Command_AdminAdd(int iClient, int iArgs)
 		vAdminSyncDebug("Command_AdminAdd could not enrich offline SteamID64. Falling back to direct insert. accountid=%d format=%d", iAccountId, view_as<int>(eFormat));
 	}
 
-	vStartAdminMutationAdd(iClient, iAccountId, szName, szSteamId64, szFlags, iImmunity);
+	vStartAdminMutationAdd(iClient, iAccountId, szName, szSteamId64, szFlags, iImmunity, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_AdminDelete(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminDelete");
@@ -209,7 +185,7 @@ public Action Command_AdminDelete(int iClient, int iArgs)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminDelete, "", 0);
+			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminDelete, "", 0, "", eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -221,12 +197,14 @@ public Action Command_AdminDelete(int iClient, int iArgs)
 		return Plugin_Handled;
 
 	if (iAccountId > 0)
-		vStartAdminMutationDelete(iClient, iAccountId);
+		vStartAdminMutationDelete(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_AdminSetFlags(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetFlags");
@@ -253,7 +231,7 @@ public Action Command_AdminSetFlags(int iClient, int iArgs)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminSetFlags, szFlags, 0);
+			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminSetFlags, szFlags, 0, "", eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -265,12 +243,14 @@ public Action Command_AdminSetFlags(int iClient, int iArgs)
 		return Plugin_Handled;
 
 	if (iAccountId > 0)
-		vStartAdminMutationSetFlags(iClient, iAccountId, szFlags);
+		vStartAdminMutationSetFlags(iClient, iAccountId, szFlags, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_AdminSetImmunity(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminSetImmunity");
@@ -297,7 +277,7 @@ public Action Command_AdminSetImmunity(int iClient, int iArgs)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminSetImmunity, "", iImmunity);
+			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminSetImmunity, "", iImmunity, "", eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -309,12 +289,14 @@ public Action Command_AdminSetImmunity(int iClient, int iArgs)
 		return Plugin_Handled;
 
 	if (iAccountId > 0)
-		vStartAdminMutationSetImmunity(iClient, iAccountId, iImmunity);
+		vStartAdminMutationSetImmunity(iClient, iAccountId, iImmunity, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_AdminAddGroup(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminAddGroup");
@@ -337,7 +319,7 @@ public Action Command_AdminAddGroup(int iClient, int iArgs)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminAddGroup, szGroup, 0);
+			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminAddGroup, szGroup, 0, "", eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -349,12 +331,14 @@ public Action Command_AdminAddGroup(int iClient, int iArgs)
 		return Plugin_Handled;
 
 	if (iAccountId > 0)
-		vStartAdminMutationAddGroup(iClient, iAccountId, szGroup);
+		vStartAdminMutationAddGroup(iClient, iAccountId, szGroup, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_AdminRemoveGroup(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageAdminRemoveGroup");
@@ -377,7 +361,7 @@ public Action Command_AdminRemoveGroup(int iClient, int iArgs)
 	{
 		case STEAMID_FORMAT_STEAMID64:
 		{
-			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminRemoveGroup, szGroup, 0);
+			bQueueAdminIdentityLookup(iClient, szTarget, IdentityAction_AdminRemoveGroup, szGroup, 0, "", eReplySource);
 			return Plugin_Handled;
 		}
 	}
@@ -389,12 +373,14 @@ public Action Command_AdminRemoveGroup(int iClient, int iArgs)
 		return Plugin_Handled;
 
 	if (iAccountId > 0)
-		vStartAdminMutationRemoveGroup(iClient, iAccountId, szGroup);
+		vStartAdminMutationRemoveGroup(iClient, iAccountId, szGroup, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_GroupAdd(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupAdd");
@@ -422,12 +408,14 @@ public Action Command_GroupAdd(int iClient, int iArgs)
 		}
 	}
 
-	vStartGroupMutationAdd(iClient, szName, szFlags, iImmunity);
+	vStartGroupMutationAdd(iClient, szName, szFlags, iImmunity, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_GroupDelete(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 1)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupDelete");
@@ -441,12 +429,14 @@ public Action Command_GroupDelete(int iClient, int iArgs)
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupDelete");
 		return Plugin_Handled;
 	}
-	vStartGroupMutationDelete(iClient, szName);
+	vStartGroupMutationDelete(iClient, szName, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_GroupSetFlags(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetFlags");
@@ -462,12 +452,14 @@ public Action Command_GroupSetFlags(int iClient, int iArgs)
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetFlags");
 		return Plugin_Handled;
 	}
-	vStartGroupMutationSetFlags(iClient, szName, szFlags);
+	vStartGroupMutationSetFlags(iClient, szName, szFlags, eReplySource);
 	return Plugin_Handled;
 }
 
 public Action Command_GroupSetImmunity(int iClient, int iArgs)
 {
+	ReplySource eReplySource = GetCmdReplySource();
+
 	if (iArgs < 2)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetImmunity");
@@ -484,6 +476,6 @@ public Action Command_GroupSetImmunity(int iClient, int iArgs)
 		CReplyToCommand(iClient, "%t", "BSAdminSyncUsageGroupSetImmunity");
 		return Plugin_Handled;
 	}
-	vStartGroupMutationSetImmunity(iClient, szName, iImmunity);
+	vStartGroupMutationSetImmunity(iClient, szName, iImmunity, eReplySource);
 	return Plugin_Handled;
 }

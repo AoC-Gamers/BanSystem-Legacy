@@ -72,8 +72,8 @@
 	"BSCommResolvedDetail"
 	{
 		"#format"	"{1:N},{2:d},{3:d},{4:d},{5:d},{6:s},{7:s},{8:s},{9:d},{10:s},{11:s}"
-		"en"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} type={4} length={5} steamid64={6} reason={7} context={8} banned_by={9} banned_by_name={10} expire={11}"
-		"es"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} tipo={4} duracion={5} steamid64={6} razon={7} contexto={8} banned_by={9} banned_by_name={10} expira={11}"
+		"en"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} type={4} length={5} steam2={6} reason={7} context={8} banned_by={9} banned_by_name={10} expire={11}"
+		"es"		"{olive}[BS Comm]{default} {1} | ban_id={2} accountid={3} tipo={4} duracion={5} steam2={6} razon={7} contexto={8} banned_by={9} banned_by_name={10} expira={11}"
 	}
 
 	"BSCommNoTargets"

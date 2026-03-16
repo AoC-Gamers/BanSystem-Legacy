@@ -17,7 +17,7 @@
 #define REQUIRE_PLUGIN
 
 #define BANSYSTEM_ACCESS_VERSION "0.1.0-dev"
-#define BANSYSTEM_ACCESS_DEBUG_LOG "logs/BanSystem_Access.log"
+#define BANSYSTEM_ACCESS_DEBUG_LOG "logs/bansystem/BanSystem_Access.log"
 #define BANSYSTEM_ACCESS_MAX_REASON_LENGTH 256
 
 Database g_dbBSAccess;
@@ -84,6 +84,7 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int err_max
 
 public void OnPluginStart()
 {
+	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSAccessLogPath, sizeof(g_szBSAccessLogPath), BANSYSTEM_ACCESS_DEBUG_LOG);
 	LoadTranslations("bansystem_access.phrases");
 	g_smBSAccessIdentityRequestContext = new StringMap();
