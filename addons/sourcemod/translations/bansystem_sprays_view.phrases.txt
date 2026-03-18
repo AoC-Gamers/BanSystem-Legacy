@@ -1,0 +1,9 @@
+"Phrases"
+{
+	"BSSpraysViewSprayedBy"
+	{
+		"en"		"Sprayed by"
+		"es"		"Spray de"
+	}
+
+}

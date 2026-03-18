@@ -1,0 +1,172 @@
+"Phrases"
+{
+	"BSAnnouncerStatusPending"
+	{
+		"en"		"{olive}[BanSystem]{default} Your sanction status is still loading. Try again in a moment."
+		"es"		"{olive}[BanSystem]{default} Tu estado de sanciones todavia se esta cargando. Intentalo de nuevo en un momento."
+	}
+
+	"BSAnnouncerStatusNone"
+	{
+		"en"		"{olive}[BanSystem]{default} You have no active sanctions."
+		"es"		"{olive}[BanSystem]{default} No tienes sanciones activas."
+	}
+
+	"BSAnnouncerStatusSelf"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BanSystem]{default} Active sanctions: {lightgreen}{1}{default}."
+		"es"		"{olive}[BanSystem]{default} Sanciones activas: {lightgreen}{1}{default}."
+	}
+
+	"BSAnnouncerDetailPrinted"
+	{
+		"en"		"{olive}[BanSystem]{default} Check your console to review the sanction details."
+		"es"		"{olive}[BanSystem]{default} Revisa tu consola para ver el detalle de tus sanciones."
+	}
+
+	"BSAnnouncerJoinSelf"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BanSystem]{default} You joined with active sanctions: {lightgreen}{1}{default}. Use {lightgreen}{2}{default} to review the details."
+		"es"		"{olive}[BanSystem]{default} Entraste con sanciones activas: {lightgreen}{1}{default}. Usa {lightgreen}{2}{default} para ver el detalle."
+	}
+
+	"BSAnnouncerJoinPublic"
+	{
+		"#format"	"{1:N},{2:s}"
+		"en"		"{olive}[BanSystem]{default} {lightgreen}{1}{default} joined with active sanctions: {lightgreen}{2}{default}."
+		"es"		"{olive}[BanSystem]{default} {lightgreen}{1}{default} entro con sanciones activas: {lightgreen}{2}{default}."
+	}
+
+	"BSAnnouncerAccessDeniedPublic"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BanSystem]{default} Access attempt denied for {lightgreen}{1}{default}."
+		"es"		"{olive}[BanSystem]{default} Intento de acceso denegado para {lightgreen}{1}{default}."
+	}
+
+	"BSAnnouncerLabelComm"
+	{
+		"en"		"communication"
+		"es"		"comunicacion"
+	}
+
+	"BSAnnouncerLabelCommMic"
+	{
+		"en"		"communication (voice)"
+		"es"		"comunicacion (voz)"
+	}
+
+	"BSAnnouncerLabelCommChat"
+	{
+		"en"		"communication (chat)"
+		"es"		"comunicacion (chat)"
+	}
+
+	"BSAnnouncerLabelCommAll"
+	{
+		"en"		"communication (voice and chat)"
+		"es"		"comunicacion (voz y chat)"
+	}
+
+	"BSAnnouncerSummaryComm"
+	{
+		"#format"	"{1:s}"
+		"en"		"{1}"
+		"es"		"{1}"
+	}
+
+	"BSAnnouncerSummarySprays"
+	{
+		"en"		"sprays"
+		"es"		"sprays"
+	}
+
+	"BSAnnouncerSummaryCommAndSprays"
+	{
+		"#format"	"{1:s}"
+		"en"		"{1} and sprays"
+		"es"		"{1} y sprays"
+	}
+
+	"BSAnnouncerConsoleHeader"
+	{
+		"#format"	"{1:s}"
+		"en"		"| Active sanctions: {1}"
+		"es"		"| Sanciones activas: {1}"
+	}
+
+	"BSAnnouncerConsoleTitle"
+	{
+		"en"		"| Active sanctions"
+		"es"		"| Sanciones activas"
+	}
+
+	"BSAnnouncerConsolePermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSAnnouncerConsoleDurationMinutes"
+	{
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
+	}
+
+	"BSAnnouncerConsoleCommSection"
+	{
+		"en"		"| Communication"
+		"es"		"| Comunicacion"
+	}
+
+	"BSAnnouncerConsoleSpraysSection"
+	{
+		"en"		"| Spray"
+		"es"		"| Spray"
+	}
+
+	"BSAnnouncerConsoleFieldType"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Type      : {1}"
+		"es"		"|   Tipo      : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldAdmin"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
+	}
+}

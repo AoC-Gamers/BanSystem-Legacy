@@ -1,0 +1,599 @@
+"Phrases"
+{
+	"BSAdminSyncUsageAdminAdd"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_add <target|steamid|accountid> <flags> [immunity] [name]"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_add <target|steamid|accountid> <flags> [inmunidad] [nombre]"
+	}
+
+	"BSAdminSyncUsageAdminDelete"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_del <target|steamid|accountid>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_del <target|steamid|accountid>"
+	}
+
+	"BSAdminSyncUsageAdminSetFlags"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_set_flags <target|steamid|accountid> <flags>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_set_flags <target|steamid|accountid> <flags>"
+	}
+
+	"BSAdminSyncUsageAdminSetImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_set_immunity <target|steamid|accountid> <immunity>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_set_immunity <target|steamid|accountid> <inmunidad>"
+	}
+
+	"BSAdminSyncUsageAdminAddGroup"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_add_group <target|steamid|accountid> <group>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_add_group <target|steamid|accountid> <grupo>"
+	}
+
+	"BSAdminSyncUsageAdminRemoveGroup"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_admin_remove_group <target|steamid|accountid> <group>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_admin_remove_group <target|steamid|accountid> <grupo>"
+	}
+
+	"BSAdminSyncUsageGroupAdd"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_group_add <name> <flags> [immunity]"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_group_add <nombre> <flags> [inmunidad]"
+	}
+
+	"BSAdminSyncUsageGroupDelete"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_group_del <name>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_group_del <nombre>"
+	}
+
+	"BSAdminSyncUsageGroupSetFlags"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_group_set_flags <name> <flags>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_group_set_flags <nombre> <flags>"
+	}
+
+	"BSAdminSyncUsageGroupSetImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Use: sm_bs_group_set_immunity <name> <immunity>"
+		"es"		"{olive}[BS AdminSync]{default} Uso: sm_bs_group_set_immunity <nombre> <inmunidad>"
+	}
+
+	"BSAdminSyncSyncInProgress"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Sync already in progress."
+		"es"		"{olive}[BS AdminSync]{default} Ya hay una sincronizacion en progreso."
+	}
+
+	"BSAdminSyncMysqlConnectionFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} MySQL connection failed."
+		"es"		"{olive}[BS AdminSync]{default} La conexion MySQL fallo."
+	}
+
+	"BSAdminSyncSchemaValidationFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Schema validation failed."
+		"es"		"{olive}[BS AdminSync]{default} La validacion del esquema fallo."
+	}
+
+	"BSAdminSyncSchemaComponentMissing"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Schema component is missing."
+		"es"		"{olive}[BS AdminSync]{default} Falta el componente del esquema."
+	}
+
+	"BSAdminSyncSchemaVersionMismatch"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Schema version mismatch."
+		"es"		"{olive}[BS AdminSync]{default} La version del esquema no coincide."
+	}
+
+	"BSAdminSyncAdminQueryFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Admin query failed."
+		"es"		"{olive}[BS AdminSync]{default} La consulta de admins fallo."
+	}
+
+	"BSAdminSyncGroupQueryFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Group query failed."
+		"es"		"{olive}[BS AdminSync]{default} La consulta de grupos fallo."
+	}
+
+	"BSAdminSyncMembershipQueryFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Membership query failed."
+		"es"		"{olive}[BS AdminSync]{default} La consulta de membresias fallo."
+	}
+
+	"BSAdminSyncSnapshotSynchronized"
+	{
+		"#format"	"{1:d},{2:d},{3:d}"
+		"en"		"{olive}[BS AdminSync]{default} Snapshot synchronized. admins={1} groups={2} memberships={3}"
+		"es"		"{olive}[BS AdminSync]{default} Snapshot sincronizado. admins={1} grupos={2} membresias={3}"
+	}
+
+	"BSAdminSyncResolveAccountIdFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Unable to resolve accountid for target."
+		"es"		"{olive}[BS AdminSync]{default} No se pudo resolver el accountid del objetivo."
+	}
+
+	"BSAdminSyncSteam64ConnectedOnly"
+	{
+		"en"		"{olive}[BS AdminSync]{default} SteamID64 add requires a connected target for now."
+		"es"		"{olive}[BS AdminSync]{default} SteamID64 requiere por ahora un objetivo conectado."
+	}
+
+	"BSAdminSyncInvalidTargetIdentity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Invalid target identity."
+		"es"		"{olive}[BS AdminSync]{default} La identidad del objetivo es invalida."
+	}
+
+	"BSAdminSyncSteam64Unavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} SteamID64 resolution is unavailable."
+		"es"		"{olive}[BS AdminSync]{default} La resolucion de SteamID64 no esta disponible."
+	}
+
+	"BSAdminSyncSteam64BackendNotReady"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS AdminSync]{default} SteamID64 backend '{1}' is not ready: {2}"
+		"es"		"{olive}[BS AdminSync]{default} El backend de SteamID64 '{1}' no esta listo: {2}"
+	}
+
+	"BSAdminSyncSteam64QueueFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Failed to queue SteamID64 resolution."
+		"es"		"{olive}[BS AdminSync]{default} No se pudo encolar la resolucion de SteamID64."
+	}
+
+	"BSAdminSyncSteam64QueueFailedStatus"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS AdminSync]{default} Failed to queue SteamID64 resolution through '{1}': {2}"
+		"es"		"{olive}[BS AdminSync]{default} No se pudo encolar la resolucion de SteamID64 a traves de '{1}': {2}"
+	}
+
+	"BSAdminSyncSteam64Resolving"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Resolving SteamID64..."
+		"es"		"{olive}[BS AdminSync]{default} Resolviendo SteamID64..."
+	}
+
+	"BSAdminSyncMutationDeleteAdminMembershipsFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Failed to delete admin memberships."
+		"es"		"{olive}[BS AdminSync]{default} No se pudieron eliminar las membresias del admin."
+	}
+
+	"BSAdminSyncMutationDeleteGroupMembershipsFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Failed to delete group memberships."
+		"es"		"{olive}[BS AdminSync]{default} No se pudieron eliminar las membresias del grupo."
+	}
+
+	"BSAdminSyncMutationFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS AdminSync]{default} Mutation failed: {1}"
+		"es"		"{olive}[BS AdminSync]{default} La mutacion fallo: {1}"
+	}
+
+	"BSAdminSyncMutationApplied"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS AdminSync]{default} Mutation applied: {1}. Refreshing snapshot..."
+		"es"		"{olive}[BS AdminSync]{default} Mutacion aplicada: {1}. Actualizando snapshot..."
+	}
+
+	"BSAdminSyncSteam64ResolveFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} SteamID64 resolution failed."
+		"es"		"{olive}[BS AdminSync]{default} La resolucion de SteamID64 fallo."
+	}
+
+	"BSAdminSyncSteam64ResolveInvalid"
+	{
+		"en"		"{olive}[BS AdminSync]{default} SteamID64 resolution returned an invalid accountid."
+		"es"		"{olive}[BS AdminSync]{default} La resolucion de SteamID64 devolvio un accountid invalido."
+	}
+
+	"BSAdminSyncVerifySQLiteUnavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Verify: local SQLite snapshot is not available."
+		"es"		"{olive}[BS AdminSync]{default} Verificacion: el snapshot SQLite local no esta disponible."
+	}
+
+	"BSAdminSyncVerifySQLite"
+	{
+		"#format"	"{1:d},{2:d},{3:d},{4:d},{5:d}"
+		"en"		"{olive}[BS AdminSync]{default} verify sqlite: admins={1} distinct_accountid={2} groups={3} memberships={4} orphan_memberships={5}"
+		"es"		"{olive}[BS AdminSync]{default} verificar sqlite: admins={1} accountid_distintos={2} grupos={3} membresias={4} membresias_huerfanas={5}"
+	}
+
+	"BSAdminSyncVerifyKvUnreadable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Verify: KV snapshot file is missing or unreadable."
+		"es"		"{olive}[BS AdminSync]{default} Verificacion: el archivo KV del snapshot no existe o no se puede leer."
+	}
+
+	"BSAdminSyncVerifyKv"
+	{
+		"#format"	"{1:d},{2:d},{3:d},{4:s}"
+		"en"		"{olive}[BS AdminSync]{default} verify kv: admins={1} groups={2} memberships={3} file={4}"
+		"es"		"{olive}[BS AdminSync]{default} verificar kv: admins={1} grupos={2} membresias={3} archivo={4}"
+	}
+
+	"BSAdminSyncListAdminsSQLiteUnavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List admins: local SQLite snapshot is not available."
+		"es"		"{olive}[BS AdminSync]{default} Listar admins: el snapshot SQLite local no esta disponible."
+	}
+
+	"BSAdminSyncListAdminsSQLiteFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List admins: failed to query local SQLite snapshot."
+		"es"		"{olive}[BS AdminSync]{default} Listar admins: no se pudo consultar el snapshot SQLite local."
+	}
+
+	"BSAdminSyncListGroupsSQLiteUnavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List groups: local SQLite snapshot is not available."
+		"es"		"{olive}[BS AdminSync]{default} Listar grupos: el snapshot SQLite local no esta disponible."
+	}
+
+	"BSAdminSyncListGroupsSQLiteFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List groups: failed to query local SQLite snapshot."
+		"es"		"{olive}[BS AdminSync]{default} Listar grupos: no se pudo consultar el snapshot SQLite local."
+	}
+
+	"BSAdminSyncListMembershipsSQLiteUnavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List memberships: local SQLite snapshot is not available."
+		"es"		"{olive}[BS AdminSync]{default} Listar membresias: el snapshot SQLite local no esta disponible."
+	}
+
+	"BSAdminSyncListMembershipsSQLiteFailed"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List memberships: failed to query local SQLite snapshot."
+		"es"		"{olive}[BS AdminSync]{default} Listar membresias: no se pudo consultar el snapshot SQLite local."
+	}
+
+	"BSAdminSyncListAdminsKvUnreadable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List admins: KV snapshot file is missing or unreadable."
+		"es"		"{olive}[BS AdminSync]{default} Listar admins: el archivo KV del snapshot no existe o no se puede leer."
+	}
+
+	"BSAdminSyncListGroupsKvUnreadable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List groups: KV snapshot file is missing or unreadable."
+		"es"		"{olive}[BS AdminSync]{default} Listar grupos: el archivo KV del snapshot no existe o no se puede leer."
+	}
+
+	"BSAdminSyncListMembershipsKvUnreadable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} List memberships: KV snapshot file is missing or unreadable."
+		"es"		"{olive}[BS AdminSync]{default} Listar membresias: el archivo KV del snapshot no existe o no se puede leer."
+	}
+
+	"BSAdminSyncPrintedToConsole"
+	{
+		"#format"	"{1:d},{2:s}"
+		"en"		"{olive}[BS AdminSync]{default} Printed {1} {2} to console."
+		"es"		"{olive}[BS AdminSync]{default} Se imprimieron {1} {2} en consola."
+	}
+
+	"BSAdminSyncConsoleLabelAdmins"
+	{
+		"en"		"admins"
+		"es"		"admins"
+	}
+
+	"BSAdminSyncConsoleLabelGroups"
+	{
+		"en"		"groups"
+		"es"		"grupos"
+	}
+
+	"BSAdminSyncConsoleLabelMemberships"
+	{
+		"en"		"memberships"
+		"es"		"membresias"
+	}
+
+	"BSAdminSyncConsoleHeaderSQLiteAdmins"
+	{
+		"en"		"[BS AdminSync] Admins from local SQLite snapshot"
+		"es"		"[BS AdminSync] Admins desde el snapshot SQLite local"
+	}
+
+	"BSAdminSyncConsoleHeaderSQLiteGroups"
+	{
+		"en"		"[BS AdminSync] Groups from local SQLite snapshot"
+		"es"		"[BS AdminSync] Grupos desde el snapshot SQLite local"
+	}
+
+	"BSAdminSyncConsoleHeaderSQLiteMemberships"
+	{
+		"en"		"[BS AdminSync] Admin-group memberships from local SQLite snapshot"
+		"es"		"[BS AdminSync] Membresias admin-grupo desde el snapshot SQLite local"
+	}
+
+	"BSAdminSyncConsoleHeaderKvAdmins"
+	{
+		"en"		"[BS AdminSync] Admins from local KV snapshot"
+		"es"		"[BS AdminSync] Admins desde el snapshot KV local"
+	}
+
+	"BSAdminSyncConsoleHeaderKvGroups"
+	{
+		"en"		"[BS AdminSync] Groups from local KV snapshot"
+		"es"		"[BS AdminSync] Grupos desde el snapshot KV local"
+	}
+
+	"BSAdminSyncConsoleHeaderKvMemberships"
+	{
+		"en"		"[BS AdminSync] Admin-group memberships from local KV snapshot"
+		"es"		"[BS AdminSync] Membresias admin-grupo desde el snapshot KV local"
+	}
+
+	"BSAdminSyncNoPromptActive"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No prompt is active."
+		"es"		"{olive}[BS AdminSync]{default} No hay un prompt activo."
+	}
+
+	"BSAdminSyncPromptAborted"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Prompt aborted."
+		"es"		"{olive}[BS AdminSync]{default} El prompt fue abortado."
+	}
+
+	"BSAdminSyncEmptyInput"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Empty input. Use sm_bs_adminsync_abort to cancel."
+		"es"		"{olive}[BS AdminSync]{default} La entrada esta vacia. Use sm_bs_adminsync_abort para cancelar."
+	}
+
+	"BSAdminSyncPromptEnterAdminImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter admin immunity as integer."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese la inmunidad del admin como entero."
+	}
+
+	"BSAdminSyncPromptEnterGroupFlags"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter group flags."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese los flags del grupo."
+	}
+
+	"BSAdminSyncPromptEnterGroupImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter group immunity as integer."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese la inmunidad del grupo como entero."
+	}
+
+	"BSAdminSyncMenuAdminTitle"
+	{
+		"en"		"Admin Sync: Admins"
+		"es"		"Admin Sync: Admins"
+	}
+
+	"BSAdminSyncMenuAdminAdd"
+	{
+		"en"		"Add connected admin"
+		"es"		"Agregar admin conectado"
+	}
+
+	"BSAdminSyncMenuAdminEditFlags"
+	{
+		"en"		"Edit admin flags"
+		"es"		"Editar flags del admin"
+	}
+
+	"BSAdminSyncMenuAdminEditImmunity"
+	{
+		"en"		"Edit admin immunity"
+		"es"		"Editar inmunidad del admin"
+	}
+
+	"BSAdminSyncMenuAdminAssignGroup"
+	{
+		"en"		"Assign group"
+		"es"		"Asignar grupo"
+	}
+
+	"BSAdminSyncMenuAdminRemoveGroup"
+	{
+		"en"		"Remove group"
+		"es"		"Quitar grupo"
+	}
+
+	"BSAdminSyncMenuAdminDelete"
+	{
+		"en"		"Delete admin"
+		"es"		"Eliminar admin"
+	}
+
+	"BSAdminSyncMenuSelectPlayerAdd"
+	{
+		"en"		"Select player to add as admin"
+		"es"		"Seleccione el jugador para agregar como admin"
+	}
+
+	"BSAdminSyncMenuSelectPlayer"
+	{
+		"en"		"Select player"
+		"es"		"Seleccione jugador"
+	}
+
+	"BSAdminSyncNoUsablePlayers"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No usable connected players."
+		"es"		"{olive}[BS AdminSync]{default} No hay jugadores conectados utilizables."
+	}
+
+	"BSAdminSyncTargetUnavailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Target is no longer available."
+		"es"		"{olive}[BS AdminSync]{default} El objetivo ya no esta disponible."
+	}
+
+	"BSAdminSyncPromptEnterAdminFlagsFor"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS AdminSync]{default} Enter admin flags for {1}."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese los flags del admin para {1}."
+	}
+
+	"BSAdminSyncMenuSelectAdminEditFlags"
+	{
+		"en"		"Select admin to edit flags"
+		"es"		"Seleccione admin para editar flags"
+	}
+
+	"BSAdminSyncMenuSelectAdminEditImmunity"
+	{
+		"en"		"Select admin to edit immunity"
+		"es"		"Seleccione admin para editar inmunidad"
+	}
+
+	"BSAdminSyncNoAdminsAvailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No admins available in local snapshot."
+		"es"		"{olive}[BS AdminSync]{default} No hay admins disponibles en el snapshot local."
+	}
+
+	"BSAdminSyncPromptEnterNewAdminFlags"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter new admin flags."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese los nuevos flags del admin."
+	}
+
+	"BSAdminSyncPromptEnterNewAdminImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter new admin immunity."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese la nueva inmunidad del admin."
+	}
+
+	"BSAdminSyncMenuSelectAdminDelete"
+	{
+		"en"		"Select admin to delete"
+		"es"		"Seleccione admin para eliminar"
+	}
+
+	"BSAdminSyncMenuSelectAdminAssignGroup"
+	{
+		"en"		"Select admin to assign group"
+		"es"		"Seleccione admin para asignar grupo"
+	}
+
+	"BSAdminSyncMenuSelectAdminRemoveGroup"
+	{
+		"en"		"Select admin to remove group"
+		"es"		"Seleccione admin para quitar grupo"
+	}
+
+	"BSAdminSyncMenuSelectGroupAssign"
+	{
+		"en"		"Select group to assign"
+		"es"		"Seleccione grupo para asignar"
+	}
+
+	"BSAdminSyncMenuSelectGroupRemove"
+	{
+		"en"		"Select group to remove"
+		"es"		"Seleccione grupo para quitar"
+	}
+
+	"BSAdminSyncNoAssignableGroups"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No assignable groups available for this admin."
+		"es"		"{olive}[BS AdminSync]{default} No hay grupos asignables disponibles para este admin."
+	}
+
+	"BSAdminSyncNoRemovableGroups"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No removable groups available for this admin."
+		"es"		"{olive}[BS AdminSync]{default} No hay grupos removibles disponibles para este admin."
+	}
+
+	"BSAdminSyncMenuGroupTitle"
+	{
+		"en"		"Admin Sync: Groups"
+		"es"		"Admin Sync: Grupos"
+	}
+
+	"BSAdminSyncMenuGroupAdd"
+	{
+		"en"		"Add group"
+		"es"		"Agregar grupo"
+	}
+
+	"BSAdminSyncMenuGroupEditFlags"
+	{
+		"en"		"Edit group flags"
+		"es"		"Editar flags del grupo"
+	}
+
+	"BSAdminSyncMenuGroupEditImmunity"
+	{
+		"en"		"Edit group immunity"
+		"es"		"Editar inmunidad del grupo"
+	}
+
+	"BSAdminSyncMenuGroupDelete"
+	{
+		"en"		"Delete group"
+		"es"		"Eliminar grupo"
+	}
+
+	"BSAdminSyncPromptEnterNewGroupName"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter new group name."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese el nombre del nuevo grupo."
+	}
+
+	"BSAdminSyncMenuSelectGroupEditFlags"
+	{
+		"en"		"Select group to edit flags"
+		"es"		"Seleccione grupo para editar flags"
+	}
+
+	"BSAdminSyncMenuSelectGroupEditImmunity"
+	{
+		"en"		"Select group to edit immunity"
+		"es"		"Seleccione grupo para editar inmunidad"
+	}
+
+	"BSAdminSyncNoGroupsAvailable"
+	{
+		"en"		"{olive}[BS AdminSync]{default} No groups available in local snapshot."
+		"es"		"{olive}[BS AdminSync]{default} No hay grupos disponibles en el snapshot local."
+	}
+
+	"BSAdminSyncPromptEnterNewGroupFlags"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter new group flags."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese los nuevos flags del grupo."
+	}
+
+	"BSAdminSyncPromptEnterNewGroupImmunity"
+	{
+		"en"		"{olive}[BS AdminSync]{default} Enter new group immunity."
+		"es"		"{olive}[BS AdminSync]{default} Ingrese la nueva inmunidad del grupo."
+	}
+
+	"BSAdminSyncMenuSelectGroupDelete"
+	{
+		"en"		"Select group to delete"
+		"es"		"Seleccione grupo para eliminar"
+	}
+}

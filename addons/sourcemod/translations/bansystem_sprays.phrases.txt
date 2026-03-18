@@ -1,0 +1,310 @@
+"Phrases"
+{
+	"BSSpraysUsageAdd"
+	{
+		"en"		"{olive}[BS Sprays]{default} Use: sm_bs_sprays_add <target|steamid|accountid> <minutes> <reason> [context]"
+		"es"		"{olive}[BS Sprays]{default} Uso: sm_bs_sprays_add <target|steamid|accountid> <minutos> <razon> [contexto]"
+	}
+
+	"BSSpraysUsageRemove"
+	{
+		"en"		"{olive}[BS Sprays]{default} Use: sm_bs_sprays_remove <target|steamid|accountid>"
+		"es"		"{olive}[BS Sprays]{default} Uso: sm_bs_sprays_remove <target|steamid|accountid>"
+	}
+
+	"BSSpraysUsageInfo"
+	{
+		"en"		"{olive}[BS Sprays]{default} Use: sm_bs_sprays_info <target|steamid|accountid>"
+		"es"		"{olive}[BS Sprays]{default} Uso: sm_bs_sprays_info <target|steamid|accountid>"
+	}
+
+	"BSSpraysUsageDetail"
+	{
+		"en"		"{olive}[BS Sprays]{default} Use: sm_bs_sprays_detail <#userid|name>"
+		"es"		"{olive}[BS Sprays]{default} Uso: sm_bs_sprays_detail <#userid|name>"
+	}
+
+	"BSSpraysDatabaseNotReady"
+	{
+		"en"		"{olive}[BS Sprays]{default} Database is not ready."
+		"es"		"{olive}[BS Sprays]{default} La base de datos no esta lista."
+	}
+
+	"BSSpraysInvalidDuration"
+	{
+		"en"		"{olive}[BS Sprays]{default} Invalid duration."
+		"es"		"{olive}[BS Sprays]{default} La duracion es invalida."
+	}
+
+	"BSSpraysResolveFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Sprays]{default} Could not resolve '{1}' to a supported offline identity or connected target."
+		"es"		"{olive}[BS Sprays]{default} No se pudo resolver '{1}' como una identidad offline soportada o un objetivo conectado."
+	}
+
+	"BSSpraysNoTargets"
+	{
+		"en"		"{olive}[BS Sprays]{default} No connected targets available."
+		"es"		"{olive}[BS Sprays]{default} No hay objetivos conectados disponibles."
+	}
+
+	"BSSpraysReasonCannotBeEmpty"
+	{
+		"en"		"{olive}[BS Sprays]{default} Reason cannot be empty."
+		"es"		"{olive}[BS Sprays]{default} La razon no puede estar vacia."
+	}
+
+	"BSSpraysContextPrompt"
+	{
+		"en"		"{olive}[BS Sprays]{default} Type spray context in chat or '-' to skip."
+		"es"		"{olive}[BS Sprays]{default} Escriba el contexto de la restriccion de spray en el chat o '-' para omitirlo."
+	}
+
+	"BSSpraysNoPanelFlow"
+	{
+		"en"		"{olive}[BS Sprays]{default} No panel flow is pending."
+		"es"		"{olive}[BS Sprays]{default} No hay un flujo de panel pendiente."
+	}
+
+	"BSSpraysPanelAborted"
+	{
+		"en"		"{olive}[BS Sprays]{default} Panel flow aborted."
+		"es"		"{olive}[BS Sprays]{default} El flujo del panel fue abortado."
+	}
+
+	"BSSpraysTargetUnavailable"
+	{
+		"en"		"{olive}[BS Sprays]{default} Target is no longer available."
+		"es"		"{olive}[BS Sprays]{default} El objetivo ya no esta disponible."
+	}
+
+	"BSSpraysReasonPrompt"
+	{
+		"en"		"{olive}[BS Sprays]{default} Type spray reason in chat."
+		"es"		"{olive}[BS Sprays]{default} Escriba la razon de la restriccion de spray en el chat."
+	}
+
+	"BSSpraysNoResolvedDetail"
+	{
+		"#format"	"{1:N}"
+		"en"		"{olive}[BS Sprays]{default} No resolved spray detail cached for {1}."
+		"es"		"{olive}[BS Sprays]{default} No hay detalle resuelto de spray cacheado para {1}."
+	}
+
+	"BSSpraysResolvedDetail"
+	{
+		"#format"	"{1:N},{2:d},{3:d},{4:d},{5:s},{6:s},{7:s},{8:d},{9:s},{10:s}"
+		"en"		"{olive}[BS Sprays]{default} {1} | ban_id={2} accountid={3} length={4} steam2={5} reason={6} context={7} banned_by={8} banned_by_name={9} expire={10}"
+		"es"		"{olive}[BS Sprays]{default} {1} | ban_id={2} accountid={3} duracion={4} steam2={5} razon={6} contexto={7} banned_by={8} banned_by_name={9} expira={10}"
+	}
+
+	"BSSpraysSteam64Unavailable"
+	{
+		"en"		"{olive}[BS Sprays]{default} SteamID64 resolution is unavailable."
+		"es"		"{olive}[BS Sprays]{default} La resolucion de SteamID64 no esta disponible."
+	}
+
+	"BSSpraysSteam64BackendNotReady"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Sprays]{default} SteamID64 backend '{1}' is not ready: {2}"
+		"es"		"{olive}[BS Sprays]{default} El backend de SteamID64 '{1}' no esta listo: {2}"
+	}
+
+	"BSSpraysSteam64QueueFailed"
+	{
+		"en"		"{olive}[BS Sprays]{default} Failed to queue SteamID64 resolution."
+		"es"		"{olive}[BS Sprays]{default} No se pudo encolar la resolucion de SteamID64."
+	}
+
+	"BSSpraysSteam64QueueFailedStatus"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Sprays]{default} Failed to queue SteamID64 resolution through '{1}': {2}"
+		"es"		"{olive}[BS Sprays]{default} No se pudo encolar la resolucion de SteamID64 a traves de '{1}': {2}"
+	}
+
+	"BSSpraysSteam64Resolving"
+	{
+		"en"		"{olive}[BS Sprays]{default} Resolving SteamID64..."
+		"es"		"{olive}[BS Sprays]{default} Resolviendo SteamID64..."
+	}
+
+	"BSSpraysSteam64ResolveFailed"
+	{
+		"en"		"{olive}[BS Sprays]{default} SteamID64 resolution failed."
+		"es"		"{olive}[BS Sprays]{default} La resolucion de SteamID64 fallo."
+	}
+
+	"BSSpraysSteam64ResolveInvalid"
+	{
+		"en"		"{olive}[BS Sprays]{default} SteamID64 resolution returned an invalid accountid."
+		"es"		"{olive}[BS Sprays]{default} La resolucion de SteamID64 devolvio un accountid invalido."
+	}
+
+	"BSSpraysPersistFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Sprays]{default} Failed to persist spray restriction for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se pudo persistir la restriccion de spray para accountid {1}."
+	}
+
+	"BSSpraysStored"
+	{
+		"#format"	"{1:d},{2:s}"
+		"en"		"{olive}[BS Sprays]{default} Spray restriction stored for accountid {1} (reason={2})."
+		"es"		"{olive}[BS Sprays]{default} Restriccion de spray guardada para accountid {1} (razon={2})."
+	}
+
+	"BSSpraysRemoveFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Sprays]{default} Failed to remove spray restriction for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se pudo eliminar la restriccion de spray para accountid {1}."
+	}
+
+	"BSSpraysRemoved"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Sprays]{default} Spray restriction removed for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} Restriccion de spray eliminada para accountid {1}."
+	}
+
+	"BSSpraysPlayerBanned"
+	{
+		"en"		"{olive}[BS Sprays]{default} A spray restriction was applied to you. Check your console for details."
+		"es"		"{olive}[BS Sprays]{default} Se te aplico una restriccion de spray. Revisa tu consola para ver el detalle."
+	}
+
+	"BSSpraysPlayerUnbanned"
+	{
+		"en"		"{olive}[BS Sprays]{default} Your spray restriction has been removed."
+		"es"		"{olive}[BS Sprays]{default} Tu restriccion de spray fue eliminada."
+	}
+
+	"BSSpraysInfoLoadFailed"
+	{
+		"en"		"{olive}[BS Sprays]{default} Failed to load spray info."
+		"es"		"{olive}[BS Sprays]{default} No se pudo cargar el detalle de la restriccion de spray."
+	}
+
+	"BSSpraysNoActiveBan"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Sprays]{default} No active spray restriction found for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se encontro una restriccion de spray activa para accountid {1}."
+	}
+
+	"BSSpraysInfoPrinted"
+	{
+		"en"		"{olive}[BS Sprays]{default} Spray restriction details printed to console."
+		"es"		"{olive}[BS Sprays]{default} El detalle de la restriccion de spray fue impreso en consola."
+	}
+
+	"BSSpraysListLoadFailed"
+	{
+		"en"		"{olive}[BS Sprays]{default} Failed to list spray restrictions."
+		"es"		"{olive}[BS Sprays]{default} No se pudieron listar las restricciones de spray."
+	}
+
+	"BSSpraysNoActiveBans"
+	{
+		"en"		"{olive}[BS Sprays]{default} No active modular spray restrictions found."
+		"es"		"{olive}[BS Sprays]{default} No se encontraron restricciones modulares de spray activas."
+	}
+
+	"BSSpraysListPrinted"
+	{
+		"en"		"{olive}[BS Sprays]{default} Spray restriction list printed to console."
+		"es"		"{olive}[BS Sprays]{default} La lista de restricciones de spray fue impresa en consola."
+	}
+
+	"BSSpraysInfoConsoleTitle"
+	{
+		"en"		"| Spray restriction details"
+		"es"		"| Detalle de la restriccion de spray"
+	}
+
+	"BSSpraysInfoConsoleSection"
+	{
+		"en"		"| Spray"
+		"es"		"| Spray"
+	}
+
+	"BSSpraysInfoPermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSSpraysInfoMinutesValue"
+	{
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
+	}
+
+	"BSSpraysInfoFieldPlayer"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Player    : {1}"
+		"es"		"|   Jugador   : {1}"
+	}
+
+	"BSSpraysInfoFieldAccountId"
+	{
+		"#format"	"{1:d}"
+		"en"		"|   AccountId : {1}"
+		"es"		"|   AccountId : {1}"
+	}
+
+	"BSSpraysInfoFieldSteam2"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Steam2    : {1}"
+		"es"		"|   Steam2    : {1}"
+	}
+
+	"BSSpraysInfoFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSSpraysInfoFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSSpraysInfoFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSSpraysInfoFieldIssuedBy"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSSpraysListConsoleTitle"
+	{
+		"en"		"| Active spray bans"
+		"es"		"| Bans de spray activos"
+	}
+
+	"BSSpraysInfoFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
+	}
+
+}

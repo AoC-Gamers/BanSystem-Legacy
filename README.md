@@ -1,125 +1,95 @@
 # BanSystem
 
-BanSystem es un plugin para SourceMod que permite gestionar sanciones en servidores de juegos. Este sistema integra una base de datos para almacenar y consultar información sobre prohibiciones de acceso y comunicación.
+Suite modular de sanciones para SourceMod.
 
-## Características
+`BanSystem` divide autorizacion, bans de acceso, castigos de comunicacion, bans de sprays y sincronizacion de admins en plugins pequenos que comparten una base MySQL y una API comun. La suite esta pensada para desplegar solo los modulos que necesita cada servidor sin duplicar logica de identidad, cache ni detalle de bans.
 
-- **Prohibiciones de acceso**: Bloquea el acceso de jugadores al servidor.
-- **Prohibiciones de comunicación**: Restringe el uso del chat y/o micrófono.
-- **Soporte para bases de datos**: Compatible con MySQL y SQLite.
-- **Caché local y SQL**: Mejora el rendimiento almacenando temporalmente datos de prohibiciones.
-- **Razones personalizables**: Configura razones de prohibición en un archivo de configuración.
-- **Soporte multilenguaje**: Traducciones disponibles para mensajes y razones.
+## Componentes
 
-## Sistemas de Caché
+- `bansystem_core`
+  - runtime base de autorizacion, cache local y estado resumido
+  - expone la API publica `bansystem_core`
+- `bansystem_access`
+  - bans de acceso
+  - expone la API publica `bansystem_access`
+- `bansystem_comm`
+  - bans de chat, microfono o ambos
+  - expone la API publica `bansystem_comm`
+- `bansystem_sprays`
+  - bans de sprays
+  - expone la API publica `bansystem_sprays`
+- `bansystem_sprays_view`
+  - vista del propietario del spray para admins
+- `bansystem_adminsync`
+  - snapshot local de admins y grupos desde MySQL
+  - expone la API publica `bansystem_adminsync`
+- `bansystem_adminmenu`
+  - integracion opcional con el menu admin de SourceMod
+  - runtime compartido de paneles para `access`, `comm`, `sprays` y `adminsync`
 
-BanSystem utiliza dos sistemas de caché para optimizar el rendimiento y reducir la carga en la base de datos principal:
+## Diseño
 
-### **Base de Datos MySQL**
-- **Descripción**: Es la base de datos principal donde se almacenan todas las sanciones.
-- **Uso**:
-  - Guarda información detallada sobre las prohibiciones de acceso y comunicación.
-  - Es obligatoria para el funcionamiento del plugin.
-- **Ventajas**:
-  - Permite consultas completas y persistencia de datos a largo plazo.
-  - Compatible con múltiples servidores que compartan la misma base de datos.
+- `bansystem_core` es la base comun de autorizacion y resumen.
+- `access`, `comm` y `sprays` son modulos funcionales independientes sobre MySQL.
+- `adminsync` vive como satelite separado porque resuelve otro problema: sincronizar admins de SourceMod desde DB.
+- la suite crea autoexecs en:
+  - `cfg/sourcemod/bansystem/`
+- la suite escribe logs normales en:
+  - `addons/sourcemod/logs/bansystem.log`
+- los logs debug por plugin viven en:
+  - `addons/sourcemod/logs/bansystem/`
+- los schemas MySQL viven en:
+  - `addons/sourcemod/configs/sql-init-bansystem/`
 
-### **Base de Datos SQLite (Opcional)**
-- **Descripción**: Es una base de datos ligera utilizada para el sistema de caché.
-- **Uso**:
-  - Almacena temporalmente información sobre jugadores sancionados para reducir consultas frecuentes a la base de datos MySQL.
-  - Es opcional y se puede habilitar o deshabilitar mediante la variable de consola `sm_bansystem_sqlitecache`.
-- **Ventajas**:
-  - Mejora el rendimiento al manejar jugadores con sanciones permanentes o recientes.
-  - La información persiste incluso si el servidor se reinicia.
+## Casos de uso comunes
 
-### Diferencias Principales
+- bans de acceso:
+  - `bansystem_core`
+  - `bansystem_access`
+- bans de comunicacion:
+  - `bansystem_core`
+  - `bansystem_comm`
+- control de sprays:
+  - `bansystem_core`
+  - `bansystem_sprays`
+  - `bansystem_sprays_view`
+- sincronizacion de admins:
+  - `bansystem_adminsync`
+  - `bansystem_adminmenu` opcional
 
-| Característica          | MySQL                                | SQLite                              |
-|-------------------------|---------------------------------------|-------------------------------------|
-| **Propósito**           | Almacenar todas las sanciones        | Sistema de caché opcional          |
-| **Persistencia**        | Permanente                           | Temporal (7 días por defecto)      |
-| **Requerido**           | Sí                                   | No                                 |
-| **Velocidad**           | Más lento debido a consultas remotas | Más rápido para consultas locales  |
+## Documentacion
 
-Ambos sistemas trabajan en conjunto para garantizar un rendimiento óptimo y minimizar las consultas a la base de datos principal.
+- [Instalacion](doc/INSTALLATION.md)
+- [Plugins y Dependencias](doc/PLUGINS.md)
+- [Autorizacion](doc/AUTHORIZATION.md)
+- [AdminSync](doc/ADMINSYNC.md)
+- [Changelog](CHANGELOG.md)
+- [SQL init scripts](addons/sourcemod/configs/sql-init-bansystem/README.md)
+- [SQLite en SourceMod](doc/SQLITE_SOURCEMOD.md)
 
-## Requisitos
+## SQL
 
-- **SourceMod**: Versión 1.10 o superior.
-- **Base de datos**:
-  - **MySQL**: Obligatoria para almacenar sanciones.
-  - **SQLite**: Opcional para el sistema de caché.
+- script base requerido:
+  - `addons/sourcemod/configs/sql-init-bansystem/mysql/core_schema.sql`
+- scripts modulares:
+  - `addons/sourcemod/configs/sql-init-bansystem/mysql/access_schema.sql`
+  - `addons/sourcemod/configs/sql-init-bansystem/mysql/communication_schema.sql`
+  - `addons/sourcemod/configs/sql-init-bansystem/mysql/sprays_schema.sql`
+  - `addons/sourcemod/configs/sql-init-bansystem/mysql/adminsync_schema.sql`
 
-## Instalación
+## Limitacion DBI
 
-1. **Descargar el plugin**:
-   - Clona este repositorio o descarga el archivo ZIP.
+- `SourceMod DBI` no es una base segura para `CALL` con `SQL_TQuery` cuando el procedure puede devolver multiples resultsets.
+- en `BanSystem`, los flujos threaded de autorizacion, summary y detail deben usar `SELECT` directos y deterministas.
+- los procedures MySQL pueden seguir usandose para mutaciones o mantenimiento siempre que no dependan de devolver filas por `SQL_TQuery`.
+- si un `CALL` con resultados fuera indispensable, debe resolverse fuera del camino critico de join y con una ruta sincronica que consuma todos los resultsets.
+- el SQL init actual de `BanSystem` ya no define procedures de runtime; la suite trabaja con sentencias directas, vistas y triggers.
 
-2. **Compilar el plugin**:
-   - Usa el compilador de SourceMod para compilar los archivos `.sp` en `.smx`.
+## Estado actual
 
-3. **Subir los archivos**:
-   - Copia los archivos `.smx` a la carpeta `addons/sourcemod/plugins/`.
-   - Copia los archivos de traducción a `addons/sourcemod/translations/`.
-
-4. **Preparar MySQL externamente**:
-   - Aplica el script canónico `ScriptsSQL/mysql/001_schema.sql` en la base de datos principal.
-   - El plugin valida en el arranque la tabla `bansystem_schema_version`.
-   - La versión de esquema MySQL requerida actualmente es `1`.
-
-5. **Configurar la base de datos**:
-   - Edita el archivo `addons/sourcemod/configs/databases.cfg` para añadir la configuración de la base de datos MySQL.
-   - Si deseas habilitar el caché SQLite, asegúrate de que esté configurado correctamente.
-
-6. **Preparar SQLite cache (opcional)**:
-   - El esquema de referencia está en `ScriptsSQL/sqlite/cache.sql`.
-   - El plugin aún puede reparar/recrear esta caché local con `sm_bs_install_cache` y `sm_bs_reinstall_cache`.
-
-7. **Reiniciar el servidor**:
-   - Reinicia tu servidor para cargar el plugin.
-
-## Comandos
-
-- `sm_ban <usuario> <tiempo> [razón]`: Prohibir el acceso de un jugador.
-- `sm_unban <steamid>`: Levantar una prohibición de acceso.
-- `sm_comm <mic|chat|all> <usuario> <tiempo> [razón]`: Prohibir la comunicación de un jugador.
-- `sm_uncomm <usuario>`: Levantar una prohibición de comunicación.
-- `sm_abort`: Cancelar una prohibición en proceso.
-
-## Configuración
-
-- **Razones de prohibición**:
-  - Edita el archivo `configs/bansystem_reasons.txt` para añadir o modificar razones de prohibición.
-
-- **Variables de consola**:
-  - `sm_bansystem_sqlitecache`: Habilita o deshabilita el caché SQLite (1 = habilitado, 0 = deshabilitado).
-  - `sm_bansystem_localcache`: Habilita o deshabilita el caché local (1 = habilitado, 0 = deshabilitado).
-  - `sm_bansystem_Attempt`: Habilita o deshabilita el registro de intentos de acceso en MySQL.
-
-## Scripts SQL
-
-- `ScriptsSQL/mysql/001_schema.sql`: esquema canónico de MySQL para producción.
-- `ScriptsSQL/sqlite/cache.sql`: referencia del esquema local de caché SQLite.
-- `ScriptsSQL/README.md`: notas operativas sobre versión de esquema.
-
-## Versionado
-
-- Desde este corte, el plugin usa versionado semántico.
-- `1.0.0` representa la línea estable actual del proyecto.
-- Los cambios estructurales incompatibles, como la migración interna hacia `account_id`, deben entrar en una futura `2.0.0`.
-- El historial de cambios se documenta en `CHANGELOG.md`.
-
-## Nota de versiones
-
-- La versión del plugin y la versión del esquema MySQL no son la misma cosa.
-- El plugin actual reporta `1.0.0`.
-- El esquema MySQL requerido actualmente sigue siendo `1`.
-
-## Contribuciones
-
-¡Las contribuciones son bienvenidas! Si encuentras un error o tienes una idea para mejorar el plugin, abre un issue o envía un pull request.
-
-## Licencia
-
-Este proyecto está licenciado bajo la [MIT License](https://opensource.org/licenses/MIT).
+- MySQL es la fuente de verdad del estado funcional.
+- SQLite queda como cache local opcional del core.
+- `accountid` es la identidad interna principal.
+- `steamid64` se persiste como dato complementario para interoperabilidad externa.
+- el auth del core consulta primero la vista consolidada `view_bansystem_auth_summary` sobre `bansystem_summary`.
+- si la fila de summary no existe o falla, el core reconstruye el estado con una consulta directa sobre bans activos y repara `bansystem_summary`.

@@ -1,0 +1,329 @@
+"Phrases"
+{
+	"BSAccessUsageAdd"
+	{
+		"en"		"{olive}[BS Access]{default} Use: sm_bs_access_add <target|steamid|accountid> <minutes> <reason> [context]"
+		"es"		"{olive}[BS Access]{default} Uso: sm_bs_access_add <target|steamid|accountid> <minutos> <razon> [contexto]"
+	}
+
+	"BSAccessUsageRemove"
+	{
+		"en"		"{olive}[BS Access]{default} Use: sm_bs_access_remove <target|steamid|accountid>"
+		"es"		"{olive}[BS Access]{default} Uso: sm_bs_access_remove <target|steamid|accountid>"
+	}
+
+	"BSAccessUsageInfo"
+	{
+		"en"		"{olive}[BS Access]{default} Use: sm_bs_access_info <target|steamid|accountid>"
+		"es"		"{olive}[BS Access]{default} Uso: sm_bs_access_info <target|steamid|accountid>"
+	}
+
+	"BSAccessUsageDetail"
+	{
+		"en"		"{olive}[BS Access]{default} Use: sm_bs_access_detail <#userid|name>"
+		"es"		"{olive}[BS Access]{default} Uso: sm_bs_access_detail <#userid|name>"
+	}
+
+	"BSAccessDatabaseNotReady"
+	{
+		"en"		"{olive}[BS Access]{default} Database is not ready."
+		"es"		"{olive}[BS Access]{default} La base de datos no esta lista."
+	}
+
+	"BSAccessInvalidDuration"
+	{
+		"en"		"{olive}[BS Access]{default} Invalid duration."
+		"es"		"{olive}[BS Access]{default} La duracion es invalida."
+	}
+
+	"BSAccessResolveFailed"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Access]{default} Could not resolve '{1}' to a supported offline identity or connected target."
+		"es"		"{olive}[BS Access]{default} No se pudo resolver '{1}' como una identidad offline soportada o un objetivo conectado."
+	}
+
+	"BSAccessNoResolvedDetail"
+	{
+		"#format"	"{1:N}"
+		"en"		"{olive}[BS Access]{default} No resolved access detail cached for {1}."
+		"es"		"{olive}[BS Access]{default} No hay detalle resuelto de acceso cacheado para {1}."
+	}
+
+	"BSAccessResolvedDetail"
+	{
+		"#format"	"{1:N},{2:d},{3:d},{4:d},{5:s},{6:s},{7:s},{8:d},{9:s},{10:s}"
+		"en"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} length={4} steam2={5} reason={6} context={7} banned_by={8} banned_by_name={9} expire={10}"
+		"es"		"{olive}[BS Access]{default} {1} | ban_id={2} accountid={3} duracion={4} steam2={5} razon={6} contexto={7} banned_by={8} banned_by_name={9} expira={10}"
+	}
+
+	"BSAccessNoTargets"
+	{
+		"en"		"{olive}[BS Access]{default} No connected targets available."
+		"es"		"{olive}[BS Access]{default} No hay objetivos conectados disponibles."
+	}
+
+	"BSAccessReasonCannotBeEmpty"
+	{
+		"en"		"{olive}[BS Access]{default} Reason cannot be empty."
+		"es"		"{olive}[BS Access]{default} La razon no puede estar vacia."
+	}
+
+	"BSAccessContextPrompt"
+	{
+		"en"		"{olive}[BS Access]{default} Type access context in chat or '-' to skip."
+		"es"		"{olive}[BS Access]{default} Escriba el contexto del ban de acceso en el chat o '-' para omitirlo."
+	}
+
+	"BSAccessNoPanelFlow"
+	{
+		"en"		"{olive}[BS Access]{default} No panel flow is pending."
+		"es"		"{olive}[BS Access]{default} No hay un flujo de panel pendiente."
+	}
+
+	"BSAccessPanelAborted"
+	{
+		"en"		"{olive}[BS Access]{default} Panel flow aborted."
+		"es"		"{olive}[BS Access]{default} El flujo del panel fue abortado."
+	}
+
+	"BSAccessTargetUnavailable"
+	{
+		"en"		"{olive}[BS Access]{default} Target is no longer available."
+		"es"		"{olive}[BS Access]{default} El objetivo ya no esta disponible."
+	}
+
+	"BSAccessReasonPrompt"
+	{
+		"en"		"{olive}[BS Access]{default} Type access reason in chat."
+		"es"		"{olive}[BS Access]{default} Escriba la razon del ban de acceso en el chat."
+	}
+
+	"BSAccessSteam64Unavailable"
+	{
+		"en"		"{olive}[BS Access]{default} SteamID64 resolution is unavailable."
+		"es"		"{olive}[BS Access]{default} La resolucion de SteamID64 no esta disponible."
+	}
+
+	"BSAccessSteam64BackendNotReady"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Access]{default} SteamID64 backend '{1}' is not ready: {2}"
+		"es"		"{olive}[BS Access]{default} El backend de SteamID64 '{1}' no esta listo: {2}"
+	}
+
+	"BSAccessSteam64QueueFailed"
+	{
+		"en"		"{olive}[BS Access]{default} Failed to queue SteamID64 resolution."
+		"es"		"{olive}[BS Access]{default} No se pudo encolar la resolucion de SteamID64."
+	}
+
+	"BSAccessSteam64QueueFailedStatus"
+	{
+		"#format"	"{1:s},{2:s}"
+		"en"		"{olive}[BS Access]{default} Failed to queue SteamID64 resolution through '{1}': {2}"
+		"es"		"{olive}[BS Access]{default} No se pudo encolar la resolucion de SteamID64 a traves de '{1}': {2}"
+	}
+
+	"BSAccessSteam64Resolving"
+	{
+		"en"		"{olive}[BS Access]{default} Resolving SteamID64..."
+		"es"		"{olive}[BS Access]{default} Resolviendo SteamID64..."
+	}
+
+	"BSAccessSteam64ResolveFailed"
+	{
+		"en"		"{olive}[BS Access]{default} SteamID64 resolution failed."
+		"es"		"{olive}[BS Access]{default} La resolucion de SteamID64 fallo."
+	}
+
+	"BSAccessSteam64ResolveInvalid"
+	{
+		"en"		"{olive}[BS Access]{default} SteamID64 resolution returned an invalid accountid."
+		"es"		"{olive}[BS Access]{default} La resolucion de SteamID64 devolvio un accountid invalido."
+	}
+
+	"BSAccessPersistFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Access]{default} Failed to persist access ban for accountid {1}."
+		"es"		"{olive}[BS Access]{default} No se pudo persistir el ban de acceso para accountid {1}."
+	}
+
+	"BSAccessStoredTarget"
+	{
+		"#format"	"{1:N},{2:d},{3:s}"
+		"en"		"{olive}[BS Access]{default} Access ban stored for {1} ({2} min, reason={3})."
+		"es"		"{olive}[BS Access]{default} Ban de acceso guardado para {1} ({2} min, razon={3})."
+	}
+
+	"BSAccessStoredAccount"
+	{
+		"#format"	"{1:d},{2:d},{3:s}"
+		"en"		"{olive}[BS Access]{default} Access ban stored for accountid {1} ({2} min, reason={3})."
+		"es"		"{olive}[BS Access]{default} Ban de acceso guardado para accountid {1} ({2} min, razon={3})."
+	}
+
+	"BSAccessRemoveFailed"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Access]{default} Failed to remove access ban for accountid {1}."
+		"es"		"{olive}[BS Access]{default} No se pudo eliminar el ban de acceso para accountid {1}."
+	}
+
+	"BSAccessRemoved"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Access]{default} Access ban removed for accountid {1}."
+		"es"		"{olive}[BS Access]{default} Ban de acceso eliminado para accountid {1}."
+	}
+
+	"BSAccessInfoLoadFailed"
+	{
+		"en"		"{olive}[BS Access]{default} Failed to load access info."
+		"es"		"{olive}[BS Access]{default} No se pudo cargar la informacion del ban de acceso."
+	}
+
+	"BSAccessNoActiveBan"
+	{
+		"#format"	"{1:d}"
+		"en"		"{olive}[BS Access]{default} No active access ban found for accountid {1}."
+		"es"		"{olive}[BS Access]{default} No se encontro un ban de acceso activo para accountid {1}."
+	}
+
+	"BSAccessInfoPrinted"
+	{
+		"en"		"{olive}[BS Access]{default} Access ban details printed to console."
+		"es"		"{olive}[BS Access]{default} El detalle del ban de acceso fue impreso en consola."
+	}
+
+	"BSAccessListLoadFailed"
+	{
+		"en"		"{olive}[BS Access]{default} Failed to list access bans."
+		"es"		"{olive}[BS Access]{default} No se pudo listar los bans de acceso."
+	}
+
+	"BSAccessNoActiveBans"
+	{
+		"en"		"{olive}[BS Access]{default} No active modular access bans found."
+		"es"		"{olive}[BS Access]{default} No se encontraron bans modulares de acceso activos."
+	}
+
+	"BSAccessListPrinted"
+	{
+		"en"		"{olive}[BS Access]{default} Access ban list printed to console."
+		"es"		"{olive}[BS Access]{default} La lista de bans de acceso fue impresa en consola."
+	}
+
+	"BSAccessConsoleTitle"
+	{
+		"en"		"| Access denied"
+		"es"		"| Acceso denegado"
+	}
+
+	"BSAccessConsoleSection"
+	{
+		"en"		"| Access"
+		"es"		"| Acceso"
+	}
+
+	"BSAccessConsolePermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSAccessConsoleDurationMinutesValue"
+	{
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
+	}
+
+	"BSAccessConsoleFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSAccessConsoleFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSAccessConsoleFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSAccessConsoleFieldAdmin"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSAccessListConsoleTitle"
+	{
+		"en"		"| Active access bans"
+		"es"		"| Bans de acceso activos"
+	}
+
+	"BSAccessInfoConsoleTitle"
+	{
+		"en"		"| Access ban details"
+		"es"		"| Detalle de ban de acceso"
+	}
+
+	"BSAccessInfoConsoleSection"
+	{
+		"en"		"| Access"
+		"es"		"| Acceso"
+	}
+
+	"BSAccessInfoFieldPlayer"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Player    : {1}"
+		"es"		"|   Jugador   : {1}"
+	}
+
+	"BSAccessInfoFieldAccountId"
+	{
+		"#format"	"{1:d}"
+		"en"		"|   AccountId : {1}"
+		"es"		"|   AccountId : {1}"
+	}
+
+	"BSAccessInfoFieldSteam2"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Steam2    : {1}"
+		"es"		"|   Steam2    : {1}"
+	}
+
+	"BSAccessConsoleFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
+	}
+
+	"BSAccessKickMessageBase"
+	{
+		"en"		"You received an access ban"
+		"es"		"Recibiste un ban de acceso"
+	}
+
+	"BSAccessKickMessageConsoleSuffix"
+	{
+		"en"		"Read your console for details"
+		"es"		"Revisa tu consola para ver el detalle"
+	}
+
+}

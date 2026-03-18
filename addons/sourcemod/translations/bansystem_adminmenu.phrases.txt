@@ -1,0 +1,91 @@
+"Phrases"
+{
+	"BSAdminMenuCategory"
+	{
+		"en"		"BanSystem"
+		"es"		"BanSystem"
+	}
+
+	"BSAdminMenuAccess"
+	{
+		"en"		"Access Panel"
+		"es"		"Panel de acceso"
+	}
+
+	"BSAdminMenuComm"
+	{
+		"en"		"Comm Panel"
+		"es"		"Panel de comunicacion"
+	}
+
+	"BSAdminMenuSprays"
+	{
+		"en"		"Sprays Panel"
+		"es"		"Panel de sprays"
+	}
+
+	"BSAdminMenuAdmins"
+	{
+		"en"		"Admins Panel"
+		"es"		"Panel de admins"
+	}
+
+	"BSAdminMenuGroups"
+	{
+		"en"		"Groups Panel"
+		"es"		"Panel de grupos"
+	}
+
+	"BSAdminMenuModuleUnavailable"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BanSystem]{default} The module '{1}' is not loaded."
+		"es"		"{olive}[BanSystem]{default} El modulo '{1}' no esta cargado."
+	}
+
+	"BSAdminMenuSpraysContextCaptured"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Sprays]{default} Context captured: {1}"
+		"es"		"{olive}[BS Sprays]{default} Contexto capturado: {1}"
+	}
+
+	"BSAdminMenuAccessContextCaptured"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Access]{default} Context captured: {1}"
+		"es"		"{olive}[BS Access]{default} Contexto capturado: {1}"
+	}
+
+	"BSAdminMenuCommContextCaptured"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BS Comm]{default} Context captured: {1}"
+		"es"		"{olive}[BS Comm]{default} Contexto capturado: {1}"
+	}
+
+	"BSAdminMenuDurationPrompt"
+	{
+		"#format"	"{1:s}"
+		"en"		"{olive}[BanSystem]{default} Type the amount of {1} in chat."
+		"es"		"{olive}[BanSystem]{default} Escriba la cantidad de {1} en el chat."
+	}
+
+	"BSAdminMenuDurationInvalid"
+	{
+		"en"		"{olive}[BanSystem]{default} The amount must be a positive integer."
+		"es"		"{olive}[BanSystem]{default} La cantidad debe ser un entero positivo."
+	}
+
+	"BSAdminMenuBack"
+	{
+		"en"		"Back"
+		"es"		"Volver"
+	}
+
+	"BSAdminMenuCancel"
+	{
+		"en"		"Cancel"
+		"es"		"Cancelar"
+	}
+}
