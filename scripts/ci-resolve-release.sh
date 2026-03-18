@@ -10,13 +10,18 @@ if [[ -z "$TAG_NAME" ]]; then
 fi
 
 case "$TAG_NAME" in
+  v*)
+    component="bansystem"
+    version="${TAG_NAME#v}"
+    release_name="BanSystem ${version}"
+    ;;
   sourcemod/v*)
-    component="sourcemod"
+    component="bansystem"
     version="${TAG_NAME#sourcemod/v}"
-    release_name="SourceMod v${version}"
+    release_name="BanSystem ${version}"
     ;;
   *)
-    echo "Unsupported release tag '$TAG_NAME'. Use sourcemod/vX.Y.Z." >&2
+    echo "Unsupported release tag '$TAG_NAME'. Use vX.Y.Z." >&2
     exit 1
     ;;
 esac
