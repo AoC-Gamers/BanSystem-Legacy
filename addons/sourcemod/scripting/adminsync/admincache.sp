@@ -1,18 +1,19 @@
 public void OnRebuildAdminCache(AdminCachePart part)
 {
-	vAdminSyncDebug("OnRebuildAdminCache part=%d backend=%d", view_as<int>(part), view_as<int>(GetSnapshotBackend()));
+	SnapshotBackend eBackend = GetSnapshotBackend();
+	vAdminSyncDebug("OnRebuildAdminCache part=%d backend=%d", view_as<int>(part), view_as<int>(eBackend));
 	switch (part)
 	{
 		case AdminCache_Groups:
 		{
-			if (GetSnapshotBackend() == Backend_SQLite)
+			if (eBackend == Backend_SQLite)
 				vLoadGroupsFromSQLiteSnapshot();
 			else
 				vLoadGroupsFromKvSnapshot();
 		}
 		case AdminCache_Admins:
 		{
-			if (GetSnapshotBackend() == Backend_SQLite)
+			if (eBackend == Backend_SQLite)
 				vLoadAdminsFromSQLiteSnapshot();
 			else
 				vLoadAdminsFromKvSnapshot();
@@ -24,6 +25,7 @@ void vApplySnapshotToAdminCache()
 {
 	vAdminSyncDebug("Applying local snapshot to SourceMod AdminCache.");
 	DumpAdminCache(AdminCache_Groups, true);
+	DumpAdminCache(AdminCache_Admins, true);
 	DumpAdminCache(AdminCache_Overrides, true);
 
 	for (int i = 1; i <= MaxClients; i++)
@@ -135,7 +137,7 @@ void vLoadAdminsFromSQLiteSnapshot()
 		idAdmin.ImmunityLevel = rsAdmins.FetchInt(4);
 
 		IntToString(iDbId, szKey, sizeof(szKey));
-		smAdminMap.SetValue(szKey, view_as<int>(idAdmin));
+		vAdminSyncStoreAdminRef(smAdminMap, szKey, idAdmin);
 	}
 
 	delete rsAdmins;
@@ -153,15 +155,15 @@ void vLoadAdminsFromSQLiteSnapshot()
 		rsMemberships.FetchString(1, szGroupName, sizeof(szGroupName));
 		IntToString(rsMemberships.FetchInt(0), szKey, sizeof(szKey));
 
-		int iAdminRef;
-		if (!smAdminMap.GetValue(szKey, iAdminRef))
+		AdminId idAdmin;
+		if (!bAdminSyncTryGetAdminRef(smAdminMap, szKey, idAdmin))
 			continue;
 
 		GroupId idGroup = FindAdmGroup(szGroupName);
 		if (idGroup == INVALID_GROUP_ID)
 			continue;
 
-		view_as<AdminId>(iAdminRef).InheritGroup(idGroup);
+		idAdmin.InheritGroup(idGroup);
 	}
 
 	delete rsMemberships;
@@ -208,7 +210,7 @@ void vLoadAdminsFromKvSnapshot()
 			idAdmin.ImmunityLevel = kv.GetNum("immunity", 0);
 
 			IntToString(iDbId, szKey, sizeof(szKey));
-			smAdminMap.SetValue(szKey, view_as<int>(idAdmin));
+			vAdminSyncStoreAdminRef(smAdminMap, szKey, idAdmin);
 		}
 		while (kv.GotoNextKey(false));
 	}
@@ -224,8 +226,8 @@ void vLoadAdminsFromKvSnapshot()
 			IntToString(kv.GetNum("admin_id", 0), szKey, sizeof(szKey));
 			IntToString(kv.GetNum("group_id", 0), szGroupKey, sizeof(szGroupKey));
 
-			int iAdminRef;
-			if (!smAdminMap.GetValue(szKey, iAdminRef))
+			AdminId idAdmin;
+			if (!bAdminSyncTryGetAdminRef(smAdminMap, szKey, idAdmin))
 				continue;
 
 			kv.GoBack();
@@ -239,7 +241,7 @@ void vLoadAdminsFromKvSnapshot()
 			kv.GetString("name", szGroupName, sizeof(szGroupName));
 			GroupId idGroup = FindAdmGroup(szGroupName);
 			if (idGroup != INVALID_GROUP_ID)
-				view_as<AdminId>(iAdminRef).InheritGroup(idGroup);
+				idAdmin.InheritGroup(idGroup);
 
 			kv.Rewind();
 			kv.JumpToKey("memberships", false);

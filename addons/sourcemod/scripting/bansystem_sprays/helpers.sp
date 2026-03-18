@@ -10,7 +10,7 @@ stock void BSSprays_LogCategory(eBSSpraysDebugMask eMask, const char[] szTag, co
 	if ((g_cvBSSpraysDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSSprays_LogCategoryFormatted(eBSSpraysDebugMask eMask, const char[] szTag, const char[] szMessage)
@@ -21,7 +21,7 @@ stock void BSSprays_LogCategoryFormatted(eBSSpraysDebugMask eMask, const char[] 
 	if ((g_cvBSSpraysDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSSprays_Debug(const char[] szMessage, any ...)
@@ -77,15 +77,12 @@ stock void BSSprays_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 
 stock void BSSprays_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
 {
-	ReplySource eOldSource = SetCmdReplySource(eReplySource);
-
 	static char szBuffer[1024];
 	if (iAdmin > 0)
 		SetGlobalTransTarget(iAdmin);
 
 	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
-	CReplyToCommand(iAdmin, "%s", szBuffer);
-	SetCmdReplySource(eOldSource);
+	BSCReplyToCommandBufferWithSource(iAdmin, eReplySource, szBuffer);
 }
 
 stock void BSSprays_NotifyConsolePrinted(int iAdmin, ReplySource eReplySource, const char[] szPhrase)
@@ -223,6 +220,28 @@ stock bool BSSprays_TryResolveInputAccountId(int iAdmin, const char[] szInput, i
 	TrimString(szNormalized);
 	StripQuotes(szNormalized);
 
+	if (IsValidSteamID64(szNormalized))
+	{
+		for (int iClient = 1; iClient <= MaxClients; iClient++)
+		{
+			if (!IsClientInGame(iClient) || IsFakeClient(iClient))
+				continue;
+
+			char szSteamId64[32];
+			if (!GetClientAuthId(iClient, AuthId_SteamID64, szSteamId64, sizeof(szSteamId64), true))
+				continue;
+
+			if (!StrEqual(szSteamId64, szNormalized, false))
+				continue;
+
+			iTargetClient = iClient;
+			iAccountId = GetClientAccountID(iClient);
+			return (iAccountId > 0);
+		}
+
+		return false;
+	}
+
 	SteamIDFormat eFormat = DetectSteamIDFormat(szNormalized);
 	switch (eFormat)
 	{
@@ -330,6 +349,11 @@ stock void BSSprays_TryRegisterCoreModule()
 	BSSprays_API("Registered sprays module in bansystem_core.");
 }
 
+stock bool BSSprays_HasResolvedSprayModule(int iClient)
+{
+	return ((view_as<int>(BSCore_GetResolvedModuleMask(iClient)) & view_as<int>(kBSCoreModule_Sprays)) != 0);
+}
+
 stock bool BSSprays_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSSpraysIdentityAction eAction, int iValue, const char[] szExtra = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	SteamIDToolsProvider eProvider;
@@ -353,7 +377,7 @@ stock bool BSSprays_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eB
 	}
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eAction));
 	pContext.WriteCell(iValue);
 	pContext.WriteCell(view_as<int>(eReplySource));
@@ -404,4 +428,15 @@ stock bool BSSprays_IsClientSprayBanned(int iClient)
 		return false;
 
 	return g_eBSSpraysResolvedDetail[iClient].m_bLoaded && g_eBSSpraysResolvedDetail[iClient].m_iBanId > 0;
+}
+
+stock void BSSprays_ReadIdentityLookupContext(DataPack pContext, int &iUserId, eBSSpraysIdentityAction &eAction, int &iValue, ReplySource &eReplySource, char[] szExtra, int iExtraMaxLength, char[] szContext, int iContextMaxLength)
+{
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eAction = view_as<eBSSpraysIdentityAction>(pContext.ReadCell());
+	iValue = pContext.ReadCell();
+	eReplySource = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szExtra, iExtraMaxLength);
+	pContext.ReadString(szContext, iContextMaxLength);
 }

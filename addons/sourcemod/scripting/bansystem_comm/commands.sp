@@ -4,26 +4,11 @@
 
 stock void BSComm_OnPluginStart_Commands()
 {
-	RegAdminCmd("sm_bs_comm_status", Command_BSCommStatus, ADMFLAG_ROOT, "Show BanSystem Comm scaffold status.");
 	RegAdminCmd("sm_bs_comm_detail", Command_BSCommDetail, ADMFLAG_ROOT, "Show resolved communication detail for a connected client.");
 	RegAdminCmd("sm_bs_comm_add", Command_BSCommAdd, ADMFLAG_ROOT, "Add or update a communication ban in the modular communication table.");
 	RegAdminCmd("sm_bs_comm_remove", Command_BSCommRemove, ADMFLAG_ROOT, "Remove a communication ban from the modular communication table.");
 	RegAdminCmd("sm_bs_comm_info", Command_BSCommInfo, ADMFLAG_ROOT, "Show active communication ban info for an identity.");
 	RegAdminCmd("sm_bs_comm_list", Command_BSCommList, ADMFLAG_ROOT, "List active modular communication bans.");
-}
-
-Action Command_BSCommStatus(int iClient, int iArgs)
-{
-	CReplyToCommand(
-		iClient,
-		"%t",
-		"BSCommStatus",
-		BSComm_CanUseCoreLibrary() ? 1 : 0,
-		BSComm_CanUseCoreLibrary() ? (BSCore_IsModuleRegistered(BANSYSTEM_COMM_MODULE_NAME) ? 1 : 0) : 0,
-		BSComm_CanUseDatabase() ? 1 : 0
-	);
-
-	return Plugin_Handled;
 }
 
 Action Command_BSCommDetail(int iClient, int iArgs)
@@ -60,7 +45,7 @@ Action Command_BSCommDetail(int iClient, int iArgs)
 		iTarget,
 		g_eBSCommResolvedDetail[iTarget].m_iBanId,
 		g_eBSCommResolvedDetail[iTarget].m_iAccountId,
-		g_eBSCommResolvedDetail[iTarget].m_iCommType,
+		view_as<int>(g_eBSCommResolvedDetail[iTarget].m_eCommType),
 		g_eBSCommResolvedDetail[iTarget].m_iLength,
 		szSteam2,
 		g_eBSCommResolvedDetail[iTarget].m_szReason,
@@ -115,9 +100,9 @@ Action Command_BSCommAdd(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Add, iLength, view_as<int>(eCommType), szReason, szContext, eReplySource);
+		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Add, iLength, eCommType, szReason, szContext, eReplySource);
 		return Plugin_Handled;
 	}
 
@@ -152,10 +137,19 @@ Action Command_BSCommRemove(int iClient, int iArgs)
 	char szInput[64];
 	int iNextArg = 0;
 	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
+	BSComm_Debug(
+		"Command_BSCommRemove admin=%d raw_input=%s next_arg=%d is_valid_sid64=%d detected_format=%d",
+		iClient,
+		szInput,
+		iNextArg,
+		IsValidSteamID64(szInput) ? 1 : 0,
+		view_as<int>(DetectSteamIDFormat(szInput))
+	);
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Remove, 0, 0, "", "", eReplySource);
+		BSComm_Debug("Command_BSCommRemove routing input=%s through offline SteamID64 lookup", szInput);
+		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Remove, 0, kBSCommType_None, "", "", eReplySource);
 		return Plugin_Handled;
 	}
 
@@ -163,10 +157,12 @@ Action Command_BSCommRemove(int iClient, int iArgs)
 	int iTargetClient;
 	if (!BSComm_TryResolveInputAccountId(iClient, szInput, iAccountId, iTargetClient))
 	{
+		BSComm_Debug("Command_BSCommRemove local resolution failed for input=%s", szInput);
 		CReplyToCommand(iClient, "%t", "BSCommResolveFailed", szInput);
 		return Plugin_Handled;
 	}
 
+	BSComm_Debug("Command_BSCommRemove resolved locally input=%s accountid=%d target=%d", szInput, iAccountId, iTargetClient);
 	BSComm_QueueRemoveBan(iClient, iAccountId, eReplySource);
 	return Plugin_Handled;
 }
@@ -191,9 +187,9 @@ Action Command_BSCommInfo(int iClient, int iArgs)
 	int iNextArg = 0;
 	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
-		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Info, 0, 0, "", "", eReplySource);
+		BSComm_QueueIdentityLookup(iClient, szInput, kBSCommIdentityAction_Info, 0, kBSCommType_None, "", "", eReplySource);
 		return Plugin_Handled;
 	}
 

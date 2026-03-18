@@ -6,6 +6,57 @@ stock void BSAccess_OnPluginStart_Detail()
 {
 }
 
+stock void BSAccess_ReconcileClientAccessStateFromCore(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || IsFakeClient(iClient))
+	{
+		BSAccess_SQL("Access reconcile skipped for client %d: client not usable.", iClient);
+		return;
+	}
+
+	if (!BSAccess_CanUseCoreLibrary() || !BSAccess_CanUseDatabase())
+	{
+		BSAccess_SQL("Access reconcile skipped for client %d: core_ready=%d db_ready=%d", iClient, BSAccess_CanUseCoreLibrary() ? 1 : 0, BSAccess_CanUseDatabase() ? 1 : 0);
+		return;
+	}
+
+	if (!BSCore_HasResolvedSummary(iClient))
+	{
+		BSAccess_SQL("Access reconcile skipped for client %d: core has no resolved summary.", iClient);
+		return;
+	}
+
+	if (!BSAccess_HasResolvedAccessModule(iClient))
+	{
+		BSAccess_SQL("Access reconcile skipped for client %d: resolved module mask %d has no access bit.", iClient, view_as<int>(BSCore_GetResolvedModuleMask(iClient)));
+		return;
+	}
+
+	int iAccountId = BSCore_GetResolvedAccountId(iClient);
+	int iBanId = BSCore_GetResolvedBanId(iClient, kBSCoreModule_Access);
+	if (iAccountId <= 0 || iBanId <= 0)
+	{
+		BSAccess_SQL("Access reconcile skipped for client %d: invalid core state accountid=%d ban_id=%d", iClient, iAccountId, iBanId);
+		return;
+	}
+
+	BSAccess_SQL(
+		"Reconciling access state from core for client %d: accountid=%d ban_id=%d",
+		iClient,
+		iAccountId,
+		iBanId
+	);
+
+	BSCore_OnAccessDetailRequested(iClient, iAccountId, iBanId);
+}
+
+stock void BSAccess_ReconcileAllAccessStatesFromCore()
+{
+	BSAccess_SQL("Reconciling access states from core for all clients.");
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+		BSAccess_ReconcileClientAccessStateFromCore(iClient);
+}
+
 public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBanId)
 {
 	BSAccess_Debug(
@@ -86,18 +137,7 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 		return;
 	}
 
-	g_eBSAccessResolvedDetail[iClient].m_bLoaded = true;
-	g_eBSAccessResolvedDetail[iClient].m_iBanId = iBanId;
-	g_eBSAccessResolvedDetail[iClient].m_iAccountId = iResolvedAccountId;
-	g_eBSAccessResolvedDetail[iClient].m_iLength = rsResult.FetchInt(3);
-	g_eBSAccessResolvedDetail[iClient].m_iBannedBy = rsResult.FetchInt(6);
-	rsResult.FetchString(1, g_eBSAccessResolvedDetail[iClient].m_szSteamId64, sizeof(g_eBSAccessResolvedDetail[].m_szSteamId64));
-	rsResult.FetchString(2, g_eBSAccessResolvedDetail[iClient].m_szPlayerName, sizeof(g_eBSAccessResolvedDetail[].m_szPlayerName));
-	rsResult.FetchString(4, g_eBSAccessResolvedDetail[iClient].m_szReason, sizeof(g_eBSAccessResolvedDetail[].m_szReason));
-	rsResult.FetchString(5, g_eBSAccessResolvedDetail[iClient].m_szContext, sizeof(g_eBSAccessResolvedDetail[].m_szContext));
-	rsResult.FetchString(7, g_eBSAccessResolvedDetail[iClient].m_szBannedByName, sizeof(g_eBSAccessResolvedDetail[].m_szBannedByName));
-	rsResult.FetchString(8, g_eBSAccessResolvedDetail[iClient].m_szBannedBySteamId64, sizeof(g_eBSAccessResolvedDetail[].m_szBannedBySteamId64));
-	g_eBSAccessResolvedDetail[iClient].m_iDateExpireTs = rsResult.FetchInt(9);
+	BSAccess_FillResolvedDetailFromRow(iClient, iBanId, rsResult);
 	delete rsResult;
 
 	BSAccess_Debug(

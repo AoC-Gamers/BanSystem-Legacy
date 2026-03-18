@@ -23,6 +23,7 @@
 Database g_dbBSAccess;
 StringMap g_smBSAccessIdentityRequestContext;
 StringMap g_smBSAccessAttemptIpCache;
+GlobalForward g_gfBSAccessOnClientDenied;
 
 ConVar g_cvBSAccessDebugMask;
 ConVar g_cvBSAccessMysqlConfig;
@@ -86,6 +87,7 @@ public void OnPluginStart()
 {
 	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSAccessLogPath, sizeof(g_szBSAccessLogPath), BANSYSTEM_ACCESS_DEBUG_LOG);
+	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_access.phrases");
 	g_smBSAccessIdentityRequestContext = new StringMap();
 	g_cvBSAccessDebugMask = CreateConVar("sm_bs_access_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
@@ -122,6 +124,8 @@ public void OnLibraryAdded(const char[] szName)
 	{
 		g_bBSAccessHasCoreLibrary = true;
 		BSAccess_TryRegisterCoreModule();
+		if (BSCore_IsAuthReady())
+			BSAccess_ReconcileAllAccessStatesFromCore();
 	}
 }
 
@@ -129,4 +133,11 @@ public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
 		g_bBSAccessHasCoreLibrary = false;
+}
+
+public void BSCore_OnAuthReadyChanged(bool bReady)
+{
+	BSAccess_SQL("Received core auth ready changed event: ready=%d db_ready=%d", bReady ? 1 : 0, BSAccess_CanUseDatabase() ? 1 : 0);
+	if (bReady)
+		BSAccess_ReconcileAllAccessStatesFromCore();
 }

@@ -7,7 +7,7 @@ stock bool BSCore_RegisterModule(const char[] szName, eBSCoreModuleBit eModuleBi
 	if (szName[0] == '\0' || eModuleBit == kBSCoreModule_None)
 		return false;
 
-	if (!BSCore_IsValidModuleMask(view_as<int>(eModuleBit)))
+	if (!BSCore_IsValidModuleMask(eModuleBit))
 		return false;
 
 	if (g_smCoreRegisteredModules == null)
@@ -18,7 +18,7 @@ stock bool BSCore_RegisterModule(const char[] szName, eBSCoreModuleBit eModuleBi
 		return (iExistingBit == view_as<int>(eModuleBit));
 
 	g_smCoreRegisteredModules.SetValue(szName, view_as<int>(eModuleBit));
-	BSCore_AddModule(g_iCoreRegisteredModuleMask, eModuleBit);
+	BSCore_AddModule(g_eCoreRegisteredModuleMask, eModuleBit);
 	BSCore_Debug("Registered core module '%s' with bit %d.", szName, view_as<int>(eModuleBit));
 	return true;
 }

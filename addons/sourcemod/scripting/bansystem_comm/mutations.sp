@@ -34,7 +34,7 @@ stock void BSComm_QueueInfoByAccountId(int iAdmin, int iAccountId, ReplySource e
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	SQL_TQuery(g_dbBSComm, BSComm_OnInfoLoaded, szQuery, pContext, DBPrio_Normal);
@@ -52,7 +52,7 @@ stock void BSComm_QueueList(int iAdmin, int iLimit, ReplySource eReplySource = S
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	SQL_TQuery(g_dbBSComm, BSComm_OnListLoaded, szQuery, pContext, DBPrio_Normal);
 }
@@ -102,7 +102,7 @@ stock void BSComm_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, eBS
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ON DUPLICATE KEY UPDATE `steamid64` = VALUES(`steamid64`), `player_name` = VALUES(`player_name`), `ip_address` = VALUES(`ip_address`), `ban_type` = VALUES(`ban_type`), `ban_length` = VALUES(`ban_length`), `ban_reason` = VALUES(`ban_reason`), `ban_context` = VALUES(`ban_context`), `banned_by` = VALUES(`banned_by`), `banned_by_name` = VALUES(`banned_by_name`), `banned_by_steamid64` = VALUES(`banned_by_steamid64`);");
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iTargetClient);
@@ -124,7 +124,7 @@ stock void BSComm_QueueRemoveBan(int iAdmin, int iAccountId, ReplySource eReplyS
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "DELETE FROM `bansystem_comm_bans` WHERE `accountid` = %d;", iAccountId);
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 
@@ -168,7 +168,10 @@ public void BSComm_OnAddBanCompleted(Database db, DBResultSet rsResult, const ch
 		iLiveTarget = FindClientByAccountID(iAccountId);
 
 	if (iLiveTarget > 0 && IsClientInGame(iLiveTarget))
+	{
 		BSComm_QueueResolvedDetailRefreshForClient(iLiveTarget, iAccountId, true);
+		CPrintToChat(iLiveTarget, "%t", "BSCommPlayerBanned");
+	}
 
 	char szType[16];
 	BSComm_GetCommTypeLabel(eCommType, szType, sizeof(szType));
@@ -252,15 +255,33 @@ public void BSComm_OnCoreSummaryRefreshLoaded(Database db, DBResultSet rsResult,
 
 public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider provider, bool bSuccess, bool bBatch, const char[] szEndpoint, const char[] szInput, const char[] szResult, const char[] szTag)
 {
+	BSComm_Debug(
+		"SteamIDTools_OnRequestFinished request=%d provider=%d success=%d batch=%d endpoint=%s input=%s result=%s tag=%s",
+		iRequestId,
+		view_as<int>(provider),
+		bSuccess ? 1 : 0,
+		bBatch ? 1 : 0,
+		szEndpoint,
+		szInput,
+		szResult,
+		szTag
+	);
+
 	if (bBatch || !StrEqual(szEndpoint, API_SID64toAID, false))
+	{
+		BSComm_Debug("SteamIDTools_OnRequestFinished ignored request=%d because batch=%d endpoint_match=%d", iRequestId, bBatch ? 1 : 0, StrEqual(szEndpoint, API_SID64toAID, false) ? 1 : 0);
 		return;
+	}
 
 	char szRequestId[16];
 	IntToString(iRequestId, szRequestId, sizeof(szRequestId));
 
 	DataPack pContext;
 	if (!g_smBSCommIdentityRequestContext.GetValue(szRequestId, pContext))
+	{
+		BSComm_Debug("SteamIDTools_OnRequestFinished request=%d has no stored context", iRequestId);
 		return;
+	}
 
 	g_smBSCommIdentityRequestContext.Remove(szRequestId);
 	pContext.Reset();
@@ -268,7 +289,7 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	int iUserId = pContext.ReadCell();
 	eBSCommIdentityAction eAction = view_as<eBSCommIdentityAction>(pContext.ReadCell());
 	int iValue = pContext.ReadCell();
-	int iExtraValue = pContext.ReadCell();
+	eBSCommType eCommType = view_as<eBSCommType>(pContext.ReadCell());
 	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	char szExtra[BANSYSTEM_COMM_MAX_REASON_LENGTH];
 	char szContext[sizeof(g_eBSCommResolvedDetail[].m_szContext)];
@@ -278,11 +299,17 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 
 	int iAdmin = GetClientOfUserId(iUserId);
 	if (iUserId != 0 && iAdmin <= 0)
+	{
+		BSComm_Debug("SteamIDTools_OnRequestFinished request=%d dropped because admin userid=%d is no longer connected", iRequestId, iUserId);
 		return;
+	}
+
+	BSComm_Debug("SteamIDTools_OnRequestFinished request=%d context restored action=%d value=%d comm_type=%d admin_userid=%d admin_client=%d", iRequestId, view_as<int>(eAction), iValue, view_as<int>(eCommType), iUserId, iAdmin);
 
 	if (!bSuccess)
 	{
 		BSComm_API("SteamID64 resolution failed. request=%d input=%s", iRequestId, szInput);
+		BSComm_Debug("SteamIDTools_OnRequestFinished request=%d failed at provider stage for input=%s", iRequestId, szInput);
 		BSComm_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSCommSteam64ResolveFailed");
 		return;
 	}
@@ -291,16 +318,17 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 	if (iAccountId <= 0)
 	{
 		BSComm_API("SteamID64 resolution returned invalid accountid. request=%d input=%s result=%s", iRequestId, szInput, szResult);
+		BSComm_Debug("SteamIDTools_OnRequestFinished request=%d returned invalid accountid result=%s", iRequestId, szResult);
 		BSComm_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSCommSteam64ResolveInvalid");
 		return;
 	}
 
 	BSComm_API("SteamID64 resolution succeeded. request=%d input=%s accountid=%d action=%d", iRequestId, szInput, iAccountId, view_as<int>(eAction));
+	BSComm_Debug("SteamIDTools_OnRequestFinished request=%d resolved input=%s to accountid=%d action=%d", iRequestId, szInput, iAccountId, view_as<int>(eAction));
 	switch (eAction)
 	{
 		case kBSCommIdentityAction_Add:
 		{
-			eBSCommType eCommType = view_as<eBSCommType>(iExtraValue);
 			BSComm_QueueAddBan(iAdmin, iAccountId, 0, eCommType, iValue, szExtra, szContext, szInput, "UNKNOWN", eReplySource);
 		}
 

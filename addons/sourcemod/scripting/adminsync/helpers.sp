@@ -5,6 +5,11 @@ SnapshotBackend GetSnapshotBackend()
 	return StrEqual(szBackend, "kv", false) ? Backend_KeyValues : Backend_SQLite;
 }
 
+bool bUseSQLiteSnapshotBackend()
+{
+	return (GetSnapshotBackend() == Backend_SQLite);
+}
+
 void vGetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] szBuffer, int iMaxLength)
 {
 	switch (eProvider)
@@ -147,11 +152,6 @@ bool bTryGetSteamIdLookupProviderSilent(SteamIDToolsProvider &eProvider)
 	return SteamIDTools_IsProviderReady(eProvider);
 }
 
-bool bIsClientUsable(int iClient)
-{
-	return (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient) && !IsFakeClient(iClient));
-}
-
 void vNormalizeAdminSyncText(const char[] szInput, char[] szOutput, int iMaxLength)
 {
 	strcopy(szOutput, iMaxLength, szInput);
@@ -179,10 +179,37 @@ bool bTryParseAdminSyncNonNegativeInt(const char[] szInput, int &iValue)
 
 int iGetAdminSyncCommandUserId(int iClient)
 {
-	if (!bIsClientUsable(iClient))
-		return 0;
+	return BSGetCommandIssuerUserId(iClient);
+}
 
-	return GetClientUserId(iClient);
+void vAdminSyncReadUserReplyContext(DataPack pack, int &iUserId, ReplySource &eReplySource)
+{
+	pack.Reset();
+	iUserId = pack.ReadCell();
+	eReplySource = view_as<ReplySource>(pack.ReadCell());
+}
+
+void vAdminSyncReadIdentityLookupContext(DataPack pack, int &iUserId, AdminSyncIdentityAction &eAction, int &iValue, ReplySource &eReplySource, char[] szExtra, int iExtraMaxLength, char[] szExtra2, int iExtra2MaxLength)
+{
+	pack.Reset();
+	iUserId = pack.ReadCell();
+	eAction = view_as<AdminSyncIdentityAction>(pack.ReadCell());
+	iValue = pack.ReadCell();
+	eReplySource = view_as<ReplySource>(pack.ReadCell());
+	pack.ReadString(szExtra, iExtraMaxLength);
+	pack.ReadString(szExtra2, iExtra2MaxLength);
+}
+
+void vAdminSyncReadAdminAddSteamId64EnrichmentContext(DataPack pack, int &iUserId, int &iAccountId, int &iImmunity, ReplySource &eReplySource, char[] szName, int iNameMaxLength, char[] szFlags, int iFlagsMaxLength)
+{
+	pack.Reset();
+	iUserId = pack.ReadCell();
+	pack.ReadCell();
+	iAccountId = pack.ReadCell();
+	iImmunity = pack.ReadCell();
+	eReplySource = view_as<ReplySource>(pack.ReadCell());
+	pack.ReadString(szName, iNameMaxLength);
+	pack.ReadString(szFlags, iFlagsMaxLength);
 }
 
 void vAdminSyncDebug(const char[] szFormat, any ...)
@@ -214,7 +241,7 @@ void vAdminSyncLog(eAdminSyncDebugMask eMask, const char[] szTag, const char[] s
 	if (!(g_cvDebug.IntValue & view_as<int>(eMask)))
 		return;
 
-	LogToFileEx(g_szDebugLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szDebugLogPath, "[%s] %s", szTag, szMessage);
 }
 
 bool bAccountIdToSteam2(int iAccountId, char[] szBuffer, int iMaxLength)
@@ -242,4 +269,19 @@ void vApplyFlagsToGroup(GroupId idGroup, const char[] szFlags)
 		if (FindFlagByChar(szFlags[i], eFlag))
 			idGroup.SetFlag(eFlag, true);
 	}
+}
+
+void vAdminSyncStoreAdminRef(StringMap smAdminMap, const char[] szKey, AdminId idAdmin)
+{
+	smAdminMap.SetValue(szKey, view_as<int>(idAdmin));
+}
+
+bool bAdminSyncTryGetAdminRef(StringMap smAdminMap, const char[] szKey, AdminId &idAdmin)
+{
+	int iAdminRef;
+	if (!smAdminMap.GetValue(szKey, iAdminRef))
+		return false;
+
+	idAdmin = view_as<AdminId>(iAdminRef);
+	return true;
 }

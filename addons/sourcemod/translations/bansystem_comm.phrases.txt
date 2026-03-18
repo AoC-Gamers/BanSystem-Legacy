@@ -1,12 +1,5 @@
 "Phrases"
 {
-	"BSCommStatus"
-	{
-		"#format"	"{1:d},{2:d},{3:d}"
-		"en"		"{olive}[BS Comm]{default} core={1} registered={2} db_ready={3}"
-		"es"		"{olive}[BS Comm]{default} core={1} registrado={2} db_lista={3}"
-	}
-
 	"BSCommUsageAdd"
 	{
 		"en"		"{olive}[BS Comm]{default} Use: sm_bs_comm_add <mic|chat|all> <target|steamid|accountid> <minutes> <reason> [context]"
@@ -201,6 +194,12 @@
 	{
 		"en"		"{olive}[BS Comm]{default} Your communication restriction has been removed."
 		"es"		"{olive}[BS Comm]{default} Tu restriccion de comunicacion fue eliminada."
+	}
+
+	"BSCommPlayerBanned"
+	{
+		"en"		"{olive}[BS Comm]{default} You have been communication banned. Check your console for details."
+		"es"		"{olive}[BS Comm]{default} Recibiste un ban de comunicacion. Revisa tu consola para ver los detalles."
 	}
 
 	"BSCommInfoLoadFailed"

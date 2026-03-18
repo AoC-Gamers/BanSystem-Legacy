@@ -29,6 +29,7 @@ public int Native_BSCommAddBanByAccountId(Handle hPlugin, int iNumParams)
 	int iAccountId = GetNativeCell(2);
 	eBSCommType eCommType = view_as<eBSCommType>(GetNativeCell(3));
 	int iLength = GetNativeCell(4);
+	ReplySource eReplySource = GetCmdReplySource();
 
 	if (!BSComm_CanUseDatabase() || iAccountId <= 0 || iLength < 0 || !BSComm_IsSupportedCommType(eCommType))
 		return false;
@@ -39,7 +40,7 @@ public int Native_BSCommAddBanByAccountId(Handle hPlugin, int iNumParams)
 	GetNativeString(6, szContext, sizeof(szContext));
 
 	int iTargetClient = FindClientByAccountID(iAccountId);
-	BSComm_QueueAddBan(iAdmin, iAccountId, iTargetClient, eCommType, iLength, szReason, szContext);
+	BSComm_QueueAddBan(iAdmin, iAccountId, iTargetClient, eCommType, iLength, szReason, szContext, "", "UNKNOWN", eReplySource);
 	return true;
 }
 
@@ -47,11 +48,12 @@ public int Native_BSCommRemoveBanByAccountId(Handle hPlugin, int iNumParams)
 {
 	int iAdmin = GetNativeCell(1);
 	int iAccountId = GetNativeCell(2);
+	ReplySource eReplySource = GetCmdReplySource();
 
 	if (!BSComm_CanUseDatabase() || iAccountId <= 0)
 		return false;
 
-	BSComm_QueueRemoveBan(iAdmin, iAccountId);
+	BSComm_QueueRemoveBan(iAdmin, iAccountId, eReplySource);
 	return true;
 }
 
@@ -70,7 +72,7 @@ public int Native_BSCommIsClientBanned(Handle hPlugin, int iNumParams)
 	if (iClient <= 0 || iClient > MaxClients)
 		return false;
 
-	return g_eBSCommResolvedDetail[iClient].m_bLoaded && g_eBSCommResolvedDetail[iClient].m_iCommType > view_as<int>(kBSCommType_None);
+	return g_eBSCommResolvedDetail[iClient].m_bLoaded && g_eBSCommResolvedDetail[iClient].m_eCommType != kBSCommType_None;
 }
 
 public int Native_BSCommGetResolvedCommType(Handle hPlugin, int iNumParams)
@@ -79,5 +81,5 @@ public int Native_BSCommGetResolvedCommType(Handle hPlugin, int iNumParams)
 	if (iClient <= 0 || iClient > MaxClients)
 		return 0;
 
-	return g_eBSCommResolvedDetail[iClient].m_iCommType;
+	return view_as<int>(g_eBSCommResolvedDetail[iClient].m_eCommType);
 }

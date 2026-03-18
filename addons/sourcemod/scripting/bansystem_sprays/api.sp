@@ -27,6 +27,7 @@ public int Native_BSSpraysAddBanByAccountId(Handle hPlugin, int iNumParams)
 	int iAdmin = GetNativeCell(1);
 	int iAccountId = GetNativeCell(2);
 	int iLength = GetNativeCell(3);
+	ReplySource eReplySource = GetCmdReplySource();
 
 	if (!BSSprays_CanUseDatabase() || iAccountId <= 0 || iLength < 0)
 		return false;
@@ -37,7 +38,7 @@ public int Native_BSSpraysAddBanByAccountId(Handle hPlugin, int iNumParams)
 	GetNativeString(5, szContext, sizeof(szContext));
 
 	int iTargetClient = FindClientByAccountID(iAccountId);
-	BSSprays_QueueAddBan(iAdmin, iAccountId, iTargetClient, iLength, szReason, szContext);
+	BSSprays_QueueAddBan(iAdmin, iAccountId, iTargetClient, iLength, szReason, szContext, "", "UNKNOWN", eReplySource);
 	return true;
 }
 
@@ -45,11 +46,12 @@ public int Native_BSSpraysRemoveBanByAccountId(Handle hPlugin, int iNumParams)
 {
 	int iAdmin = GetNativeCell(1);
 	int iAccountId = GetNativeCell(2);
+	ReplySource eReplySource = GetCmdReplySource();
 
 	if (!BSSprays_CanUseDatabase() || iAccountId <= 0)
 		return false;
 
-	BSSprays_QueueRemoveBan(iAdmin, iAccountId);
+	BSSprays_QueueRemoveBan(iAdmin, iAccountId, eReplySource);
 	return true;
 }
 

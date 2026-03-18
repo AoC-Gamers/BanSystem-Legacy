@@ -8,13 +8,23 @@ stock void BSCore_ResetResolvedClientState(int iClient)
 		return;
 
 	g_iCoreResolvedAccountId[iClient] = 0;
-	g_iCoreResolvedModuleMask[iClient] = 0;
+	g_eCoreResolvedModuleMask[iClient] = kBSCoreModule_None;
 	g_eCoreResolvedCommType[iClient] = kBSCoreComm_None;
 	g_iCoreResolvedAccessBanId[iClient] = 0;
 	g_iCoreResolvedCommBanId[iClient] = 0;
 	g_iCoreResolvedSprayBanId[iClient] = 0;
-	g_iCorePendingDetailMask[iClient] = 0;
-	g_iCoreResolvedDetailMask[iClient] = 0;
+	g_iCoreResolvedCommLength[iClient] = 0;
+	g_szCoreResolvedCommReason[iClient][0] = '\0';
+	g_szCoreResolvedCommContext[iClient][0] = '\0';
+	g_szCoreResolvedCommBannedByName[iClient][0] = '\0';
+	g_iCoreResolvedCommExpireTs[iClient] = 0;
+	g_iCoreResolvedSprayLength[iClient] = 0;
+	g_szCoreResolvedSprayReason[iClient][0] = '\0';
+	g_szCoreResolvedSprayContext[iClient][0] = '\0';
+	g_szCoreResolvedSprayBannedByName[iClient][0] = '\0';
+	g_iCoreResolvedSprayExpireTs[iClient] = 0;
+	g_eCorePendingDetailMask[iClient] = kBSCoreModule_None;
+	g_eCoreResolvedDetailMask[iClient] = kBSCoreModule_None;
 }
 
 stock bool BSCore_HasResolvedSummaryState(int iClient)
@@ -27,9 +37,9 @@ stock int BSCore_GetResolvedAccountId(int iClient)
 	return (iClient > 0 && iClient <= MaxClients) ? g_iCoreResolvedAccountId[iClient] : 0;
 }
 
-stock int BSCore_GetResolvedModuleMask(int iClient)
+stock eBSCoreModuleBit BSCore_GetResolvedModuleMask(int iClient)
 {
-	return (iClient > 0 && iClient <= MaxClients) ? g_iCoreResolvedModuleMask[iClient] : 0;
+	return (iClient > 0 && iClient <= MaxClients) ? g_eCoreResolvedModuleMask[iClient] : kBSCoreModule_None;
 }
 
 stock eBSCoreCommType BSCore_GetResolvedCommType(int iClient)
@@ -55,9 +65,9 @@ stock int BSCore_GetResolvedBanId(int iClient, eBSCoreModuleBit eModuleBit)
 	return 0;
 }
 
-stock int BSCore_GetPendingDetailMask(int iClient)
+stock eBSCoreModuleBit BSCore_GetPendingDetailMask(int iClient)
 {
-	return (iClient > 0 && iClient <= MaxClients) ? g_iCorePendingDetailMask[iClient] : 0;
+	return (iClient > 0 && iClient <= MaxClients) ? g_eCorePendingDetailMask[iClient] : kBSCoreModule_None;
 }
 
 stock bool BSCore_IsClientAuthorizationPending(int iClient)
@@ -123,7 +133,7 @@ stock void BSCore_CompleteClientAuthorizationCheck(int iClient)
 	if (iClient <= 0 || iClient > MaxClients)
 		return;
 
-	g_iCorePendingDetailMask[iClient] = 0;
+	g_eCorePendingDetailMask[iClient] = kBSCoreModule_None;
 	BSCore_ResetClientAuthorizationState(iClient);
 	BSCore_Debug("Client %N completed core auth state.", iClient);
 }
@@ -134,16 +144,20 @@ stock void BSCore_DispatchModuleDetailRequests(int iClient)
 		return;
 
 	int iAccountId = g_iCoreResolvedAccountId[iClient];
-	int iPendingMask = g_iCorePendingDetailMask[iClient];
+	eBSCoreModuleBit ePendingMask = g_eCorePendingDetailMask[iClient];
 
-	if (iPendingMask == 0)
+	if (ePendingMask == kBSCoreModule_None)
 	{
+		BSCore_SQL("No pending module detail requests for %N. resolved_module_mask=%d registered_module_mask=%d", iClient, view_as<int>(g_eCoreResolvedModuleMask[iClient]), view_as<int>(g_eCoreRegisteredModuleMask));
 		BSCore_CompleteClientAuthorizationCheck(iClient);
 		return;
 	}
 
-	if (BSCore_HasModule(iPendingMask, kBSCoreModule_Access) && g_gfBSCoreOnAccessDetailRequested != null)
+	BSCore_SQL("Dispatching module detail requests for %N: accountid=%d pending_mask=%d registered_mask=%d access_fwd=%d comm_fwd=%d spray_fwd=%d", iClient, iAccountId, view_as<int>(ePendingMask), view_as<int>(g_eCoreRegisteredModuleMask), g_gfBSCoreOnAccessDetailRequested != null ? 1 : 0, g_gfBSCoreOnCommDetailRequested != null ? 1 : 0, g_gfBSCoreOnSprayDetailRequested != null ? 1 : 0);
+
+	if (BSCore_HasModule(ePendingMask, kBSCoreModule_Access) && g_gfBSCoreOnAccessDetailRequested != null)
 	{
+		BSCore_SQL("Forwarding access detail request for %N: accountid=%d ban_id=%d", iClient, iAccountId, g_iCoreResolvedAccessBanId[iClient]);
 		Call_StartForward(g_gfBSCoreOnAccessDetailRequested);
 		Call_PushCell(iClient);
 		Call_PushCell(iAccountId);
@@ -151,8 +165,9 @@ stock void BSCore_DispatchModuleDetailRequests(int iClient)
 		Call_Finish();
 	}
 
-	if (BSCore_HasModule(iPendingMask, kBSCoreModule_Communication) && g_gfBSCoreOnCommDetailRequested != null)
+	if (BSCore_HasModule(ePendingMask, kBSCoreModule_Communication) && g_gfBSCoreOnCommDetailRequested != null)
 	{
+		BSCore_SQL("Forwarding communication detail request for %N: accountid=%d ban_id=%d comm_type=%d", iClient, iAccountId, g_iCoreResolvedCommBanId[iClient], view_as<int>(g_eCoreResolvedCommType[iClient]));
 		Call_StartForward(g_gfBSCoreOnCommDetailRequested);
 		Call_PushCell(iClient);
 		Call_PushCell(iAccountId);
@@ -161,8 +176,9 @@ stock void BSCore_DispatchModuleDetailRequests(int iClient)
 		Call_Finish();
 	}
 
-	if (BSCore_HasModule(iPendingMask, kBSCoreModule_Sprays) && g_gfBSCoreOnSprayDetailRequested != null)
+	if (BSCore_HasModule(ePendingMask, kBSCoreModule_Sprays) && g_gfBSCoreOnSprayDetailRequested != null)
 	{
+		BSCore_SQL("Forwarding spray detail request for %N: accountid=%d ban_id=%d", iClient, iAccountId, g_iCoreResolvedSprayBanId[iClient]);
 		Call_StartForward(g_gfBSCoreOnSprayDetailRequested);
 		Call_PushCell(iClient);
 		Call_PushCell(iAccountId);
@@ -176,10 +192,10 @@ stock void BSCore_BeginModuleDetailResolution(int iClient)
 	if (iClient <= 0 || iClient > MaxClients)
 		return;
 
-	g_iCoreResolvedDetailMask[iClient] = 0;
-	g_iCorePendingDetailMask[iClient] = (g_iCoreResolvedModuleMask[iClient] & g_iCoreRegisteredModuleMask);
+	g_eCoreResolvedDetailMask[iClient] = kBSCoreModule_None;
+	g_eCorePendingDetailMask[iClient] = view_as<eBSCoreModuleBit>(view_as<int>(g_eCoreResolvedModuleMask[iClient]) & view_as<int>(g_eCoreRegisteredModuleMask));
 
-	if (g_iCorePendingDetailMask[iClient] == 0)
+	if (g_eCorePendingDetailMask[iClient] == kBSCoreModule_None)
 	{
 		BSCore_Debug("No registered module detail requests pending for %N.", iClient);
 		BSCore_CompleteClientAuthorizationCheck(iClient);
@@ -189,8 +205,8 @@ stock void BSCore_BeginModuleDetailResolution(int iClient)
 	BSCore_Debug(
 		"Dispatching module detail requests for %N: pending_mask=%d resolved_mask=%d",
 		iClient,
-		g_iCorePendingDetailMask[iClient],
-		g_iCoreResolvedDetailMask[iClient]
+		view_as<int>(g_eCorePendingDetailMask[iClient]),
+		view_as<int>(g_eCoreResolvedDetailMask[iClient])
 	);
 	BSCore_DispatchModuleDetailRequests(iClient);
 }
@@ -201,21 +217,22 @@ stock bool BSCore_MarkModuleDetailResolved(int iClient, eBSCoreModuleBit eModule
 		return false;
 
 	int iModuleBit = view_as<int>(eModuleBit);
-	if ((g_iCorePendingDetailMask[iClient] & iModuleBit) == 0)
+	int iPendingMask = view_as<int>(g_eCorePendingDetailMask[iClient]);
+	if ((iPendingMask & iModuleBit) == 0)
 		return false;
 
-	g_iCorePendingDetailMask[iClient] &= ~iModuleBit;
-	g_iCoreResolvedDetailMask[iClient] |= iModuleBit;
+	g_eCorePendingDetailMask[iClient] = view_as<eBSCoreModuleBit>(iPendingMask & ~iModuleBit);
+	g_eCoreResolvedDetailMask[iClient] = view_as<eBSCoreModuleBit>(view_as<int>(g_eCoreResolvedDetailMask[iClient]) | iModuleBit);
 
 	BSCore_Debug(
 		"Module detail resolved for %N: bit=%d pending_mask=%d resolved_mask=%d",
 		iClient,
 		iModuleBit,
-		g_iCorePendingDetailMask[iClient],
-		g_iCoreResolvedDetailMask[iClient]
+		view_as<int>(g_eCorePendingDetailMask[iClient]),
+		view_as<int>(g_eCoreResolvedDetailMask[iClient])
 	);
 
-	if (g_iCorePendingDetailMask[iClient] == 0)
+	if (g_eCorePendingDetailMask[iClient] == kBSCoreModule_None)
 		BSCore_CompleteClientAuthorizationCheck(iClient);
 
 	return true;
@@ -232,22 +249,26 @@ stock void BSCore_HandleClientAuthorization(int iClient, const char[] szAuthId)
 	}
 
 	g_iCoreResolvedAccountId[iClient] = iAccountId;
+	BSCore_SQL("Auth routing for %N: accountid=%d local_clean=%d cache_ready=%d primary_ready=%d transition=%d", iClient, iAccountId, BSCore_HasLocalCleanCacheAccountId(iAccountId) ? 1 : 0, BSCore_CanUseCacheDatabase() ? 1 : 0, BSCore_CanUsePrimaryDatabase() ? 1 : 0, g_bCoreMapTransitionActive ? 1 : 0);
 
 	if (BSCore_HasLocalCleanCacheAccountId(iAccountId))
 	{
 		BSCore_Debug("Local clean cache hit for %N (%d).", iClient, iAccountId);
+		BSCore_SQL("Auth routing for %N resolved immediately from local clean cache.", iClient);
 		BSCore_CompleteClientAuthorizationCheck(iClient);
 		return;
 	}
 
 	if (BSCore_CanUseCacheDatabase())
 	{
+		BSCore_SQL("Auth routing for %N selected SQLite cache backend.", iClient);
 		BSCore_RequestCacheSummary(iClient, iAccountId);
 		return;
 	}
 
 	if (BSCore_CanUsePrimaryDatabase())
 	{
+		BSCore_SQL("Auth routing for %N selected primary MySQL backend.", iClient);
 		BSCore_RequestPrimarySummary(iClient, iAccountId);
 		return;
 	}
@@ -310,6 +331,21 @@ stock void BSCore_RequestPrimarySummary(int iClient, int iAccountId)
 	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySummaryResolved, szQuery, pContext, DBPrio_High);
 }
 
+stock void BSCore_RequestPrimaryActiveSummary(int iClient, int iAccountId)
+{
+	if (!BSCore_CanUsePrimaryDatabase())
+		return;
+
+	char szQuery[768];
+	BSCore_GetActiveSummarySelectQueryByAccountId(iAccountId, szQuery, sizeof(szQuery));
+	BSCore_SQL("Primary active summary fallback query for %N: %s", iClient, szQuery);
+
+	DataPack pContext = new DataPack();
+	pContext.WriteCell(GetClientUserId(iClient));
+	pContext.WriteCell(iAccountId);
+	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimaryActiveSummaryResolved, szQuery, pContext, DBPrio_High);
+}
+
 stock void BSCore_RequestCacheSummary(int iClient, int iAccountId)
 {
 	if (!BSCore_CanUseCacheDatabase())
@@ -331,9 +367,25 @@ public void BSCore_OnPrimarySummaryResolved(Database db, DBResultSet rsResult, c
 	int iAccountId;
 	BSCore_ReadSummaryContext(pData, iUserId, iAccountId);
 	int iClient = GetClientOfUserId(iUserId);
+	BSCore_SQL(
+		"Primary summary callback entered: userid=%d client=%d accountid=%d auth_state=%d rs_null=%d err=%d",
+		iUserId,
+		iClient,
+		iAccountId,
+		(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1,
+		rsResult == null ? 1 : 0,
+		szError[0] != '\0' ? 1 : 0
+	);
 
 	if (iClient <= 0 || !BSCore_IsClientAuthorizationChecking(iClient))
 	{
+		BSCore_SQL(
+			"Primary summary callback ignored: userid=%d client=%d accountid=%d auth_state=%d",
+			iUserId,
+			iClient,
+			iAccountId,
+			(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1
+		);
 		delete rsResult;
 		return;
 	}
@@ -342,30 +394,31 @@ public void BSCore_OnPrimarySummaryResolved(Database db, DBResultSet rsResult, c
 	{
 		BSCore_SQL("Primary summary query failed for accountid %d: %s", iAccountId, szError);
 		delete rsResult;
-
-		g_eCoreAuthState[iClient] = kBSCoreAuthState_Queued;
+		BSCore_RequestPrimaryActiveSummary(iClient, iAccountId);
 		return;
 	}
 
 	if (!rsResult.FetchRow())
 	{
+		BSCore_SQL("Primary summary query returned no row for accountid %d. Falling back to active bans query.", iAccountId);
 		delete rsResult;
-		BSCore_MarkAccountIdClean(iClient, iAccountId);
+		BSCore_RequestPrimaryActiveSummary(iClient, iAccountId);
 		return;
 	}
 
-	int iModuleMask = rsResult.FetchInt(0);
+	eBSCoreModuleBit eModuleMask = view_as<eBSCoreModuleBit>(rsResult.FetchInt(0));
 	int iAccessBanId = rsResult.FetchInt(1);
 	int iCommBanId = rsResult.FetchInt(2);
 	int iSprayBanId = rsResult.FetchInt(3);
 	eBSCoreCommType eCommType = view_as<eBSCoreCommType>(rsResult.FetchInt(4));
+	BSCore_SQL("Primary summary resolved for %N: accountid=%d module_mask=%d access_ban_id=%d comm_ban_id=%d spray_ban_id=%d comm_type=%d", iClient, iAccountId, view_as<int>(eModuleMask), iAccessBanId, iCommBanId, iSprayBanId, view_as<int>(eCommType));
 	if (BSCore_CanUseCacheDatabase())
-		BSCore_UpsertCacheSummary(iAccountId, iModuleMask, iAccessBanId, iCommBanId, iSprayBanId, eCommType);
+		BSCore_UpsertCacheSummary(iAccountId, eModuleMask, iAccessBanId, iCommBanId, iSprayBanId, eCommType);
 
 	BSCore_ApplyFetchedSummaryResult(
 		iClient,
 		iAccountId,
-		iModuleMask,
+		eModuleMask,
 		iAccessBanId,
 		iCommBanId,
 		iSprayBanId,
@@ -374,15 +427,99 @@ public void BSCore_OnPrimarySummaryResolved(Database db, DBResultSet rsResult, c
 	delete rsResult;
 }
 
+public void BSCore_OnPrimaryActiveSummaryResolved(Database db, DBResultSet rsResult, const char[] szError, any pData)
+{
+	int iUserId;
+	int iAccountId;
+	BSCore_ReadSummaryContext(pData, iUserId, iAccountId);
+	int iClient = GetClientOfUserId(iUserId);
+	BSCore_SQL(
+		"Primary active summary callback entered: userid=%d client=%d accountid=%d auth_state=%d rs_null=%d err=%d",
+		iUserId,
+		iClient,
+		iAccountId,
+		(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1,
+		rsResult == null ? 1 : 0,
+		szError[0] != '\0' ? 1 : 0
+	);
+
+	if (iClient <= 0 || !BSCore_IsClientAuthorizationChecking(iClient))
+	{
+		BSCore_SQL(
+			"Primary active summary callback ignored: userid=%d client=%d accountid=%d auth_state=%d",
+			iUserId,
+			iClient,
+			iAccountId,
+			(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1
+		);
+		delete rsResult;
+		return;
+	}
+
+	if (rsResult == null || szError[0] != '\0')
+	{
+		BSCore_SQL("Primary active summary fallback query failed for accountid %d: %s", iAccountId, szError);
+		delete rsResult;
+		g_eCoreAuthState[iClient] = kBSCoreAuthState_Queued;
+		return;
+	}
+
+	if (!rsResult.FetchRow())
+	{
+		BSCore_SQL("Primary active summary fallback returned no row for accountid %d. Marking clean.", iAccountId);
+		delete rsResult;
+		BSCore_MarkAccountIdClean(iClient, iAccountId);
+		return;
+	}
+
+	eBSCoreModuleBit eModuleMask = view_as<eBSCoreModuleBit>(rsResult.FetchInt(0));
+	int iAccessBanId = rsResult.FetchInt(1);
+	int iCommBanId = rsResult.FetchInt(2);
+	int iSprayBanId = rsResult.FetchInt(3);
+	eBSCoreCommType eCommType = view_as<eBSCoreCommType>(rsResult.FetchInt(4));
+	delete rsResult;
+
+	BSCore_SQL("Primary active summary fallback resolved for %N: accountid=%d module_mask=%d access_ban_id=%d comm_ban_id=%d spray_ban_id=%d comm_type=%d", iClient, iAccountId, view_as<int>(eModuleMask), iAccessBanId, iCommBanId, iSprayBanId, view_as<int>(eCommType));
+	BSCore_UpsertPrimarySummary(iAccountId, eModuleMask, iAccessBanId, iCommBanId, iSprayBanId, eCommType);
+	if (BSCore_CanUseCacheDatabase())
+		BSCore_UpsertCacheSummary(iAccountId, eModuleMask, iAccessBanId, iCommBanId, iSprayBanId, eCommType);
+
+	BSCore_ApplyFetchedSummaryResult(
+		iClient,
+		iAccountId,
+		eModuleMask,
+		iAccessBanId,
+		iCommBanId,
+		iSprayBanId,
+		eCommType
+	);
+}
+
 public void BSCore_OnCacheSummaryResolved(Database db, DBResultSet rsResult, const char[] szError, any pData)
 {
 	int iUserId;
 	int iAccountId;
 	BSCore_ReadSummaryContext(pData, iUserId, iAccountId);
 	int iClient = GetClientOfUserId(iUserId);
+	BSCore_SQL(
+		"Cache summary callback entered: userid=%d client=%d accountid=%d auth_state=%d rs_null=%d err=%d",
+		iUserId,
+		iClient,
+		iAccountId,
+		(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1,
+		rsResult == null ? 1 : 0,
+		szError[0] != '\0' ? 1 : 0
+	);
 
 	if (iClient <= 0 || !BSCore_IsClientAuthorizationChecking(iClient))
 	{
+		BSCore_SQL(
+			"Cache summary callback ignored: userid=%d client=%d accountid=%d auth_state=%d",
+			iUserId,
+			iClient,
+			iAccountId,
+			(iClient > 0 && iClient <= MaxClients) ? view_as<int>(g_eCoreAuthState[iClient]) : -1
+		);
 		delete rsResult;
 		return;
 	}
@@ -393,6 +530,7 @@ public void BSCore_OnCacheSummaryResolved(Database db, DBResultSet rsResult, con
 		delete rsResult;
 		if (BSCore_CanUsePrimaryDatabase())
 		{
+			BSCore_SQL("Cache summary failed for accountid %d. Falling back to primary MySQL.", iAccountId);
 			BSCore_RequestPrimarySummary(iClient, iAccountId);
 			return;
 		}
@@ -403,9 +541,11 @@ public void BSCore_OnCacheSummaryResolved(Database db, DBResultSet rsResult, con
 
 	if (!rsResult.FetchRow())
 	{
+		BSCore_SQL("Cache summary returned no row for accountid %d.", iAccountId);
 		delete rsResult;
 		if (BSCore_CanUsePrimaryDatabase())
 		{
+			BSCore_SQL("Cache summary miss for accountid %d. Falling back to primary MySQL.", iAccountId);
 			BSCore_RequestPrimarySummary(iClient, iAccountId);
 			return;
 		}
@@ -414,14 +554,20 @@ public void BSCore_OnCacheSummaryResolved(Database db, DBResultSet rsResult, con
 		return;
 	}
 
+	eBSCoreModuleBit eModuleMask = view_as<eBSCoreModuleBit>(rsResult.FetchInt(0));
+	int iAccessBanId = rsResult.FetchInt(1);
+	int iCommBanId = rsResult.FetchInt(2);
+	int iSprayBanId = rsResult.FetchInt(3);
+	eBSCoreCommType eCommType = view_as<eBSCoreCommType>(rsResult.FetchInt(4));
+	BSCore_SQL("Cache summary resolved for %N: accountid=%d module_mask=%d access_ban_id=%d comm_ban_id=%d spray_ban_id=%d comm_type=%d", iClient, iAccountId, view_as<int>(eModuleMask), iAccessBanId, iCommBanId, iSprayBanId, view_as<int>(eCommType));
 	BSCore_ApplyFetchedSummaryResult(
 		iClient,
 		iAccountId,
-		rsResult.FetchInt(0),
-		rsResult.FetchInt(1),
-		rsResult.FetchInt(2),
-		rsResult.FetchInt(3),
-		view_as<eBSCoreCommType>(rsResult.FetchInt(4))
+		eModuleMask,
+		iAccessBanId,
+		iCommBanId,
+		iSprayBanId,
+		eCommType
 	);
 	delete rsResult;
 }
@@ -435,9 +581,9 @@ stock void BSCore_MarkAccountIdClean(int iClient, int iAccountId)
 	BSCore_CompleteClientAuthorizationCheck(iClient);
 }
 
-stock void BSCore_ApplyFetchedSummaryResult(int iClient, int iAccountId, int iModuleMask, int iAccessBanId, int iCommBanId, int iSprayBanId, eBSCoreCommType eCommType)
+stock void BSCore_ApplyFetchedSummaryResult(int iClient, int iAccountId, eBSCoreModuleBit eModuleMask, int iAccessBanId, int iCommBanId, int iSprayBanId, eBSCoreCommType eCommType)
 {
-	if (iModuleMask == 0)
+	if (eModuleMask == kBSCoreModule_None)
 	{
 		BSCore_MarkAccountIdClean(iClient, iAccountId);
 		return;
@@ -446,7 +592,7 @@ stock void BSCore_ApplyFetchedSummaryResult(int iClient, int iAccountId, int iMo
 	BSCore_RemoveLocalCleanCacheAccountId(iAccountId);
 
 	g_iCoreResolvedAccountId[iClient] = iAccountId;
-	g_iCoreResolvedModuleMask[iClient] = iModuleMask;
+	g_eCoreResolvedModuleMask[iClient] = eModuleMask;
 	g_iCoreResolvedAccessBanId[iClient] = iAccessBanId;
 	g_iCoreResolvedCommBanId[iClient] = iCommBanId;
 	g_iCoreResolvedSprayBanId[iClient] = iSprayBanId;
@@ -456,11 +602,11 @@ stock void BSCore_ApplyFetchedSummaryResult(int iClient, int iAccountId, int iMo
 		"Resolved summary for %N: accountid=%d module_mask=%d access_ban_id=%d comm_ban_id=%d spray_ban_id=%d comm_type=%d",
 		iClient,
 		iAccountId,
-		iModuleMask,
+		view_as<int>(eModuleMask),
 		iAccessBanId,
 		iCommBanId,
 		iSprayBanId,
-		eCommType
+		view_as<int>(eCommType)
 	);
 
 	BSCore_BeginModuleDetailResolution(iClient);
@@ -475,9 +621,9 @@ stock void BSCore_ReadSummaryContext(any pData, int &iUserId, int &iAccountId)
 	delete pContext;
 }
 
-public Action Timer_BSCoreAuthTimeout(Handle hTimer, any pData)
+public Action Timer_BSCoreAuthTimeout(Handle hTimer, int iUserId)
 {
-	int iClient = GetClientOfUserId(view_as<int>(pData));
+	int iClient = GetClientOfUserId(iUserId);
 	if (iClient <= 0)
 		return Plugin_Stop;
 
@@ -487,6 +633,7 @@ public Action Timer_BSCoreAuthTimeout(Handle hTimer, any pData)
 	if (!BSCore_IsClientAuthorizationPending(iClient))
 		return Plugin_Stop;
 
+	BSCore_SQL("Core auth timeout reached for %N; resetting pending state. resolved_accountid=%d module_mask=%d pending_mask=%d", iClient, g_iCoreResolvedAccountId[iClient], view_as<int>(g_eCoreResolvedModuleMask[iClient]), view_as<int>(g_eCorePendingDetailMask[iClient]));
 	BSCore_Debug("Core auth timeout reached for client %N; resetting pending state.", iClient);
 	BSCore_ResetClientAuthorizationState(iClient);
 	return Plugin_Stop;

@@ -10,7 +10,7 @@ stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, co
 	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSAccess_LogCategoryFormatted(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage)
@@ -21,7 +21,7 @@ stock void BSAccess_LogCategoryFormatted(eBSAccessDebugMask eMask, const char[] 
 	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSAccess_Debug(const char[] szMessage, any ...)
@@ -77,15 +77,12 @@ stock void BSAccess_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 
 stock void BSAccess_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
 {
-	ReplySource eOldSource = SetCmdReplySource(eReplySource);
-
 	static char szBuffer[1024];
 	if (iAdmin > 0)
 		SetGlobalTransTarget(iAdmin);
 
 	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
-	CReplyToCommand(iAdmin, "%s", szBuffer);
-	SetCmdReplySource(eOldSource);
+	BSCReplyToCommandBufferWithSource(iAdmin, eReplySource, szBuffer);
 }
 
 stock void BSAccess_NotifyConsolePrinted(int iAdmin, ReplySource eReplySource, const char[] szPhrase)
@@ -223,6 +220,28 @@ stock bool BSAccess_TryResolveInputAccountId(int iAdmin, const char[] szInput, i
 	TrimString(szNormalized);
 	StripQuotes(szNormalized);
 
+	if (IsValidSteamID64(szNormalized))
+	{
+		for (int iClient = 1; iClient <= MaxClients; iClient++)
+		{
+			if (!IsClientInGame(iClient) || IsFakeClient(iClient))
+				continue;
+
+			char szSteamId64[32];
+			if (!GetClientAuthId(iClient, AuthId_SteamID64, szSteamId64, sizeof(szSteamId64), true))
+				continue;
+
+			if (!StrEqual(szSteamId64, szNormalized, false))
+				continue;
+
+			iTargetClient = iClient;
+			iAccountId = GetClientAccountID(iClient);
+			return (iAccountId > 0);
+		}
+
+		return false;
+	}
+
 	SteamIDFormat eFormat = DetectSteamIDFormat(szNormalized);
 	switch (eFormat)
 	{
@@ -330,6 +349,11 @@ stock void BSAccess_TryRegisterCoreModule()
 	BSAccess_API("Registered access module in bansystem_core.");
 }
 
+stock bool BSAccess_HasResolvedAccessModule(int iClient)
+{
+	return ((view_as<int>(BSCore_GetResolvedModuleMask(iClient)) & view_as<int>(kBSCoreModule_Access)) != 0);
+}
+
 stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSAccessIdentityAction eAction, int iValue, const char[] szReason = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	SteamIDToolsProvider eProvider;
@@ -353,7 +377,7 @@ stock bool BSAccess_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eB
 	}
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eAction));
 	pContext.WriteCell(iValue);
 	pContext.WriteCell(view_as<int>(eReplySource));
@@ -384,6 +408,33 @@ stock void BSAccess_ResetResolvedDetail(int iClient)
 	g_eBSAccessResolvedDetail[iClient].m_szBannedByName[0] = '\0';
 	g_eBSAccessResolvedDetail[iClient].m_szBannedBySteamId64[0] = '\0';
 	g_eBSAccessResolvedDetail[iClient].m_iDateExpireTs = 0;
+}
+
+stock void BSAccess_FillResolvedDetailFromRow(int iClient, int iBanId, DBResultSet rsResult)
+{
+	g_eBSAccessResolvedDetail[iClient].m_bLoaded = true;
+	g_eBSAccessResolvedDetail[iClient].m_iBanId = iBanId;
+	g_eBSAccessResolvedDetail[iClient].m_iAccountId = rsResult.FetchInt(0);
+	g_eBSAccessResolvedDetail[iClient].m_iLength = rsResult.FetchInt(3);
+	g_eBSAccessResolvedDetail[iClient].m_iBannedBy = rsResult.FetchInt(6);
+	rsResult.FetchString(1, g_eBSAccessResolvedDetail[iClient].m_szSteamId64, sizeof(g_eBSAccessResolvedDetail[].m_szSteamId64));
+	rsResult.FetchString(2, g_eBSAccessResolvedDetail[iClient].m_szPlayerName, sizeof(g_eBSAccessResolvedDetail[].m_szPlayerName));
+	rsResult.FetchString(4, g_eBSAccessResolvedDetail[iClient].m_szReason, sizeof(g_eBSAccessResolvedDetail[].m_szReason));
+	rsResult.FetchString(5, g_eBSAccessResolvedDetail[iClient].m_szContext, sizeof(g_eBSAccessResolvedDetail[].m_szContext));
+	rsResult.FetchString(7, g_eBSAccessResolvedDetail[iClient].m_szBannedByName, sizeof(g_eBSAccessResolvedDetail[].m_szBannedByName));
+	rsResult.FetchString(8, g_eBSAccessResolvedDetail[iClient].m_szBannedBySteamId64, sizeof(g_eBSAccessResolvedDetail[].m_szBannedBySteamId64));
+	g_eBSAccessResolvedDetail[iClient].m_iDateExpireTs = rsResult.FetchInt(9);
+}
+
+stock void BSAccess_ReadIdentityLookupContext(DataPack pContext, int &iUserId, eBSAccessIdentityAction &eAction, int &iValue, ReplySource &eReplySource, char[] szReason, int iReasonMaxLength, char[] szContext, int iContextMaxLength)
+{
+	pContext.Reset();
+	iUserId = pContext.ReadCell();
+	eAction = view_as<eBSAccessIdentityAction>(pContext.ReadCell());
+	iValue = pContext.ReadCell();
+	eReplySource = view_as<ReplySource>(pContext.ReadCell());
+	pContext.ReadString(szReason, iReasonMaxLength);
+	pContext.ReadString(szContext, iContextMaxLength);
 }
 
 stock void BSAccess_FormatExpireDisplay(int iExpireTs, char[] szBuffer, int iMaxLength)

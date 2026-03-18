@@ -6,9 +6,9 @@
 
 #define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
 #define BANSYSTEM_CORE_SCHEMA_COMPONENT "core"
-#define BANSYSTEM_CORE_SCHEMA_VERSION 1
+#define BANSYSTEM_CORE_SCHEMA_VERSION 2
 #define BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY "bansystem_summary"
-#define BANSYSTEM_CORE_MYSQL_PROCEDURE_GET_AUTH_SUMMARY "bansystem_get_auth_summary"
+#define BANSYSTEM_CORE_MYSQL_VIEW_AUTH_SUMMARY "view_bansystem_auth_summary"
 
 #define BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY "bansystem_cache_summary"
 #define BANSYSTEM_CORE_SQLITE_VIEW_SUMMARY_ACTIVE "view_bansystem_cache_summary_active"

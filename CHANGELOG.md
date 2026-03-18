@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- runtime SQL
+  - se documenta como limitacion oficial que `CALL` + `SQL_TQuery` no es confiable en SourceMod DBI cuando un procedure puede devolver multiples resultsets
+  - los caminos threaded criticos de `BanSystem`, especialmente auth y summary lookup, deben usar `SELECT` directos en lugar de procedures con resultados
+  - se elimina del SQL init el uso de procedures de runtime y el ultimo `CALL` restante en SourcePawn se reemplaza por sentencias directas dentro de una transaccion
+  - el core ahora usa la vista consolidada `view_bansystem_auth_summary` como camino normal de auth y conserva un fallback directo sobre bans activos para reparar summaries faltantes
+
 - identidad y cache
   - la cache local limpia ahora usa `accountid` en vez de SteamID string
   - la cache SQLite ahora usa `accountid` como llave interna

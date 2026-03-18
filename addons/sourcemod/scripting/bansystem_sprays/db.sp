@@ -92,4 +92,6 @@ public void BSSprays_OnSchemaValidated(Database db, DBResultSet rsResult, const 
 	delete rsResult;
 	g_bBSSpraysDatabaseReady = true;
 	BSSprays_SQL("Sprays schema validated.");
+	if (BSSprays_CanUseCoreLibrary() && BSCore_IsAuthReady())
+		BSSprays_ReconcileAllSprayStatesFromCore();
 }

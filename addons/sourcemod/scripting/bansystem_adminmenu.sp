@@ -3,6 +3,7 @@
 
 #include <sourcemod>
 #include <colors>
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <adminmenu>
@@ -15,6 +16,8 @@
 #define BANSYSTEM_ADMINMENU_VERSION "0.1.0-dev"
 #define BANSYSTEM_ADMINMENU_MAX_REASON_LENGTH 256
 #define BANSYSTEM_ADMINMENU_MAX_PROMPT_LENGTH 256
+#define BANSYSTEM_ADMINMENU_PREVIEW_LENGTH 64
+#define BANSYSTEM_ADMINMENU_MAX_TITLE_LENGTH 768
 
 TopMenu g_hBSAdminTopMenu;
 TopMenuObject g_oBSAdminCategory = INVALID_TOPMENUOBJECT;
@@ -35,18 +38,33 @@ enum BSAdminMenuPanelType
 enum BSAdminMenuPanelStage
 {
 	BSAdminMenuStage_None = 0,
+	BSAdminMenuStage_DurationValue,
 	BSAdminMenuStage_Reason,
 	BSAdminMenuStage_Context
+}
+
+enum BSAdminMenuDurationUnit
+{
+	BSAdminMenuDuration_None = 0,
+	BSAdminMenuDuration_Minute,
+	BSAdminMenuDuration_Hour,
+	BSAdminMenuDuration_Day,
+	BSAdminMenuDuration_Week,
+	BSAdminMenuDuration_Month,
+	BSAdminMenuDuration_Permanent
 }
 
 enum struct BSAdminMenuPanelState
 {
 	BSAdminMenuPanelType m_eType;
 	BSAdminMenuPanelStage m_eStage;
+	BSAdminMenuDurationUnit m_eDurationUnit;
 	int m_iTargetUserId;
 	int m_iAccountId;
+	int m_iDurationValue;
 	int m_iLength;
 	eBSCommType m_eCommType;
+	char m_szTargetName[MAX_NAME_LENGTH];
 	char m_szReason[BANSYSTEM_ADMINMENU_MAX_REASON_LENGTH];
 }
 
@@ -158,11 +176,30 @@ public Action OnClientSayCommand(int iClient, const char[] szCommand, const char
 	{
 		if (g_eBSAdminPanelState[iClient].m_eStage != BSAdminMenuStage_None)
 		{
-			BSAdminMenu_ReplyReasonCannotBeEmpty(iClient);
+			switch (g_eBSAdminPanelState[iClient].m_eStage)
+			{
+				case BSAdminMenuStage_DurationValue:
+				{
+					BSAdminMenu_ReplyDurationValueInvalid(iClient);
+					BSAdminMenu_ShowInputPromptPanel(iClient);
+				}
+
+				case BSAdminMenuStage_Reason:
+				{
+					BSAdminMenu_ReplyReasonCannotBeEmpty(iClient);
+					BSAdminMenu_ShowInputPromptPanel(iClient);
+				}
+
+				case BSAdminMenuStage_Context:
+				{
+					BSAdminMenu_ReplyContextPrompt(iClient);
+					BSAdminMenu_ShowInputPromptPanel(iClient);
+				}
+			}
 		}
 		else
 		{
-			CReplyToCommand(iClient, "%t", "BSAdminSyncEmptyInput");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAdminSyncEmptyInput");
 		}
 		return Plugin_Handled;
 	}
@@ -171,11 +208,27 @@ public Action OnClientSayCommand(int iClient, const char[] szCommand, const char
 	{
 		switch (g_eBSAdminPanelState[iClient].m_eStage)
 		{
+				case BSAdminMenuStage_DurationValue:
+				{
+					if (!BSAdminMenu_TrySetDurationValueFromText(iClient, szText))
+					{
+						BSAdminMenu_ReplyDurationValueInvalid(iClient);
+						BSAdminMenu_ShowInputPromptPanel(iClient);
+						return Plugin_Handled;
+					}
+
+					g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_Reason;
+					BSAdminMenu_ReplyReasonPrompt(iClient);
+					BSAdminMenu_ShowInputPromptPanel(iClient);
+					return Plugin_Handled;
+				}
+
 			case BSAdminMenuStage_Reason:
 			{
 				strcopy(g_eBSAdminPanelState[iClient].m_szReason, sizeof(g_eBSAdminPanelState[].m_szReason), szText);
 				g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_Context;
 				BSAdminMenu_ReplyContextPrompt(iClient);
+					BSAdminMenu_ShowInputPromptPanel(iClient);
 				return Plugin_Handled;
 			}
 
@@ -199,6 +252,8 @@ public Action OnClientSayCommand(int iClient, const char[] szCommand, const char
 					BSAdminMenu_ReplyDatabaseNotReady(iClient);
 					return Plugin_Handled;
 				}
+
+				BSAdminMenu_ReplyPanelContextCaptured(iClient, szContext);
 
 				BSAdminMenu_ResetPanelState(iClient);
 				return Plugin_Handled;
@@ -468,10 +523,30 @@ static void BSAdminMenu_ResetPanelState(int iClient)
 
 	g_eBSAdminPanelState[iClient].m_eType = BSAdminMenuPanel_None;
 	g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
+	g_eBSAdminPanelState[iClient].m_eDurationUnit = BSAdminMenuDuration_None;
 	g_eBSAdminPanelState[iClient].m_iTargetUserId = 0;
 	g_eBSAdminPanelState[iClient].m_iAccountId = 0;
+	g_eBSAdminPanelState[iClient].m_iDurationValue = 0;
 	g_eBSAdminPanelState[iClient].m_iLength = 0;
 	g_eBSAdminPanelState[iClient].m_eCommType = kBSCommType_None;
+	g_eBSAdminPanelState[iClient].m_szTargetName[0] = '\0';
+	g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
+}
+
+static void BSAdminMenu_ResetPanelTargetProgress(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients)
+	{
+		return;
+	}
+
+	g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
+	g_eBSAdminPanelState[iClient].m_eDurationUnit = BSAdminMenuDuration_None;
+	g_eBSAdminPanelState[iClient].m_iTargetUserId = 0;
+	g_eBSAdminPanelState[iClient].m_iAccountId = 0;
+	g_eBSAdminPanelState[iClient].m_iDurationValue = 0;
+	g_eBSAdminPanelState[iClient].m_iLength = 0;
+	g_eBSAdminPanelState[iClient].m_szTargetName[0] = '\0';
 	g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
 }
 
@@ -520,6 +595,171 @@ static bool BSAdminMenu_IsPanelLibraryAvailable(BSAdminMenuPanelType eType)
 	return false;
 }
 
+static bool BSAdminMenu_TryGetMenuAccountId(Menu hMenu, int iItem, int &iAccountId)
+{
+	char szInfo[16];
+	hMenu.GetItem(iItem, szInfo, sizeof(szInfo));
+	iAccountId = StringToInt(szInfo);
+	return (iAccountId > 0);
+}
+
+static void BSAdminMenu_BeginAdminSyncPrompt(int iClient, BSAdminMenuAdminSyncPromptState ePrompt, const char[] szPhrase)
+{
+	g_eBSAdminSyncState[iClient].m_ePrompt = ePrompt;
+	CReplyToCommand(iClient, "%t", szPhrase);
+}
+
+static void BSAdminMenu_BeginAdminSyncAction(int iClient, BSAdminMenuAdminSyncAction eAction)
+{
+	g_eBSAdminSyncState[iClient].m_eAction = eAction;
+}
+
+static bool BSAdminMenu_TryDisplayPopulatedMenu(int iClient, Menu hMenu, bool bPopulated, const char[] szEmptyPhrase)
+{
+	if (!bPopulated)
+	{
+		delete hMenu;
+		CReplyToCommand(iClient, "%t", szEmptyPhrase);
+		return false;
+	}
+
+	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	return true;
+}
+
+static bool BSAdminMenu_TryGetAdminMainAction(const char[] szInfo, BSAdminMenuAdminSyncAction &eAction)
+{
+	if (StrEqual(szInfo, "edit_flags"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_AdminEditFlags;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "edit_immunity"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_AdminEditImmunity;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "add_group"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_AdminAssignGroup;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "remove_group"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_AdminRemoveGroup;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "delete"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_AdminDelete;
+		return true;
+	}
+
+	eAction = BSAdminMenuAdminSyncAction_None;
+	return false;
+}
+
+static bool BSAdminMenu_TryGetGroupMainAction(const char[] szInfo, BSAdminMenuAdminSyncAction &eAction)
+{
+	if (StrEqual(szInfo, "edit_flags"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_GroupEditFlags;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "edit_immunity"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_GroupEditImmunity;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "delete"))
+	{
+		eAction = BSAdminMenuAdminSyncAction_GroupDelete;
+		return true;
+	}
+
+	eAction = BSAdminMenuAdminSyncAction_None;
+	return false;
+}
+
+static void BSAdminMenu_BeginAdminSyncAdminEditPrompt(int iClient)
+{
+	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_AdminEditFlags)
+	{
+		BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_AdminEditFlags, "BSAdminSyncPromptEnterNewAdminFlags");
+		return;
+	}
+
+	BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_AdminEditImmunity, "BSAdminSyncPromptEnterNewAdminImmunity");
+}
+
+static void BSAdminMenu_BeginAdminSyncGroupEditPrompt(int iClient)
+{
+	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_GroupEditFlags)
+	{
+		BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_GroupEditFlags, "BSAdminSyncPromptEnterNewGroupFlags");
+		return;
+	}
+
+	BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_GroupEditImmunity, "BSAdminSyncPromptEnterNewGroupImmunity");
+}
+
+static void BSAdminMenu_ApplyAdminSyncGroupMembershipAction(int iClient, const char[] szGroupName)
+{
+	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_AdminAssignGroup)
+	{
+		bBSASAddAdminGroup(g_eBSAdminSyncState[iClient].m_iAccountId, szGroupName);
+		return;
+	}
+
+	bBSASRemoveAdminGroup(g_eBSAdminSyncState[iClient].m_iAccountId, szGroupName);
+}
+
+static bool BSAdminMenu_TryGetCommTypeFromMenuInfo(const char[] szInfo, eBSCommType &eCommType)
+{
+	if (StrEqual(szInfo, "mic", false))
+	{
+		eCommType = kBSCommType_Mic;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "chat", false))
+	{
+		eCommType = kBSCommType_Chat;
+		return true;
+	}
+
+	if (StrEqual(szInfo, "all", false))
+	{
+		eCommType = kBSCommType_All;
+		return true;
+	}
+
+	eCommType = kBSCommType_None;
+	return false;
+}
+
+static BSAdminMenuDurationUnit BSAdminMenu_GetDurationUnitFromMenuInfo(const char[] szInfo)
+{
+	if (StrEqual(szInfo, "minute", false))
+		return BSAdminMenuDuration_Minute;
+	if (StrEqual(szInfo, "hour", false))
+		return BSAdminMenuDuration_Hour;
+	if (StrEqual(szInfo, "day", false))
+		return BSAdminMenuDuration_Day;
+	if (StrEqual(szInfo, "week", false))
+		return BSAdminMenuDuration_Week;
+	if (StrEqual(szInfo, "month", false))
+		return BSAdminMenuDuration_Month;
+
+	return BSAdminMenuDuration_Permanent;
+}
+
 static void BSAdminMenu_ReplyModuleUnavailable(int iClient, BSAdminMenuPanelType eType)
 {
 	switch (eType)
@@ -544,24 +784,9 @@ static void BSAdminMenu_ReplyModuleUnavailable(int iClient, BSAdminMenuPanelType
 static void BSAdminMenu_ShowTargetPanel(int iClient)
 {
 	Menu hMenu = new Menu(BSAdminMenu_TargetPanelHandler);
-
-	switch (g_eBSAdminPanelState[iClient].m_eType)
-	{
-		case BSAdminMenuPanel_Access:
-		{
-			hMenu.SetTitle("BanSystem Access\nSelect target");
-		}
-
-		case BSAdminMenuPanel_Comm:
-		{
-			hMenu.SetTitle("BanSystem Comm\nSelect target");
-		}
-
-		case BSAdminMenuPanel_Sprays:
-		{
-			hMenu.SetTitle("BanSystem Sprays\nSelect target");
-		}
-	}
+	char szTitle[BANSYSTEM_ADMINMENU_MAX_TITLE_LENGTH];
+	BSAdminMenu_BuildSelectionTitle(iClient, szTitle, sizeof(szTitle), "Seleccione objetivo");
+	hMenu.SetTitle(szTitle);
 
 	hMenu.ExitBackButton = false;
 
@@ -599,7 +824,9 @@ static void BSAdminMenu_ShowTargetPanel(int iClient)
 static void BSAdminMenu_ShowCommTypePanel(int iClient)
 {
 	Menu hMenu = new Menu(BSAdminMenu_TypePanelHandler);
-	hMenu.SetTitle("BanSystem Comm\nSelect type");
+	char szTitle[BANSYSTEM_ADMINMENU_MAX_TITLE_LENGTH];
+	BSAdminMenu_BuildSelectionTitle(iClient, szTitle, sizeof(szTitle), "Seleccione tipo de comm");
+	hMenu.SetTitle(szTitle);
 	hMenu.ExitBackButton = true;
 	hMenu.AddItem("mic", "Mic");
 	hMenu.AddItem("chat", "Chat");
@@ -607,34 +834,20 @@ static void BSAdminMenu_ShowCommTypePanel(int iClient)
 	hMenu.Display(iClient, MENU_TIME_FOREVER);
 }
 
-static void BSAdminMenu_ShowDurationPanel(int iClient)
+static void BSAdminMenu_ShowDurationUnitPanel(int iClient)
 {
 	Menu hMenu = new Menu(BSAdminMenu_DurationPanelHandler);
-
-	switch (g_eBSAdminPanelState[iClient].m_eType)
-	{
-		case BSAdminMenuPanel_Access:
-		{
-			hMenu.SetTitle("BanSystem Access\nSelect duration");
-		}
-
-		case BSAdminMenuPanel_Comm:
-		{
-			hMenu.SetTitle("BanSystem Comm\nSelect duration");
-		}
-
-		case BSAdminMenuPanel_Sprays:
-		{
-			hMenu.SetTitle("BanSystem Sprays\nSelect duration");
-		}
-	}
+	char szTitle[BANSYSTEM_ADMINMENU_MAX_TITLE_LENGTH];
+	BSAdminMenu_BuildSelectionTitle(iClient, szTitle, sizeof(szTitle), "Seleccione formato de tiempo");
+	hMenu.SetTitle(szTitle);
 
 	hMenu.ExitBackButton = true;
-	hMenu.AddItem("10", "10 minutes");
-	hMenu.AddItem("30", "30 minutes");
-	hMenu.AddItem("60", "60 minutes");
-	hMenu.AddItem("1440", "1 day");
-	hMenu.AddItem("0", "Permanent");
+	hMenu.AddItem("minute", "Minuto(s)");
+	hMenu.AddItem("hour", "Hora(s)");
+	hMenu.AddItem("day", "Dia(s)");
+	hMenu.AddItem("week", "Semana(s)");
+	hMenu.AddItem("month", "Mes(es)");
+	hMenu.AddItem("permanent", "Permanente");
 	hMenu.Display(iClient, MENU_TIME_FOREVER);
 }
 
@@ -662,10 +875,12 @@ public int BSAdminMenu_TargetPanelHandler(Menu hMenu, MenuAction eAction, int iP
 
 			g_eBSAdminPanelState[iParam1].m_iTargetUserId = GetClientUserId(iTarget);
 			g_eBSAdminPanelState[iParam1].m_iAccountId = GetSteamAccountID(iTarget);
+			GetClientName(iTarget, g_eBSAdminPanelState[iParam1].m_szTargetName, sizeof(g_eBSAdminPanelState[].m_szTargetName));
 			if (g_eBSAdminPanelState[iParam1].m_iAccountId <= 0)
 			{
 				BSAdminMenu_ReplyTargetUnavailable(iParam1);
 				g_eBSAdminPanelState[iParam1].m_iTargetUserId = 0;
+				g_eBSAdminPanelState[iParam1].m_szTargetName[0] = '\0';
 				BSAdminMenu_ShowTargetPanel(iParam1);
 				return 0;
 			}
@@ -676,7 +891,7 @@ public int BSAdminMenu_TargetPanelHandler(Menu hMenu, MenuAction eAction, int iP
 			}
 			else
 			{
-				BSAdminMenu_ShowDurationPanel(iParam1);
+				BSAdminMenu_ShowDurationUnitPanel(iParam1);
 			}
 		}
 	}
@@ -706,26 +921,17 @@ public int BSAdminMenu_TypePanelHandler(Menu hMenu, MenuAction eAction, int iPar
 			char szInfo[16];
 			hMenu.GetItem(iParam2, szInfo, sizeof(szInfo));
 
-			if (StrEqual(szInfo, "mic", false))
-			{
-				g_eBSAdminPanelState[iParam1].m_eCommType = kBSCommType_Mic;
-			}
-			else if (StrEqual(szInfo, "chat", false))
-			{
-				g_eBSAdminPanelState[iParam1].m_eCommType = kBSCommType_Chat;
-			}
-			else if (StrEqual(szInfo, "all", false))
-			{
-				g_eBSAdminPanelState[iParam1].m_eCommType = kBSCommType_All;
-			}
-			else
+			eBSCommType eCommType;
+			if (!BSAdminMenu_TryGetCommTypeFromMenuInfo(szInfo, eCommType))
 			{
 				CReplyToCommand(iParam1, "%t", "BSCommInvalidTypeShort");
 				BSAdminMenu_ShowCommTypePanel(iParam1);
 				return 0;
 			}
 
-			BSAdminMenu_ShowDurationPanel(iParam1);
+			g_eBSAdminPanelState[iParam1].m_eCommType = eCommType;
+
+			BSAdminMenu_ShowDurationUnitPanel(iParam1);
 		}
 	}
 
@@ -760,9 +966,54 @@ public int BSAdminMenu_DurationPanelHandler(Menu hMenu, MenuAction eAction, int 
 		{
 			char szInfo[16];
 			hMenu.GetItem(iParam2, szInfo, sizeof(szInfo));
-			g_eBSAdminPanelState[iParam1].m_iLength = StringToInt(szInfo);
-			g_eBSAdminPanelState[iParam1].m_eStage = BSAdminMenuStage_Reason;
-			BSAdminMenu_ReplyReasonPrompt(iParam1);
+
+			g_eBSAdminPanelState[iParam1].m_eDurationUnit = BSAdminMenu_GetDurationUnitFromMenuInfo(szInfo);
+
+			g_eBSAdminPanelState[iParam1].m_iDurationValue = 0;
+			g_eBSAdminPanelState[iParam1].m_iLength = 0;
+
+			if (g_eBSAdminPanelState[iParam1].m_eDurationUnit == BSAdminMenuDuration_Permanent)
+			{
+				g_eBSAdminPanelState[iParam1].m_eStage = BSAdminMenuStage_Reason;
+				BSAdminMenu_ReplyReasonPrompt(iParam1);
+			}
+			else
+			{
+				g_eBSAdminPanelState[iParam1].m_eStage = BSAdminMenuStage_DurationValue;
+				BSAdminMenu_ReplyDurationValuePrompt(iParam1);
+			}
+
+			BSAdminMenu_ShowInputPromptPanel(iParam1);
+		}
+	}
+
+	return 0;
+}
+
+public int BSAdminMenu_InputPromptPanelHandler(Menu hMenu, MenuAction eAction, int iParam1, int iParam2)
+{
+	switch (eAction)
+	{
+		case MenuAction_End:
+		{
+			delete hMenu;
+		}
+
+		case MenuAction_Select:
+		{
+			char szInfo[16];
+			hMenu.GetItem(iParam2, szInfo, sizeof(szInfo));
+
+			if (StrEqual(szInfo, "back", false))
+			{
+				BSAdminMenu_HandlePromptBack(iParam1);
+			}
+			else if (StrEqual(szInfo, "cancel", false))
+			{
+				BSAdminMenuPanelType eType = g_eBSAdminPanelState[iParam1].m_eType;
+				BSAdminMenu_ResetPanelState(iParam1);
+				BSAdminMenu_ReplyPanelAborted(iParam1, eType);
+			}
 		}
 	}
 
@@ -775,26 +1026,29 @@ static bool BSAdminMenu_CommitPanelAction(int iClient, const char[] szContext)
 	int iLength = g_eBSAdminPanelState[iClient].m_iLength;
 	char szReason[BANSYSTEM_ADMINMENU_MAX_REASON_LENGTH];
 	strcopy(szReason, sizeof(szReason), g_eBSAdminPanelState[iClient].m_szReason);
+	ReplySource eOldSource = SetCmdReplySource(BSGetClientPreferredReplySource(iClient));
+	bool bResult = false;
 
 	switch (g_eBSAdminPanelState[iClient].m_eType)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			return BSAccess_AddBanByAccountId(iClient, iAccountId, iLength, szReason, szContext);
+			bResult = BSAccess_AddBanByAccountId(iClient, iAccountId, iLength, szReason, szContext);
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			return BSComm_AddBanByAccountId(iClient, iAccountId, g_eBSAdminPanelState[iClient].m_eCommType, iLength, szReason, szContext);
+			bResult = BSComm_AddBanByAccountId(iClient, iAccountId, g_eBSAdminPanelState[iClient].m_eCommType, iLength, szReason, szContext);
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			return BSSprays_AddBanByAccountId(iClient, iAccountId, iLength, szReason, szContext);
+			bResult = BSSprays_AddBanByAccountId(iClient, iAccountId, iLength, szReason, szContext);
 		}
 	}
 
-	return false;
+	SetCmdReplySource(eOldSource);
+	return bResult;
 }
 
 static bool BSAdminMenu_ValidatePanelTarget(int iClient)
@@ -803,11 +1057,7 @@ static bool BSAdminMenu_ValidatePanelTarget(int iClient)
 	if (iTarget <= 0 || !IsClientInGame(iTarget) || IsFakeClient(iTarget) || !CanUserTarget(iClient, iTarget))
 	{
 		BSAdminMenu_ReplyTargetUnavailable(iClient);
-		g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
-		g_eBSAdminPanelState[iClient].m_iTargetUserId = 0;
-		g_eBSAdminPanelState[iClient].m_iAccountId = 0;
-		g_eBSAdminPanelState[iClient].m_iLength = 0;
-		g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
+		BSAdminMenu_ResetPanelTargetProgress(iClient);
 		BSAdminMenu_ShowTargetPanel(iClient);
 		return false;
 	}
@@ -816,11 +1066,7 @@ static bool BSAdminMenu_ValidatePanelTarget(int iClient)
 	if (iAccountId <= 0 || iAccountId != g_eBSAdminPanelState[iClient].m_iAccountId)
 	{
 		BSAdminMenu_ReplyTargetUnavailable(iClient);
-		g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
-		g_eBSAdminPanelState[iClient].m_iTargetUserId = 0;
-		g_eBSAdminPanelState[iClient].m_iAccountId = 0;
-		g_eBSAdminPanelState[iClient].m_iLength = 0;
-		g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
+		BSAdminMenu_ResetPanelTargetProgress(iClient);
 		BSAdminMenu_ShowTargetPanel(iClient);
 		return false;
 	}
@@ -834,17 +1080,17 @@ static void BSAdminMenu_ReplyNoTargets(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessNoTargets");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessNoTargets");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommNoTargets");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommNoTargets");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysNoTargets");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysNoTargets");
 		}
 	}
 }
@@ -855,17 +1101,17 @@ static void BSAdminMenu_ReplyTargetUnavailable(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessTargetUnavailable");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessTargetUnavailable");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommTargetUnavailable");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommTargetUnavailable");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysTargetUnavailable");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysTargetUnavailable");
 		}
 	}
 }
@@ -876,17 +1122,17 @@ static void BSAdminMenu_ReplyReasonCannotBeEmpty(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessReasonCannotBeEmpty");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessReasonCannotBeEmpty");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommReasonCannotBeEmpty");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommReasonCannotBeEmpty");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysReasonCannotBeEmpty");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysReasonCannotBeEmpty");
 		}
 	}
 }
@@ -897,17 +1143,17 @@ static void BSAdminMenu_ReplyReasonPrompt(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessReasonPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessReasonPrompt");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommReasonPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommReasonPrompt");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysReasonPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysReasonPrompt");
 		}
 	}
 }
@@ -918,19 +1164,31 @@ static void BSAdminMenu_ReplyContextPrompt(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessContextPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessContextPrompt");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommContextPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommContextPrompt");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysContextPrompt");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysContextPrompt");
 		}
 	}
+}
+
+static void BSAdminMenu_ReplyDurationValuePrompt(int iClient)
+{
+	char szUnit[32];
+	BSAdminMenu_GetDurationUnitLabel(g_eBSAdminPanelState[iClient].m_eDurationUnit, szUnit, sizeof(szUnit));
+	BSCReplyToCommandPreferred(iClient, "%t", "BSAdminMenuDurationPrompt", szUnit);
+}
+
+static void BSAdminMenu_ReplyDurationValueInvalid(int iClient)
+{
+	BSCReplyToCommandPreferred(iClient, "%t", "BSAdminMenuDurationInvalid");
 }
 
 static void BSAdminMenu_ReplyNoPanelFlow(int iClient, BSAdminMenuPanelType eType)
@@ -939,17 +1197,17 @@ static void BSAdminMenu_ReplyNoPanelFlow(int iClient, BSAdminMenuPanelType eType
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessNoPanelFlow");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessNoPanelFlow");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommNoPanelFlow");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommNoPanelFlow");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysNoPanelFlow");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysNoPanelFlow");
 		}
 	}
 }
@@ -960,17 +1218,17 @@ static void BSAdminMenu_ReplyPanelAborted(int iClient, BSAdminMenuPanelType eTyp
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessPanelAborted");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessPanelAborted");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommPanelAborted");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommPanelAborted");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysPanelAborted");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysPanelAborted");
 		}
 	}
 }
@@ -981,19 +1239,303 @@ static void BSAdminMenu_ReplyDatabaseNotReady(int iClient)
 	{
 		case BSAdminMenuPanel_Access:
 		{
-			CReplyToCommand(iClient, "%t", "BSAccessDatabaseNotReady");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAccessDatabaseNotReady");
 		}
 
 		case BSAdminMenuPanel_Comm:
 		{
-			CReplyToCommand(iClient, "%t", "BSCommDatabaseNotReady");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSCommDatabaseNotReady");
 		}
 
 		case BSAdminMenuPanel_Sprays:
 		{
-			CReplyToCommand(iClient, "%t", "BSSpraysDatabaseNotReady");
+			BSCReplyToCommandPreferred(iClient, "%t", "BSSpraysDatabaseNotReady");
 		}
 	}
+}
+
+static void BSAdminMenu_ReplyPanelContextCaptured(int iClient, const char[] szContext)
+{
+	if (szContext[0] == '\0')
+	{
+		return;
+	}
+
+	char szPreview[BANSYSTEM_ADMINMENU_PREVIEW_LENGTH + 4];
+	BSAdminMenu_FormatPreview(szContext, szPreview, sizeof(szPreview));
+
+	switch (g_eBSAdminPanelState[iClient].m_eType)
+	{
+		case BSAdminMenuPanel_Access:
+		{
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAdminMenuAccessContextCaptured", szPreview);
+		}
+
+		case BSAdminMenuPanel_Comm:
+		{
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAdminMenuCommContextCaptured", szPreview);
+		}
+
+		case BSAdminMenuPanel_Sprays:
+		{
+			BSCReplyToCommandPreferred(iClient, "%t", "BSAdminMenuSpraysContextCaptured", szPreview);
+		}
+	}
+}
+
+static void BSAdminMenu_ShowInputPromptPanel(int iClient)
+{
+	if (!BSAdminMenu_IsUsableClient(iClient) || g_eBSAdminPanelState[iClient].m_eStage == BSAdminMenuStage_None)
+	{
+		return;
+	}
+
+	Menu hMenu = new Menu(BSAdminMenu_InputPromptPanelHandler);
+	char szTitle[BANSYSTEM_ADMINMENU_MAX_TITLE_LENGTH];
+	char szText[64];
+	BSAdminMenu_BuildPromptPanelTitle(iClient, szTitle, sizeof(szTitle));
+	hMenu.SetTitle(szTitle);
+	hMenu.AddItem("hint", "Escriba en el chat para continuar.", ITEMDRAW_DISABLED);
+	FormatEx(szText, sizeof(szText), "%T", "BSAdminMenuBack", iClient);
+	hMenu.AddItem("back", szText);
+	FormatEx(szText, sizeof(szText), "%T", "BSAdminMenuCancel", iClient);
+	hMenu.AddItem("cancel", szText);
+	hMenu.ExitButton = false;
+	hMenu.Display(iClient, MENU_TIME_FOREVER);
+}
+
+static void BSAdminMenu_HandlePromptBack(int iClient)
+{
+	switch (g_eBSAdminPanelState[iClient].m_eStage)
+	{
+		case BSAdminMenuStage_DurationValue:
+		{
+			g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
+			g_eBSAdminPanelState[iClient].m_eDurationUnit = BSAdminMenuDuration_None;
+			BSAdminMenu_ShowDurationUnitPanel(iClient);
+		}
+
+		case BSAdminMenuStage_Reason:
+		{
+			g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_None;
+			g_eBSAdminPanelState[iClient].m_eDurationUnit = BSAdminMenuDuration_None;
+			g_eBSAdminPanelState[iClient].m_iDurationValue = 0;
+			g_eBSAdminPanelState[iClient].m_iLength = 0;
+			g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
+			BSAdminMenu_ShowDurationUnitPanel(iClient);
+		}
+
+		case BSAdminMenuStage_Context:
+		{
+			g_eBSAdminPanelState[iClient].m_eStage = BSAdminMenuStage_Reason;
+			g_eBSAdminPanelState[iClient].m_szReason[0] = '\0';
+			BSAdminMenu_ReplyReasonPrompt(iClient);
+			BSAdminMenu_ShowInputPromptPanel(iClient);
+		}
+	}
+}
+
+static bool BSAdminMenu_TrySetDurationValueFromText(int iClient, const char[] szText)
+{
+	int iValue = StringToInt(szText);
+	int iMultiplier = BSAdminMenu_GetDurationUnitMultiplier(g_eBSAdminPanelState[iClient].m_eDurationUnit);
+	if (iValue <= 0 || iMultiplier <= 0)
+	{
+		return false;
+	}
+
+	if (iValue > (2147483647 / iMultiplier))
+	{
+		return false;
+	}
+
+	g_eBSAdminPanelState[iClient].m_iDurationValue = iValue;
+	g_eBSAdminPanelState[iClient].m_iLength = iValue * iMultiplier;
+	return true;
+}
+
+static int BSAdminMenu_GetDurationUnitMultiplier(BSAdminMenuDurationUnit eUnit)
+{
+	switch (eUnit)
+	{
+		case BSAdminMenuDuration_Minute: return 1;
+		case BSAdminMenuDuration_Hour: return 60;
+		case BSAdminMenuDuration_Day: return 1440;
+		case BSAdminMenuDuration_Week: return 10080;
+		case BSAdminMenuDuration_Month: return 43200;
+	}
+
+	return 0;
+}
+
+static void BSAdminMenu_GetPanelTypeTitle(BSAdminMenuPanelType eType, char[] szBuffer, int iMaxLength)
+{
+	switch (eType)
+	{
+		case BSAdminMenuPanel_Access: strcopy(szBuffer, iMaxLength, "BanSystem Access");
+		case BSAdminMenuPanel_Comm: strcopy(szBuffer, iMaxLength, "BanSystem Comm");
+		case BSAdminMenuPanel_Sprays: strcopy(szBuffer, iMaxLength, "BanSystem Sprays");
+		default: strcopy(szBuffer, iMaxLength, "BanSystem");
+	}
+}
+
+static void BSAdminMenu_GetCommTypeLabel(eBSCommType eType, char[] szBuffer, int iMaxLength)
+{
+	switch (eType)
+	{
+		case kBSCommType_Mic: strcopy(szBuffer, iMaxLength, "Mic");
+		case kBSCommType_Chat: strcopy(szBuffer, iMaxLength, "Chat");
+		case kBSCommType_All: strcopy(szBuffer, iMaxLength, "All");
+		default: strcopy(szBuffer, iMaxLength, "Pendiente");
+	}
+}
+
+static void BSAdminMenu_GetDurationUnitLabel(BSAdminMenuDurationUnit eUnit, char[] szBuffer, int iMaxLength)
+{
+	switch (eUnit)
+	{
+		case BSAdminMenuDuration_Minute: strcopy(szBuffer, iMaxLength, "minutos");
+		case BSAdminMenuDuration_Hour: strcopy(szBuffer, iMaxLength, "horas");
+		case BSAdminMenuDuration_Day: strcopy(szBuffer, iMaxLength, "dias");
+		case BSAdminMenuDuration_Week: strcopy(szBuffer, iMaxLength, "semanas");
+		case BSAdminMenuDuration_Month: strcopy(szBuffer, iMaxLength, "meses");
+		case BSAdminMenuDuration_Permanent: strcopy(szBuffer, iMaxLength, "permanente");
+		default: strcopy(szBuffer, iMaxLength, "pendiente");
+	}
+}
+
+static void BSAdminMenu_FormatDurationSummary(int iClient, char[] szBuffer, int iMaxLength)
+{
+	if (g_eBSAdminPanelState[iClient].m_eDurationUnit == BSAdminMenuDuration_Permanent)
+	{
+		strcopy(szBuffer, iMaxLength, "Permanente");
+		return;
+	}
+
+	if (g_eBSAdminPanelState[iClient].m_iDurationValue > 0)
+	{
+		char szUnit[32];
+		BSAdminMenu_GetDurationUnitLabel(g_eBSAdminPanelState[iClient].m_eDurationUnit, szUnit, sizeof(szUnit));
+		FormatEx(szBuffer, iMaxLength, "%d %s", g_eBSAdminPanelState[iClient].m_iDurationValue, szUnit);
+		return;
+	}
+
+	if (g_eBSAdminPanelState[iClient].m_eDurationUnit != BSAdminMenuDuration_None)
+	{
+		char szUnit[32];
+		BSAdminMenu_GetDurationUnitLabel(g_eBSAdminPanelState[iClient].m_eDurationUnit, szUnit, sizeof(szUnit));
+		FormatEx(szBuffer, iMaxLength, "Esperando cantidad de %s", szUnit);
+		return;
+	}
+
+	strcopy(szBuffer, iMaxLength, "Pendiente");
+}
+
+static void BSAdminMenu_BuildSelectionTitle(int iClient, char[] szBuffer, int iMaxLength, const char[] szStep)
+{
+	char szModule[64];
+	BSAdminMenu_GetPanelTypeTitle(g_eBSAdminPanelState[iClient].m_eType, szModule, sizeof(szModule));
+	FormatEx(szBuffer, iMaxLength, "%s\n%s", szModule, szStep);
+
+	if (g_eBSAdminPanelState[iClient].m_szTargetName[0] != '\0')
+	{
+		StrCat(szBuffer, iMaxLength, "\nObjetivo: ");
+		StrCat(szBuffer, iMaxLength, g_eBSAdminPanelState[iClient].m_szTargetName);
+	}
+
+	if (g_eBSAdminPanelState[iClient].m_eType == BSAdminMenuPanel_Comm)
+	{
+		char szCommType[32];
+		BSAdminMenu_GetCommTypeLabel(g_eBSAdminPanelState[iClient].m_eCommType, szCommType, sizeof(szCommType));
+		StrCat(szBuffer, iMaxLength, "\nComm: ");
+		StrCat(szBuffer, iMaxLength, szCommType);
+	}
+
+	if (g_eBSAdminPanelState[iClient].m_eDurationUnit != BSAdminMenuDuration_None)
+	{
+		char szDuration[64];
+		BSAdminMenu_FormatDurationSummary(iClient, szDuration, sizeof(szDuration));
+		StrCat(szBuffer, iMaxLength, "\nDuracion: ");
+		StrCat(szBuffer, iMaxLength, szDuration);
+	}
+}
+
+static void BSAdminMenu_BuildPromptPanelTitle(int iClient, char[] szBuffer, int iMaxLength)
+{
+	char szPrompt[192];
+	char szModule[64];
+	char szDuration[64];
+	char szReasonPreview[BANSYSTEM_ADMINMENU_PREVIEW_LENGTH + 4];
+	BSAdminMenu_GetPanelTypeTitle(g_eBSAdminPanelState[iClient].m_eType, szModule, sizeof(szModule));
+	BSAdminMenu_FormatDurationSummary(iClient, szDuration, sizeof(szDuration));
+	BSAdminMenu_FormatPreview(g_eBSAdminPanelState[iClient].m_szReason, szReasonPreview, sizeof(szReasonPreview));
+
+	switch (g_eBSAdminPanelState[iClient].m_eStage)
+	{
+		case BSAdminMenuStage_DurationValue:
+		{
+			char szUnit[32];
+			BSAdminMenu_GetDurationUnitLabel(g_eBSAdminPanelState[iClient].m_eDurationUnit, szUnit, sizeof(szUnit));
+			FormatEx(szPrompt, sizeof(szPrompt), "Escriba la cantidad de %s en el chat.", szUnit);
+		}
+
+		case BSAdminMenuStage_Reason:
+		{
+			strcopy(szPrompt, sizeof(szPrompt), "Escriba la razon en el chat.");
+		}
+
+		case BSAdminMenuStage_Context:
+		{
+			strcopy(szPrompt, sizeof(szPrompt), "Escriba el contexto en el chat o '-' para omitirlo.");
+		}
+
+		default:
+		{
+			strcopy(szPrompt, sizeof(szPrompt), "Esperando entrada.");
+		}
+	}
+
+	FormatEx(szBuffer, iMaxLength, "%s\nObjetivo: %s", szModule, g_eBSAdminPanelState[iClient].m_szTargetName[0] != '\0' ? g_eBSAdminPanelState[iClient].m_szTargetName : "Pendiente");
+
+	if (g_eBSAdminPanelState[iClient].m_eType == BSAdminMenuPanel_Comm)
+	{
+		char szCommType[32];
+		BSAdminMenu_GetCommTypeLabel(g_eBSAdminPanelState[iClient].m_eCommType, szCommType, sizeof(szCommType));
+		StrCat(szBuffer, iMaxLength, "\nComm: ");
+		StrCat(szBuffer, iMaxLength, szCommType);
+	}
+
+	StrCat(szBuffer, iMaxLength, "\nDuracion: ");
+	StrCat(szBuffer, iMaxLength, szDuration);
+
+	if (g_eBSAdminPanelState[iClient].m_szReason[0] != '\0')
+	{
+		StrCat(szBuffer, iMaxLength, "\nRazon: ");
+		StrCat(szBuffer, iMaxLength, szReasonPreview);
+	}
+
+	StrCat(szBuffer, iMaxLength, "\n\n");
+	StrCat(szBuffer, iMaxLength, szPrompt);
+	StrCat(szBuffer, iMaxLength, "\n\nSeleccione una opcion:");
+}
+
+static void BSAdminMenu_FormatPreview(const char[] szInput, char[] szOutput, int iOutputLen)
+{
+	if (iOutputLen <= 0)
+	{
+		return;
+	}
+
+	int iInputLen = strlen(szInput);
+	if (iInputLen <= BANSYSTEM_ADMINMENU_PREVIEW_LENGTH)
+	{
+		strcopy(szOutput, iOutputLen, szInput);
+		return;
+	}
+
+	strcopy(szOutput, iOutputLen, szInput);
+	szOutput[BANSYSTEM_ADMINMENU_PREVIEW_LENGTH] = '\0';
+	StrCat(szOutput, iOutputLen, "...");
 }
 
 static Action BSAdminMenu_HandleAdminSyncPrompt(int iClient, const char[] szText)
@@ -1015,8 +1557,7 @@ static Action BSAdminMenu_HandleAdminSyncPrompt(int iClient, const char[] szText
 		case BSAdminMenuAdminSyncPrompt_AdminAddFlags:
 		{
 			strcopy(g_eBSAdminSyncState[iClient].m_szFlags, sizeof(g_eBSAdminSyncState[].m_szFlags), szText);
-			g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_AdminAddImmunity;
-			CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterAdminImmunity");
+			BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_AdminAddImmunity, "BSAdminSyncPromptEnterAdminImmunity");
 		}
 
 		case BSAdminMenuAdminSyncPrompt_AdminAddImmunity:
@@ -1047,15 +1588,13 @@ static Action BSAdminMenu_HandleAdminSyncPrompt(int iClient, const char[] szText
 		case BSAdminMenuAdminSyncPrompt_GroupAddName:
 		{
 			strcopy(g_eBSAdminSyncState[iClient].m_szGroupName, sizeof(g_eBSAdminSyncState[].m_szGroupName), szText);
-			g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_GroupAddFlags;
-			CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterGroupFlags");
+			BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_GroupAddFlags, "BSAdminSyncPromptEnterGroupFlags");
 		}
 
 		case BSAdminMenuAdminSyncPrompt_GroupAddFlags:
 		{
 			strcopy(g_eBSAdminSyncState[iClient].m_szFlags, sizeof(g_eBSAdminSyncState[].m_szFlags), szText);
-			g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_GroupAddImmunity;
-			CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterGroupImmunity");
+			BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_GroupAddImmunity, "BSAdminSyncPromptEnterGroupImmunity");
 		}
 
 		case BSAdminMenuAdminSyncPrompt_GroupAddImmunity:
@@ -1121,26 +1660,36 @@ public int BSAdminMenu_AdminSyncAdminMainHandler(Menu hMenu, MenuAction eAction,
 	if (StrEqual(szInfo, "add"))
 	{
 		BSAdminMenu_ShowAdminSyncConnectedPlayerMenu(iClient);
+		return 0;
 	}
-	else if (StrEqual(szInfo, "edit_flags"))
+
+	BSAdminMenuAdminSyncAction eMenuAction;
+	if (!BSAdminMenu_TryGetAdminMainAction(szInfo, eMenuAction))
 	{
-		BSAdminMenu_ShowAdminSyncSnapshotAdminMenu(iClient, BSAdminMenuAdminSyncAction_AdminEditFlags);
+		return 0;
 	}
-	else if (StrEqual(szInfo, "edit_immunity"))
+
+	switch (eMenuAction)
 	{
-		BSAdminMenu_ShowAdminSyncSnapshotAdminMenu(iClient, BSAdminMenuAdminSyncAction_AdminEditImmunity);
-	}
-	else if (StrEqual(szInfo, "add_group"))
-	{
-		BSAdminMenu_ShowAdminSyncSnapshotAdminGroupAdminMenu(iClient, true);
-	}
-	else if (StrEqual(szInfo, "remove_group"))
-	{
-		BSAdminMenu_ShowAdminSyncSnapshotAdminGroupAdminMenu(iClient, false);
-	}
-	else if (StrEqual(szInfo, "delete"))
-	{
-		BSAdminMenu_ShowAdminSyncSnapshotAdminDeleteMenu(iClient);
+		case BSAdminMenuAdminSyncAction_AdminEditFlags, BSAdminMenuAdminSyncAction_AdminEditImmunity:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotAdminMenu(iClient, eMenuAction);
+		}
+
+		case BSAdminMenuAdminSyncAction_AdminAssignGroup:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotAdminGroupAdminMenu(iClient, true);
+		}
+
+		case BSAdminMenuAdminSyncAction_AdminRemoveGroup:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotAdminGroupAdminMenu(iClient, false);
+		}
+
+		case BSAdminMenuAdminSyncAction_AdminDelete:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotAdminDeleteMenu(iClient);
+		}
 	}
 
 	return 0;
@@ -1223,16 +1772,8 @@ static void BSAdminMenu_ShowAdminSyncSnapshotAdminMenu(int iClient, BSAdminMenuA
 		iClient);
 	hMenu.SetTitle(szTitle);
 
-	g_eBSAdminSyncState[iClient].m_eAction = eAction;
-
-	if (!BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncNoAdminsAvailable");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_BeginAdminSyncAction(iClient, eAction);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu), "BSAdminSyncNoAdminsAvailable");
 }
 
 static bool BSAdminMenu_PopulateAdminSyncAdminMenu(Menu hMenu)
@@ -1272,20 +1813,13 @@ public int BSAdminMenu_AdminSyncSnapshotAdminHandler(Menu hMenu, MenuAction eAct
 		return 0;
 	}
 
-	char szInfo[16];
-	hMenu.GetItem(iItem, szInfo, sizeof(szInfo));
-	g_eBSAdminSyncState[iClient].m_iAccountId = StringToInt(szInfo);
+	if (!BSAdminMenu_TryGetMenuAccountId(hMenu, iItem, g_eBSAdminSyncState[iClient].m_iAccountId))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncTargetUnavailable");
+		return 0;
+	}
 
-	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_AdminEditFlags)
-	{
-		g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_AdminEditFlags;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterNewAdminFlags");
-	}
-	else
-	{
-		g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_AdminEditImmunity;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterNewAdminImmunity");
-	}
+	BSAdminMenu_BeginAdminSyncAdminEditPrompt(iClient);
 
 	return 0;
 }
@@ -1297,14 +1831,7 @@ static void BSAdminMenu_ShowAdminSyncSnapshotAdminDeleteMenu(int iClient)
 	FormatEx(szTitle, sizeof(szTitle), "%T", "BSAdminSyncMenuSelectAdminDelete", iClient);
 	hMenu.SetTitle(szTitle);
 
-	if (!BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncNoAdminsAvailable");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu), "BSAdminSyncNoAdminsAvailable");
 }
 
 public int BSAdminMenu_AdminSyncSnapshotAdminDeleteHandler(Menu hMenu, MenuAction eAction, int iClient, int iItem)
@@ -1320,9 +1847,14 @@ public int BSAdminMenu_AdminSyncSnapshotAdminDeleteHandler(Menu hMenu, MenuActio
 		return 0;
 	}
 
-	char szInfo[16];
-	hMenu.GetItem(iItem, szInfo, sizeof(szInfo));
-	bBSASDeleteAdmin(StringToInt(szInfo));
+	int iAccountId;
+	if (!BSAdminMenu_TryGetMenuAccountId(hMenu, iItem, iAccountId))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncTargetUnavailable");
+		return 0;
+	}
+
+	bBSASDeleteAdmin(iAccountId);
 	return 0;
 }
 
@@ -1333,16 +1865,8 @@ static void BSAdminMenu_ShowAdminSyncSnapshotAdminGroupAdminMenu(int iClient, bo
 	FormatEx(szTitle, sizeof(szTitle), "%T", bAssign ? "BSAdminSyncMenuSelectAdminAssignGroup" : "BSAdminSyncMenuSelectAdminRemoveGroup", iClient);
 	hMenu.SetTitle(szTitle);
 
-	g_eBSAdminSyncState[iClient].m_eAction = bAssign ? BSAdminMenuAdminSyncAction_AdminAssignGroup : BSAdminMenuAdminSyncAction_AdminRemoveGroup;
-
-	if (!BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncNoAdminsAvailable");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_BeginAdminSyncAction(iClient, bAssign ? BSAdminMenuAdminSyncAction_AdminAssignGroup : BSAdminMenuAdminSyncAction_AdminRemoveGroup);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncAdminMenu(hMenu), "BSAdminSyncNoAdminsAvailable");
 }
 
 public int BSAdminMenu_AdminSyncAdminGroupAdminHandler(Menu hMenu, MenuAction eAction, int iClient, int iItem)
@@ -1358,9 +1882,11 @@ public int BSAdminMenu_AdminSyncAdminGroupAdminHandler(Menu hMenu, MenuAction eA
 		return 0;
 	}
 
-	char szInfo[16];
-	hMenu.GetItem(iItem, szInfo, sizeof(szInfo));
-	g_eBSAdminSyncState[iClient].m_iAccountId = StringToInt(szInfo);
+	if (!BSAdminMenu_TryGetMenuAccountId(hMenu, iItem, g_eBSAdminSyncState[iClient].m_iAccountId))
+	{
+		CReplyToCommand(iClient, "%t", "BSAdminSyncTargetUnavailable");
+		return 0;
+	}
 	BSAdminMenu_ShowAdminSyncSnapshotGroupMembershipMenu(iClient, g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_AdminAssignGroup);
 	return 0;
 }
@@ -1372,14 +1898,7 @@ static void BSAdminMenu_ShowAdminSyncSnapshotGroupMembershipMenu(int iClient, bo
 	FormatEx(szTitle, sizeof(szTitle), "%T", bAssign ? "BSAdminSyncMenuSelectGroupAssign" : "BSAdminSyncMenuSelectGroupRemove", iClient);
 	hMenu.SetTitle(szTitle);
 
-	if (!BSAdminMenu_PopulateAdminSyncGroupMenuFiltered(hMenu, g_eBSAdminSyncState[iClient].m_iAccountId, bAssign))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", bAssign ? "BSAdminSyncNoAssignableGroups" : "BSAdminSyncNoRemovableGroups");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncGroupMenuFiltered(hMenu, g_eBSAdminSyncState[iClient].m_iAccountId, bAssign), bAssign ? "BSAdminSyncNoAssignableGroups" : "BSAdminSyncNoRemovableGroups");
 }
 
 static bool BSAdminMenu_PopulateAdminSyncGroupMenuFiltered(Menu hMenu, int iAccountId, bool bAssign)
@@ -1424,14 +1943,7 @@ public int BSAdminMenu_AdminSyncGroupMembershipHandler(Menu hMenu, MenuAction eA
 	char szGroupName[128];
 	hMenu.GetItem(iItem, szGroupName, sizeof(szGroupName));
 
-	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_AdminAssignGroup)
-	{
-		bBSASAddAdminGroup(g_eBSAdminSyncState[iClient].m_iAccountId, szGroupName);
-	}
-	else
-	{
-		bBSASRemoveAdminGroup(g_eBSAdminSyncState[iClient].m_iAccountId, szGroupName);
-	}
+	BSAdminMenu_ApplyAdminSyncGroupMembershipAction(iClient, szGroupName);
 
 	return 0;
 }
@@ -1472,20 +1984,27 @@ public int BSAdminMenu_AdminSyncGroupMainHandler(Menu hMenu, MenuAction eAction,
 
 	if (StrEqual(szInfo, "add"))
 	{
-		g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_GroupAddName;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterNewGroupName");
+		BSAdminMenu_BeginAdminSyncPrompt(iClient, BSAdminMenuAdminSyncPrompt_GroupAddName, "BSAdminSyncPromptEnterNewGroupName");
+		return 0;
 	}
-	else if (StrEqual(szInfo, "edit_flags"))
+
+	BSAdminMenuAdminSyncAction eMenuAction;
+	if (!BSAdminMenu_TryGetGroupMainAction(szInfo, eMenuAction))
 	{
-		BSAdminMenu_ShowAdminSyncSnapshotGroupMenu(iClient, BSAdminMenuAdminSyncAction_GroupEditFlags);
+		return 0;
 	}
-	else if (StrEqual(szInfo, "edit_immunity"))
+
+	switch (eMenuAction)
 	{
-		BSAdminMenu_ShowAdminSyncSnapshotGroupMenu(iClient, BSAdminMenuAdminSyncAction_GroupEditImmunity);
-	}
-	else if (StrEqual(szInfo, "delete"))
-	{
-		BSAdminMenu_ShowAdminSyncSnapshotGroupDeleteMenu(iClient);
+		case BSAdminMenuAdminSyncAction_GroupEditFlags, BSAdminMenuAdminSyncAction_GroupEditImmunity:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotGroupMenu(iClient, eMenuAction);
+		}
+
+		case BSAdminMenuAdminSyncAction_GroupDelete:
+		{
+			BSAdminMenu_ShowAdminSyncSnapshotGroupDeleteMenu(iClient);
+		}
 	}
 
 	return 0;
@@ -1500,16 +2019,8 @@ static void BSAdminMenu_ShowAdminSyncSnapshotGroupMenu(int iClient, BSAdminMenuA
 		iClient);
 	hMenu.SetTitle(szTitle);
 
-	g_eBSAdminSyncState[iClient].m_eAction = eAction;
-
-	if (!BSAdminMenu_PopulateAdminSyncGroupMenu(hMenu))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncNoGroupsAvailable");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_BeginAdminSyncAction(iClient, eAction);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncGroupMenu(hMenu), "BSAdminSyncNoGroupsAvailable");
 }
 
 static bool BSAdminMenu_PopulateAdminSyncGroupMenu(Menu hMenu)
@@ -1547,16 +2058,7 @@ public int BSAdminMenu_AdminSyncSnapshotGroupHandler(Menu hMenu, MenuAction eAct
 
 	hMenu.GetItem(iItem, g_eBSAdminSyncState[iClient].m_szGroupName, sizeof(g_eBSAdminSyncState[].m_szGroupName));
 
-	if (g_eBSAdminSyncState[iClient].m_eAction == BSAdminMenuAdminSyncAction_GroupEditFlags)
-	{
-		g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_GroupEditFlags;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterNewGroupFlags");
-	}
-	else
-	{
-		g_eBSAdminSyncState[iClient].m_ePrompt = BSAdminMenuAdminSyncPrompt_GroupEditImmunity;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncPromptEnterNewGroupImmunity");
-	}
+	BSAdminMenu_BeginAdminSyncGroupEditPrompt(iClient);
 
 	return 0;
 }
@@ -1568,14 +2070,7 @@ static void BSAdminMenu_ShowAdminSyncSnapshotGroupDeleteMenu(int iClient)
 	FormatEx(szTitle, sizeof(szTitle), "%T", "BSAdminSyncMenuSelectGroupDelete", iClient);
 	hMenu.SetTitle(szTitle);
 
-	if (!BSAdminMenu_PopulateAdminSyncGroupMenu(hMenu))
-	{
-		delete hMenu;
-		CReplyToCommand(iClient, "%t", "BSAdminSyncNoGroupsAvailable");
-		return;
-	}
-
-	hMenu.Display(iClient, MENU_TIME_FOREVER);
+	BSAdminMenu_TryDisplayPopulatedMenu(iClient, hMenu, BSAdminMenu_PopulateAdminSyncGroupMenu(hMenu), "BSAdminSyncNoGroupsAvailable");
 }
 
 public int BSAdminMenu_AdminSyncSnapshotGroupDeleteHandler(Menu hMenu, MenuAction eAction, int iClient, int iItem)

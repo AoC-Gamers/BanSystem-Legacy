@@ -76,9 +76,19 @@ Suite modular de sanciones para SourceMod.
   - `addons/sourcemod/configs/sql-init-bansystem/mysql/sprays_schema.sql`
   - `addons/sourcemod/configs/sql-init-bansystem/mysql/adminsync_schema.sql`
 
+## Limitacion DBI
+
+- `SourceMod DBI` no es una base segura para `CALL` con `SQL_TQuery` cuando el procedure puede devolver multiples resultsets.
+- en `BanSystem`, los flujos threaded de autorizacion, summary y detail deben usar `SELECT` directos y deterministas.
+- los procedures MySQL pueden seguir usandose para mutaciones o mantenimiento siempre que no dependan de devolver filas por `SQL_TQuery`.
+- si un `CALL` con resultados fuera indispensable, debe resolverse fuera del camino critico de join y con una ruta sincronica que consuma todos los resultsets.
+- el SQL init actual de `BanSystem` ya no define procedures de runtime; la suite trabaja con sentencias directas, vistas y triggers.
+
 ## Estado actual
 
 - MySQL es la fuente de verdad del estado funcional.
 - SQLite queda como cache local opcional del core.
 - `accountid` es la identidad interna principal.
 - `steamid64` se persiste como dato complementario para interoperabilidad externa.
+- el auth del core consulta primero la vista consolidada `view_bansystem_auth_summary` sobre `bansystem_summary`.
+- si la fila de summary no existe o falla, el core reconstruye el estado con una consulta directa sobre bans activos y repara `bansystem_summary`.

@@ -71,7 +71,7 @@ stock void BSAccess_QueueInfoByAccountId(int iAdmin, int iAccountId, ReplySource
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnInfoLoaded, szQuery, pContext, DBPrio_Normal);
@@ -89,7 +89,7 @@ stock void BSAccess_QueueList(int iAdmin, int iLimit, ReplySource eReplySource =
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnListLoaded, szQuery, pContext, DBPrio_Normal);
 }
@@ -138,7 +138,7 @@ stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ON DUPLICATE KEY UPDATE `steamid64` = VALUES(`steamid64`), `player_name` = VALUES(`player_name`), `ip_address` = VALUES(`ip_address`), `ban_length` = VALUES(`ban_length`), `ban_reason` = VALUES(`ban_reason`), `ban_context` = VALUES(`ban_context`), `banned_by` = VALUES(`banned_by`), `banned_by_name` = VALUES(`banned_by_name`), `banned_by_steamid64` = VALUES(`banned_by_steamid64`);");
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iTargetClient);
@@ -159,7 +159,7 @@ stock void BSAccess_QueueRemoveBan(int iAdmin, int iAccountId, ReplySource eRepl
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "DELETE FROM `bansystem_access_bans` WHERE `accountid` = %d;", iAccountId);
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 
@@ -317,12 +317,20 @@ stock void BSAccess_RecordAttempt(int iClient)
 
 	char szQuery[512];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "CALL `bansystem_access_attempt_record`(%d, '%s', '%s', '%s');", iAccountId, szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `bansystem_access_attempts` (`accountid`, `steamid64`, `player_name`, `ip_address`) VALUES (%d, '%s', '%s', '%s');", iAccountId, szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
+
+	char szUpdateQuery[512];
+	iLen = 0;
+	iLen += g_dbBSAccess.Format(szUpdateQuery[iLen], sizeof(szUpdateQuery) - iLen, "UPDATE `bansystem_access_bans` SET `steamid64` = '%s', `player_name` = '%s', `ip_address` = '%s' WHERE `accountid` = %d;", szSafeSteamId64, szSafePlayerName, szSafeIpAddress, iAccountId);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(iAccountId);
 	pContext.WriteString(szIpAddress);
-	SQL_TQuery(g_dbBSAccess, BSAccess_OnAttemptRecorded, szQuery, pContext, DBPrio_Normal);
+
+	Transaction txn = SQL_CreateTransaction();
+	txn.AddQuery(szQuery);
+	txn.AddQuery(szUpdateQuery);
+	SQL_ExecuteTransaction(g_dbBSAccess, txn, BSAccess_OnAttemptRecordedTxnSuccess, BSAccess_OnAttemptRecordedTxnFailure, pContext, DBPrio_Normal);
 }
 
 stock void BSAccess_ApplyResolvedBanToClient(int iClient)
@@ -345,12 +353,20 @@ stock void BSAccess_ApplyResolvedBanToClient(int iClient)
 	PrintToConsole(iClient, "// -------------------------------- \\\\");
 
 	BSAccess_RecordAttempt(iClient);
+	if (g_gfBSAccessOnClientDenied != null)
+	{
+		Call_StartForward(g_gfBSAccessOnClientDenied);
+		Call_PushCell(iClient);
+		Call_PushCell(g_eBSAccessResolvedDetail[iClient].m_iAccountId);
+		Call_Finish();
+	}
+
 	char szKickMessage[192];
 	Format(szKickMessage, sizeof(szKickMessage), "%T", "BSAccessKickMessage", iClient);
 	KickClient(iClient, "%s", szKickMessage);
 }
 
-public void BSAccess_OnAttemptRecorded(Database db, DBResultSet rsResult, const char[] szError, any pData)
+public void BSAccess_OnAttemptRecordedTxnSuccess(Database db, any pData, int iNumQueries, DBResultSet[] rsResults, any[] iQueryData)
 {
 	DataPack pContext = view_as<DataPack>(pData);
 	pContext.Reset();
@@ -358,16 +374,21 @@ public void BSAccess_OnAttemptRecorded(Database db, DBResultSet rsResult, const 
 	char szIpAddress[64];
 	pContext.ReadString(szIpAddress, sizeof(szIpAddress));
 	delete pContext;
-	delete rsResult;
-
-	if (szError[0] != '\0')
-	{
-		BSAccess_ForgetAttemptIpIfMatches(iAccountId, szIpAddress);
-		BSAccess_SQL("Access attempt record failed for accountid=%d: %s", iAccountId, szError);
-		return;
-	}
 
 	BSAccess_Debug("Recorded access attempt for accountid=%d ip=%s", iAccountId, szIpAddress);
+}
+
+public void BSAccess_OnAttemptRecordedTxnFailure(Database db, any pData, int iNumQueries, const char[] szError, int iFailIndex, any[] iQueryData)
+{
+	DataPack pContext = view_as<DataPack>(pData);
+	pContext.Reset();
+	int iAccountId = pContext.ReadCell();
+	char szIpAddress[64];
+	pContext.ReadString(szIpAddress, sizeof(szIpAddress));
+	delete pContext;
+
+	BSAccess_ForgetAttemptIpIfMatches(iAccountId, szIpAddress);
+	BSAccess_SQL("Access attempt transaction failed for accountid=%d fail_index=%d num_queries=%d: %s", iAccountId, iFailIndex, iNumQueries, szError);
 }
 
 public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider provider, bool bSuccess, bool bBatch, const char[] szEndpoint, const char[] szInput, const char[] szResult, const char[] szTag)
@@ -383,16 +404,14 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 		return;
 
 	g_smBSAccessIdentityRequestContext.Remove(szRequestId);
-	pContext.Reset();
 
-	int iUserId = pContext.ReadCell();
-	eBSAccessIdentityAction eAction = view_as<eBSAccessIdentityAction>(pContext.ReadCell());
-	int iValue = pContext.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
+	int iUserId;
+	eBSAccessIdentityAction eAction;
+	int iValue;
+	ReplySource eReplySource;
 	char szReason[sizeof(g_eBSAccessResolvedDetail[].m_szReason)];
 	char szContext[sizeof(g_eBSAccessResolvedDetail[].m_szContext)];
-	pContext.ReadString(szReason, sizeof(szReason));
-	pContext.ReadString(szContext, sizeof(szContext));
+	BSAccess_ReadIdentityLookupContext(pContext, iUserId, eAction, iValue, eReplySource, szReason, sizeof(szReason), szContext, sizeof(szContext));
 	delete pContext;
 
 	int iAdmin = GetClientOfUserId(iUserId);

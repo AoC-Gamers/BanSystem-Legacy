@@ -10,7 +10,7 @@ stock void BSComm_LogCategory(eBSCommDebugMask eMask, const char[] szTag, const 
 	if ((g_cvBSCommDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSCommLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSCommLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSComm_LogCategoryFormatted(eBSCommDebugMask eMask, const char[] szTag, const char[] szMessage)
@@ -21,7 +21,7 @@ stock void BSComm_LogCategoryFormatted(eBSCommDebugMask eMask, const char[] szTa
 	if ((g_cvBSCommDebugMask.IntValue & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szBSCommLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szBSCommLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSComm_Debug(const char[] szMessage, any ...)
@@ -77,15 +77,12 @@ stock void BSComm_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, any 
 
 stock void BSComm_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
 {
-	ReplySource eOldSource = SetCmdReplySource(eReplySource);
-
 	static char szBuffer[1024];
 	if (iAdmin > 0)
 		SetGlobalTransTarget(iAdmin);
 
 	VFormat(szBuffer, sizeof(szBuffer), szFormat, 4);
-	CReplyToCommand(iAdmin, "%s", szBuffer);
-	SetCmdReplySource(eOldSource);
+	BSCReplyToCommandBufferWithSource(iAdmin, eReplySource, szBuffer);
 }
 
 stock void BSComm_NotifyConsolePrinted(int iAdmin, ReplySource eReplySource, const char[] szPhrase)
@@ -151,9 +148,11 @@ stock void BSComm_GetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] 
 stock bool BSComm_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &eProvider)
 {
 	eProvider = SteamIDToolsProvider_Unknown;
+	BSComm_Debug("SteamID lookup provider selection started. admin=%d library_available=%d", iAdmin, SteamIDTools_IsLibraryAvailable() ? 1 : 0);
 
 	if (!SteamIDTools_IsLibraryAvailable())
 	{
+		BSComm_Debug("SteamID lookup provider selection failed: SteamIDTools library unavailable.");
 		CReplyToCommand(iAdmin, "%t", "BSCommSteam64Unavailable");
 		return false;
 	}
@@ -161,6 +160,12 @@ stock bool BSComm_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &
 	char szConfigured[16];
 	g_cvBSCommSteamIdProvider.GetString(szConfigured, sizeof(szConfigured));
 	TrimString(szConfigured);
+	BSComm_Debug("SteamID lookup provider config=%s steamworks_available=%d steamworks_ready=%d system2_available=%d system2_ready=%d",
+		szConfigured,
+		SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks) ? 1 : 0,
+		SteamIDTools_IsProviderReady(SteamIDToolsProvider_SteamWorks) ? 1 : 0,
+		SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2) ? 1 : 0,
+		SteamIDTools_IsProviderReady(SteamIDToolsProvider_System2) ? 1 : 0);
 
 	if (StrEqual(szConfigured, "steamworks", false))
 	{
@@ -192,12 +197,14 @@ stock bool BSComm_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &
 
 	if (eProvider == SteamIDToolsProvider_Unknown)
 	{
+		BSComm_Debug("SteamID lookup provider selection failed: no provider available.");
 		CReplyToCommand(iAdmin, "%t", "BSCommSteam64Unavailable");
 		return false;
 	}
 
 	if (SteamIDTools_IsProviderReady(eProvider))
 	{
+		BSComm_Debug("SteamID lookup provider selected successfully. provider=%d", view_as<int>(eProvider));
 		return true;
 	}
 
@@ -208,6 +215,7 @@ stock bool BSComm_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &
 	{
 		strcopy(szStatus, sizeof(szStatus), "backend unavailable");
 	}
+	BSComm_Debug("SteamID lookup provider selected but not ready. provider=%d status=%s", view_as<int>(eProvider), szStatus);
 
 	CReplyToCommand(iAdmin, "%t", "BSCommSteam64BackendNotReady", szProvider, szStatus);
 	return false;
@@ -222,27 +230,65 @@ stock bool BSComm_TryResolveInputAccountId(int iAdmin, const char[] szInput, int
 	strcopy(szNormalized, sizeof(szNormalized), szInput);
 	TrimString(szNormalized);
 	StripQuotes(szNormalized);
+	BSComm_Debug(
+		"TryResolveInputAccountId start admin=%d input=%s normalized=%s is_valid_sid64=%d detected_format=%d",
+		iAdmin,
+		szInput,
+		szNormalized,
+		IsValidSteamID64(szNormalized) ? 1 : 0,
+		view_as<int>(DetectSteamIDFormat(szNormalized))
+	);
+
+	if (IsValidSteamID64(szNormalized))
+	{
+		BSComm_Debug("TryResolveInputAccountId detected exact SteamID64 input=%s; searching connected clients only", szNormalized);
+		for (int iClient = 1; iClient <= MaxClients; iClient++)
+		{
+			if (!IsClientInGame(iClient) || IsFakeClient(iClient))
+				continue;
+
+			char szSteamId64[32];
+			if (!GetClientAuthId(iClient, AuthId_SteamID64, szSteamId64, sizeof(szSteamId64), true))
+				continue;
+
+			if (!StrEqual(szSteamId64, szNormalized, false))
+				continue;
+
+			iTargetClient = iClient;
+			iAccountId = GetClientAccountID(iClient);
+			BSComm_Debug("TryResolveInputAccountId matched connected SteamID64 input=%s client=%d accountid=%d", szNormalized, iTargetClient, iAccountId);
+			return (iAccountId > 0);
+		}
+
+		BSComm_Debug("TryResolveInputAccountId found no connected match for SteamID64 input=%s", szNormalized);
+		return false;
+	}
 
 	SteamIDFormat eFormat = DetectSteamIDFormat(szNormalized);
+	BSComm_Debug("TryResolveInputAccountId continuing with non-SteamID64 format=%d input=%s", view_as<int>(eFormat), szNormalized);
 	switch (eFormat)
 	{
 		case STEAMID_FORMAT_ACCOUNTID:
 		{
 			iAccountId = StringToInt(szNormalized);
+			BSComm_Debug("TryResolveInputAccountId parsed accountid=%d from input=%s", iAccountId, szNormalized);
 		}
 
 		case STEAMID_FORMAT_STEAMID2:
 		{
 			iAccountId = SteamID2ToAccountID(szNormalized);
+			BSComm_Debug("TryResolveInputAccountId converted SteamID2 input=%s to accountid=%d", szNormalized, iAccountId);
 		}
 
 		case STEAMID_FORMAT_STEAMID3:
 		{
 			iAccountId = SteamID3ToAccountID(szNormalized);
+			BSComm_Debug("TryResolveInputAccountId converted SteamID3 input=%s to accountid=%d", szNormalized, iAccountId);
 		}
 
 		case STEAMID_FORMAT_STEAMID64:
 		{
+			BSComm_Debug("TryResolveInputAccountId reached SteamID64 format switch path for input=%s; searching connected clients only", szNormalized);
 			for (int iClient = 1; iClient <= MaxClients; iClient++)
 			{
 				if (!IsClientInGame(iClient) || IsFakeClient(iClient))
@@ -257,9 +303,11 @@ stock bool BSComm_TryResolveInputAccountId(int iAdmin, const char[] szInput, int
 
 				iTargetClient = iClient;
 				iAccountId = GetClientAccountID(iClient);
+				BSComm_Debug("TryResolveInputAccountId matched SteamID64 switch path input=%s client=%d accountid=%d", szNormalized, iTargetClient, iAccountId);
 				return (iAccountId > 0);
 			}
 
+			BSComm_Debug("TryResolveInputAccountId found no connected match in SteamID64 switch path for input=%s", szNormalized);
 			return false;
 		}
 	}
@@ -269,16 +317,22 @@ stock bool BSComm_TryResolveInputAccountId(int iAdmin, const char[] szInput, int
 		int iResolvedClient = FindClientByAccountID(iAccountId);
 		if (iResolvedClient > 0)
 			iTargetClient = iResolvedClient;
+		BSComm_Debug("TryResolveInputAccountId resolved input=%s to accountid=%d target=%d without FindTarget", szNormalized, iAccountId, iTargetClient);
 
 		return true;
 	}
 
+	BSComm_Debug("TryResolveInputAccountId falling back to FindTarget for input=%s admin=%d", szNormalized, iAdmin);
 	int iTarget = FindTarget(iAdmin, szNormalized, true, false);
 	if (iTarget <= 0)
+	{
+		BSComm_Debug("TryResolveInputAccountId FindTarget failed for input=%s admin=%d", szNormalized, iAdmin);
 		return false;
+	}
 
 	iTargetClient = iTarget;
 	iAccountId = GetClientAccountID(iTarget);
+	BSComm_Debug("TryResolveInputAccountId FindTarget resolved input=%s target=%d accountid=%d", szNormalized, iTargetClient, iAccountId);
 	return (iAccountId > 0);
 }
 
@@ -371,15 +425,20 @@ stock void BSComm_TryRegisterCoreModule()
 		return;
 
 	BSCore_RegisterModule(BANSYSTEM_COMM_MODULE_NAME, kBSCoreModule_Communication);
+	BSComm_ReconcileAllCommStatesFromCore();
 	BSComm_API("Registered communication module in bansystem_core.");
 }
 
-stock bool BSComm_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSCommIdentityAction eAction, int iValue, int iExtraValue = 0, const char[] szExtra = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
+stock bool BSComm_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSCommIdentityAction eAction, int iValue, eBSCommType eCommType = kBSCommType_None, const char[] szExtra = "", const char[] szContext = "", ReplySource eReplySource = SM_REPLY_TO_CONSOLE)
 {
 	SteamIDToolsProvider eProvider;
 	if (!BSComm_TryGetSteamIdLookupProvider(iAdmin, eProvider))
+	{
+		BSComm_Debug("QueueIdentityLookup aborted for input=%s action=%d because provider selection failed", szSteamId64, view_as<int>(eAction));
 		return false;
+	}
 
+	BSComm_Debug("QueueIdentityLookup requesting conversion input=%s action=%d provider=%d value=%d comm_type=%d", szSteamId64, view_as<int>(eAction), view_as<int>(eProvider), iValue, view_as<int>(eCommType));
 	int iRequestId = SteamIDTools_RequestConversion(eProvider, API_SID64toAID, szSteamId64);
 	if (iRequestId <= 0)
 	{
@@ -388,19 +447,21 @@ stock bool BSComm_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSC
 		BSComm_GetSteamIdProviderName(eProvider, szProvider, sizeof(szProvider));
 		if (!SteamIDTools_GetBackendStatusMessage(eProvider, szStatus, sizeof(szStatus)) || szStatus[0] == '\0')
 		{
+			BSComm_Debug("QueueIdentityLookup request creation failed for input=%s provider=%d without backend status", szSteamId64, view_as<int>(eProvider));
 			BSComm_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSCommSteam64QueueFailed");
 			return false;
 		}
 
+		BSComm_Debug("QueueIdentityLookup request creation failed for input=%s provider=%d status=%s", szSteamId64, view_as<int>(eProvider), szStatus);
 		BSComm_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSCommSteam64QueueFailedStatus", szProvider, szStatus);
 		return false;
 	}
 
 	DataPack pContext = new DataPack();
-	pContext.WriteCell(GetClientUserId(iAdmin));
+	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
 	pContext.WriteCell(view_as<int>(eAction));
 	pContext.WriteCell(iValue);
-	pContext.WriteCell(iExtraValue);
+	pContext.WriteCell(view_as<int>(eCommType));
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteString(szExtra);
 	pContext.WriteString(szContext);
@@ -408,7 +469,8 @@ stock bool BSComm_QueueIdentityLookup(int iAdmin, const char[] szSteamId64, eBSC
 	char szRequestId[16];
 	IntToString(iRequestId, szRequestId, sizeof(szRequestId));
 	g_smBSCommIdentityRequestContext.SetValue(szRequestId, pContext);
-	BSComm_API("Queued SteamID64 identity lookup. request=%d input=%s action=%d value=%d extra=%d", iRequestId, szSteamId64, view_as<int>(eAction), iValue, iExtraValue);
+	BSComm_Debug("QueueIdentityLookup stored request context request=%d input=%s action=%d admin_userid=%d", iRequestId, szSteamId64, view_as<int>(eAction), BSGetCommandIssuerUserId(iAdmin));
+	BSComm_API("Queued SteamID64 identity lookup. request=%d input=%s action=%d value=%d comm_type=%d", iRequestId, szSteamId64, view_as<int>(eAction), iValue, view_as<int>(eCommType));
 	BSComm_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSCommSteam64Resolving");
 	return true;
 }
@@ -423,7 +485,7 @@ stock void BSComm_ResetResolvedDetail(int iClient)
 	g_eBSCommResolvedDetail[iClient].m_iAccountId = 0;
 	g_eBSCommResolvedDetail[iClient].m_iLength = 0;
 	g_eBSCommResolvedDetail[iClient].m_iBannedBy = 0;
-	g_eBSCommResolvedDetail[iClient].m_iCommType = 0;
+	g_eBSCommResolvedDetail[iClient].m_eCommType = kBSCommType_None;
 	g_eBSCommResolvedDetail[iClient].m_szPlayerName[0] = '\0';
 	g_eBSCommResolvedDetail[iClient].m_szSteamId64[0] = '\0';
 	g_eBSCommResolvedDetail[iClient].m_szReason[0] = '\0';

@@ -82,15 +82,15 @@ stock void BSCore_ValidatePrimarySummarySchema()
 	SQL_TQuery(g_dbCorePrimary, BSCore_OnPrimarySchemaMetaValidated, szQuery);
 }
 
-stock void BSCore_ValidateCacheSummarySchema()
+stock void BSCore_ValidateCacheSummarySchema(bool bAllowRepair = true)
 {
 	if (g_dbCoreCache == null)
 		return;
 
 	char szQuery[256];
-	Format(szQuery, sizeof(szQuery), "SELECT 1 FROM `%s` LIMIT 0;", BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
+	Format(szQuery, sizeof(szQuery), "SELECT `comm_reason`, `spray_reason` FROM `%s` LIMIT 0;", BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
 	BSCore_SQL("Cache summary validation query: %s", szQuery);
-	SQL_TQuery(g_dbCoreCache, BSCore_OnCacheSummarySchemaValidated, szQuery);
+	SQL_TQuery(g_dbCoreCache, BSCore_OnCacheSummarySchemaValidated, szQuery, bAllowRepair ? 1 : 0);
 }
 
 public void BSCore_OnPrimarySchemaMetaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)
@@ -144,9 +144,21 @@ public void BSCore_OnPrimarySummarySchemaValidated(Database db, DBResultSet rsRe
 
 public void BSCore_OnCacheSummarySchemaValidated(Database db, DBResultSet rsResult, const char[] szError, any data)
 {
+	bool bAllowRepair = (data != 0);
+
 	if (rsResult == null || szError[0] != '\0')
 	{
 		BSCore_SQL("Cache summary schema validation failed: %s", szError);
+		if (bAllowRepair)
+		{
+			BSCore_SQL("Attempting automatic SQLite cache schema repair.");
+			BSCore_DropCacheSchema();
+			BSCore_InstallCacheSchema();
+			BSCore_ValidateCacheSummarySchema(false);
+			delete rsResult;
+			return;
+		}
+
 		g_bCoreCacheReady = false;
 		delete rsResult;
 		return;

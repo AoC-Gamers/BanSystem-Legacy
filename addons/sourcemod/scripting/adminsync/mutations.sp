@@ -201,10 +201,9 @@ void vStartAdminMutationAdd(int iClient, int iAccountId, const char[] szName, co
 public void vAdminMutationAddConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	int iImmunity = pack.ReadCell();
 	char szName[128];
@@ -263,9 +262,9 @@ void vStartAdminMutationDelete(int iClient, int iAccountId, ReplySource eReplySo
 public void vAdminMutationDeleteConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	delete pack;
 
@@ -293,9 +292,9 @@ public void vAdminMutationDeleteConnectCallback(Handle hOwner, Handle hndl, cons
 public void vAdminDeleteMembershipsCallback(Database db, DBResultSet rsResult, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	delete pack;
 	delete rsResult;
@@ -342,9 +341,9 @@ void vStartAdminMutationSetFlags(int iClient, int iAccountId, const char[] szFla
 public void vAdminMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	char szFlags[64];
 	pack.ReadString(szFlags, sizeof(szFlags));
@@ -393,9 +392,9 @@ void vStartAdminMutationSetImmunity(int iClient, int iAccountId, int iImmunity, 
 public void vAdminMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	int iImmunity = pack.ReadCell();
 	delete pack;
@@ -445,9 +444,9 @@ void vStartGroupMutationAdd(int iClient, const char[] szName, const char[] szFla
 public void vGroupMutationAddConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iImmunity = pack.ReadCell();
 	char szName[128];
 	char szFlags[64];
@@ -502,9 +501,9 @@ void vStartGroupMutationDelete(int iClient, const char[] szName, ReplySource eRe
 public void vGroupMutationDeleteConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	char szName[128];
 	pack.ReadString(szName, sizeof(szName));
 	delete pack;
@@ -536,9 +535,9 @@ public void vGroupMutationDeleteConnectCallback(Handle hOwner, Handle hndl, cons
 public void vGroupDeleteMembershipsCallback(Database db, DBResultSet rsResult, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	char szName[128];
 	pack.ReadString(szName, sizeof(szName));
 	delete pack;
@@ -591,9 +590,9 @@ void vStartGroupMutationSetFlags(int iClient, const char[] szName, const char[] 
 public void vGroupMutationSetFlagsConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	char szName[128];
 	char szFlags[64];
 	pack.ReadString(szName, sizeof(szName));
@@ -647,9 +646,9 @@ void vStartGroupMutationSetImmunity(int iClient, const char[] szName, int iImmun
 public void vGroupMutationSetImmunityConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iImmunity = pack.ReadCell();
 	char szName[128];
 	pack.ReadString(szName, sizeof(szName));
@@ -700,9 +699,9 @@ void vStartAdminMutationAddGroup(int iClient, int iAccountId, const char[] szGro
 public void vAdminMutationAddGroupConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	char szGroupName[128];
 	pack.ReadString(szGroupName, sizeof(szGroupName));
@@ -755,9 +754,9 @@ void vStartAdminMutationRemoveGroup(int iClient, int iAccountId, const char[] sz
 public void vAdminMutationRemoveGroupConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	int iAccountId = pack.ReadCell();
 	char szGroupName[128];
 	pack.ReadString(szGroupName, sizeof(szGroupName));
@@ -791,9 +790,9 @@ public void vAdminMutationRemoveGroupConnectCallback(Handle hOwner, Handle hndl,
 public void vMutationSimpleCallback(Database db, DBResultSet rsResult, const char[] szError, any data)
 {
 	DataPack pack = view_as<DataPack>(data);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	char szAction[64];
 	pack.ReadString(szAction, sizeof(szAction));
 	delete pack;
@@ -830,12 +829,16 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 		return;
 
 	g_smIdentityRequestContext.Remove(szRequestId);
-	pack.Reset();
 
-	int iUserId = pack.ReadCell();
-	AdminSyncIdentityAction eAction = view_as<AdminSyncIdentityAction>(pack.ReadCell());
+	int iUserId;
+	AdminSyncIdentityAction eAction;
 	ReplySource eReplySource;
 	int iClient = GetClientOfUserId(iUserId);
+	int iValue;
+	char szExtra[128];
+	char szExtra2[128];
+	vAdminSyncReadIdentityLookupContext(pack, iUserId, eAction, iValue, eReplySource, szExtra, sizeof(szExtra), szExtra2, sizeof(szExtra2));
+	iClient = GetClientOfUserId(iUserId);
 	if (iUserId != 0 && iClient <= 0)
 	{
 		delete pack;
@@ -844,14 +847,12 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 
 	if (eAction == IdentityAction_AdminAddResolveSteam64)
 	{
-		int iAccountId = pack.ReadCell();
-		int iImmunity = pack.ReadCell();
-		eReplySource = view_as<ReplySource>(pack.ReadCell());
 		char szName[128];
 		char szFlags[64];
 		char szResolvedSteamId64[32];
-		pack.ReadString(szName, sizeof(szName));
-		pack.ReadString(szFlags, sizeof(szFlags));
+		int iAccountId;
+		int iImmunity;
+		vAdminSyncReadAdminAddSteamId64EnrichmentContext(pack, iUserId, iAccountId, iImmunity, eReplySource, szName, sizeof(szName), szFlags, sizeof(szFlags));
 		delete pack;
 
 		szResolvedSteamId64[0] = '\0';
@@ -872,13 +873,6 @@ public void SteamIDTools_OnRequestFinished(int iRequestId, SteamIDToolsProvider 
 		vStartAdminMutationAdd(iClient, iAccountId, szName, szResolvedSteamId64, szFlags, iImmunity, eReplySource);
 		return;
 	}
-
-	int iValue = pack.ReadCell();
-	eReplySource = view_as<ReplySource>(pack.ReadCell());
-	char szExtra[128];
-	char szExtra2[128];
-	pack.ReadString(szExtra, sizeof(szExtra));
-	pack.ReadString(szExtra2, sizeof(szExtra2));
 	delete pack;
 
 	if (!StrEqual(szEndpoint, API_SID64toAID, false))

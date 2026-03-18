@@ -20,6 +20,8 @@
 #define STEAMID2_MIN_LENGTH	   11
 #define STEAMID3_MIN_LENGTH	   8
 #define STEAMID64_BASE		   76561197960265728
+#define STEAMID64_MIN_INDIVIDUAL_STRING "76561197960265729"
+#define STEAMID64_MAX_INDIVIDUAL_STRING "76561202255233023"
 
 #define STEAMIDTOOLS_MAX_ENDPOINT_LENGTH 32
 #define STEAMIDTOOLS_MAX_REQUEST_LENGTH  1024
@@ -190,7 +192,17 @@ stock bool IsValidSteamID64(const char[] szSteamId64)
 		}
 	}
 
-	return (StrContains(szSteamId64, "76561197", false) == 0 || StrContains(szSteamId64, "76561198", false) == 0);
+	if (strcmp(szSteamId64, STEAMID64_MIN_INDIVIDUAL_STRING, false) < 0)
+	{
+		return false;
+	}
+
+	if (strcmp(szSteamId64, STEAMID64_MAX_INDIVIDUAL_STRING, false) > 0)
+	{
+		return false;
+	}
+
+	return true;
 }
 
 /**

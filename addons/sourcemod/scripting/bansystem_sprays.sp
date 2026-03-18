@@ -85,6 +85,7 @@ public void OnPluginStart()
 {
 	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSSpraysLogPath, sizeof(g_szBSSpraysLogPath), BANSYSTEM_SPRAYS_DEBUG_LOG);
+	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_sprays.phrases");
 	g_smBSSpraysIdentityRequestContext = new StringMap();
 	g_cvBSSpraysDebugMask = CreateConVar("sm_bs_sprays_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
@@ -122,6 +123,8 @@ public void OnLibraryAdded(const char[] szName)
 	{
 		g_bBSSpraysHasCoreLibrary = true;
 		BSSprays_TryRegisterCoreModule();
+		if (BSCore_IsAuthReady())
+			BSSprays_ReconcileAllSprayStatesFromCore();
 	}
 }
 
@@ -129,4 +132,11 @@ public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
 		g_bBSSpraysHasCoreLibrary = false;
+}
+
+public void BSCore_OnAuthReadyChanged(bool bReady)
+{
+	BSSprays_SQL("Received core auth ready changed event: ready=%d db_ready=%d", bReady ? 1 : 0, BSSprays_CanUseDatabase() ? 1 : 0);
+	if (bReady)
+		BSSprays_ReconcileAllSprayStatesFromCore();
 }

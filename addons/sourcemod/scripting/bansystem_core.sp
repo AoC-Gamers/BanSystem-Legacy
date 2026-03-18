@@ -16,6 +16,7 @@
 
 Database g_dbCorePrimary;
 Database g_dbCoreCache;
+GlobalForward g_gfBSCoreOnAuthReadyChanged;
 GlobalForward g_gfBSCoreOnAccessDetailRequested;
 GlobalForward g_gfBSCoreOnCommDetailRequested;
 GlobalForward g_gfBSCoreOnSprayDetailRequested;
@@ -34,20 +35,31 @@ char g_szCoreLogPath[PLATFORM_MAX_PATH];
 
 bool g_bCorePrimaryReady;
 bool g_bCoreCacheReady;
+bool g_bCoreAuthReady;
 bool g_bCoreMapTransitionActive;
 bool g_bCoreHasL4D2ChangeLevel;
-int g_iCoreRegisteredModuleMask;
+eBSCoreModuleBit g_eCoreRegisteredModuleMask;
 
 Handle g_hCoreAuthTimer[MAXPLAYERS + 1];
 eBSCoreAuthState g_eCoreAuthState[MAXPLAYERS + 1];
 int g_iCoreResolvedAccountId[MAXPLAYERS + 1];
-int g_iCoreResolvedModuleMask[MAXPLAYERS + 1];
+eBSCoreModuleBit g_eCoreResolvedModuleMask[MAXPLAYERS + 1];
 eBSCoreCommType g_eCoreResolvedCommType[MAXPLAYERS + 1];
 int g_iCoreResolvedAccessBanId[MAXPLAYERS + 1];
 int g_iCoreResolvedCommBanId[MAXPLAYERS + 1];
 int g_iCoreResolvedSprayBanId[MAXPLAYERS + 1];
-int g_iCorePendingDetailMask[MAXPLAYERS + 1];
-int g_iCoreResolvedDetailMask[MAXPLAYERS + 1];
+int g_iCoreResolvedCommLength[MAXPLAYERS + 1];
+char g_szCoreResolvedCommReason[MAXPLAYERS + 1][256];
+char g_szCoreResolvedCommContext[MAXPLAYERS + 1][512];
+char g_szCoreResolvedCommBannedByName[MAXPLAYERS + 1][MAX_NAME_LENGTH];
+int g_iCoreResolvedCommExpireTs[MAXPLAYERS + 1];
+int g_iCoreResolvedSprayLength[MAXPLAYERS + 1];
+char g_szCoreResolvedSprayReason[MAXPLAYERS + 1][256];
+char g_szCoreResolvedSprayContext[MAXPLAYERS + 1][512];
+char g_szCoreResolvedSprayBannedByName[MAXPLAYERS + 1][MAX_NAME_LENGTH];
+int g_iCoreResolvedSprayExpireTs[MAXPLAYERS + 1];
+eBSCoreModuleBit g_eCorePendingDetailMask[MAXPLAYERS + 1];
+eBSCoreModuleBit g_eCoreResolvedDetailMask[MAXPLAYERS + 1];
 
 #include "bansystem_core/schema.sp"
 #include "bansystem_core/helpers.sp"
@@ -92,7 +104,7 @@ public void OnPluginStart()
 	g_smCoreRegisteredModules = new StringMap();
 	g_bCoreMapTransitionActive = true;
 	g_bCoreHasL4D2ChangeLevel = LibraryExists("l4d2_changelevel");
-	g_iCoreRegisteredModuleMask = 0;
+	g_eCoreRegisteredModuleMask = kBSCoreModule_None;
 
 	BSEnsureAutoExecFolder();
 	AutoExecConfig(true, "bansystem_core", BANSYSTEM_AUTOEXEC_FOLDER);
@@ -164,7 +176,7 @@ Action Command_BSCoreStatus(int iClient, int iArgs)
 		g_bCoreMapTransitionActive ? 1 : 0,
 		BSCore_CanUseLocalCleanCache() ? 1 : 0,
 		BSCore_GetLocalCleanCacheSize(),
-		g_iCoreRegisteredModuleMask,
+		view_as<int>(g_eCoreRegisteredModuleMask),
 		szModules,
 		g_bCoreHasL4D2ChangeLevel ? 1 : 0,
 		g_bCorePrimaryReady ? 1 : 0,

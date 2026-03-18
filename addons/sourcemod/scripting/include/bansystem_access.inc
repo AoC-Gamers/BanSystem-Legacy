@@ -54,6 +54,14 @@ native bool BSAccess_IsClientBanned(int iClient);
  */
 native int BSAccess_GetResolvedAccountId(int iClient);
 
+/**
+ * Fired immediately before the access module kicks a client with an active access ban.
+ *
+ * @param iClient       Client index that is about to be denied.
+ * @param iAccountId    Internal Steam account id for the denied client.
+ */
+forward void BSAccess_OnClientDenied(int iClient, int iAccountId);
+
 public SharedPlugin __pl_bansystem_access =
 {
 	name = "bansystem_access",

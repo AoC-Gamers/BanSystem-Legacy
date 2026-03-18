@@ -92,4 +92,6 @@ public void BSAccess_OnSchemaValidated(Database db, DBResultSet rsResult, const 
 	delete rsResult;
 	g_bBSAccessDatabaseReady = true;
 	BSAccess_SQL("Access schema validated.");
+	if (BSAccess_CanUseCoreLibrary() && BSCore_IsAuthReady())
+		BSAccess_ReconcileAllAccessStatesFromCore();
 }

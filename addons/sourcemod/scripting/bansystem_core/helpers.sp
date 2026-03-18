@@ -11,7 +11,7 @@ stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] s
 	if ((iMask & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSCore_LogFormatted(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage)
@@ -23,7 +23,7 @@ stock void BSCore_LogFormatted(eBSCoreDebugMask eMask, const char[] szTag, const
 	if ((iMask & view_as<int>(eMask)) == 0)
 		return;
 
-	LogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
+	BSLogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
 }
 
 stock void BSCore_Debug(const char[] szMessage, any ...)
@@ -75,35 +75,33 @@ stock void BSCore_NormalizeInput(const char[] szInput, char[] szOutput, int iMax
 
 stock bool BSCore_IsUsableClient(int iClient)
 {
-	return (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient));
+	return (iClient > 0 && iClient <= MaxClients && IsClientConnected(iClient));
 }
 
 stock int BSCore_GetCommandIssuerUserId(int iClient)
 {
-	if (iClient <= 0 || iClient > MaxClients)
-		return 0;
-
-	return GetClientUserId(iClient);
+	return BSGetCommandIssuerUserId(iClient);
 }
 
-stock bool BSCore_HasModule(int iModuleMask, eBSCoreModuleBit eModuleBit)
+stock bool BSCore_HasModule(eBSCoreModuleBit eModuleMask, eBSCoreModuleBit eModuleBit)
 {
-	return ((iModuleMask & view_as<int>(eModuleBit)) != 0);
+	return ((view_as<int>(eModuleMask) & view_as<int>(eModuleBit)) != 0);
 }
 
-stock void BSCore_AddModule(int &iModuleMask, eBSCoreModuleBit eModuleBit)
+stock void BSCore_AddModule(eBSCoreModuleBit &eModuleMask, eBSCoreModuleBit eModuleBit)
 {
-	iModuleMask |= view_as<int>(eModuleBit);
+	eModuleMask = view_as<eBSCoreModuleBit>(view_as<int>(eModuleMask) | view_as<int>(eModuleBit));
 }
 
-stock void BSCore_RemoveModule(int &iModuleMask, eBSCoreModuleBit eModuleBit)
+stock void BSCore_RemoveModule(eBSCoreModuleBit &eModuleMask, eBSCoreModuleBit eModuleBit)
 {
-	iModuleMask &= ~view_as<int>(eModuleBit);
+	eModuleMask = view_as<eBSCoreModuleBit>(view_as<int>(eModuleMask) & ~view_as<int>(eModuleBit));
 }
 
-stock bool BSCore_IsValidModuleMask(int iModuleMask)
+stock bool BSCore_IsValidModuleMask(eBSCoreModuleBit eModuleMask)
 {
 	int iAllowedMask = view_as<int>(kBSCoreModule_Access) | view_as<int>(kBSCoreModule_Communication) | view_as<int>(kBSCoreModule_Sprays);
+	int iModuleMask = view_as<int>(eModuleMask);
 	return ((iModuleMask & ~iAllowedMask) == 0);
 }
 

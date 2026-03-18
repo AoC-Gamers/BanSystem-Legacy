@@ -6,6 +6,57 @@ stock void BSSprays_OnPluginStart_Detail()
 {
 }
 
+stock void BSSprays_ReconcileClientSprayStateFromCore(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || IsFakeClient(iClient))
+	{
+		BSSprays_SQL("Spray reconcile skipped for client %d: client not usable.", iClient);
+		return;
+	}
+
+	if (!BSSprays_CanUseCoreLibrary() || !BSSprays_CanUseDatabase())
+	{
+		BSSprays_SQL("Spray reconcile skipped for client %d: core_ready=%d db_ready=%d", iClient, BSSprays_CanUseCoreLibrary() ? 1 : 0, BSSprays_CanUseDatabase() ? 1 : 0);
+		return;
+	}
+
+	if (!BSCore_HasResolvedSummary(iClient))
+	{
+		BSSprays_SQL("Spray reconcile skipped for client %d: core has no resolved summary.", iClient);
+		return;
+	}
+
+	if (!BSSprays_HasResolvedSprayModule(iClient))
+	{
+		BSSprays_SQL("Spray reconcile skipped for client %d: resolved module mask %d has no sprays bit.", iClient, view_as<int>(BSCore_GetResolvedModuleMask(iClient)));
+		return;
+	}
+
+	int iAccountId = BSCore_GetResolvedAccountId(iClient);
+	int iBanId = BSCore_GetResolvedBanId(iClient, kBSCoreModule_Sprays);
+	if (iAccountId <= 0 || iBanId <= 0)
+	{
+		BSSprays_SQL("Spray reconcile skipped for client %d: invalid core state accountid=%d ban_id=%d", iClient, iAccountId, iBanId);
+		return;
+	}
+
+	BSSprays_SQL(
+		"Reconciling spray state from core for client %d: accountid=%d ban_id=%d",
+		iClient,
+		iAccountId,
+		iBanId
+	);
+
+	BSCore_OnSprayDetailRequested(iClient, iAccountId, iBanId);
+}
+
+stock void BSSprays_ReconcileAllSprayStatesFromCore()
+{
+	BSSprays_SQL("Reconciling spray states from core for all clients.");
+	for (int iClient = 1; iClient <= MaxClients; iClient++)
+		BSSprays_ReconcileClientSprayStateFromCore(iClient);
+}
+
 stock void BSSprays_FillResolvedDetailFromRow(int iClient, DBResultSet rsResult)
 {
 	g_eBSSpraysResolvedDetail[iClient].m_bLoaded = true;
@@ -154,6 +205,15 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 		iExpectedAccountId,
 		g_eBSSpraysResolvedDetail[iClient].m_iLength
 	);
+	BSCore_SetSpraySummaryDetail(
+		iExpectedAccountId,
+		g_eBSSpraysResolvedDetail[iClient].m_iBanId,
+		g_eBSSpraysResolvedDetail[iClient].m_iLength,
+		g_eBSSpraysResolvedDetail[iClient].m_szReason,
+		g_eBSSpraysResolvedDetail[iClient].m_szContext,
+		g_eBSSpraysResolvedDetail[iClient].m_szBannedByName,
+		g_eBSSpraysResolvedDetail[iClient].m_iDateExpireTs
+	);
 
 	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
 }
@@ -208,4 +268,17 @@ public void BSSprays_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsRe
 	BSSprays_ResetResolvedDetail(iClient);
 	BSSprays_FillResolvedDetailFromRow(iClient, rsResult);
 	delete rsResult;
+
+	if (BSSprays_CanUseCoreLibrary())
+	{
+		BSCore_SetSpraySummaryDetail(
+			iExpectedAccountId,
+			g_eBSSpraysResolvedDetail[iClient].m_iBanId,
+			g_eBSSpraysResolvedDetail[iClient].m_iLength,
+			g_eBSSpraysResolvedDetail[iClient].m_szReason,
+			g_eBSSpraysResolvedDetail[iClient].m_szContext,
+			g_eBSSpraysResolvedDetail[iClient].m_szBannedByName,
+			g_eBSSpraysResolvedDetail[iClient].m_iDateExpireTs
+		);
+	}
 }

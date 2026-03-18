@@ -132,9 +132,9 @@ public void vAdminSyncVersionQueryCallback(Database db, DBResultSet rsResult, co
 public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] szError, any iClient)
 {
 	DataPack pack = view_as<DataPack>(iClient);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	delete pack;
 
 	Database db = view_as<Database>(hndl);
@@ -159,9 +159,9 @@ public void vAdminSyncConnectCallback(Handle hOwner, Handle hndl, const char[] s
 public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
 	DataPack pack = view_as<DataPack>(iClient);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	delete pack;
 
 	int iClientIndex = GetClientOfUserId(iUserId);
@@ -225,9 +225,9 @@ public void vAdminSyncSchemaValidationCallback(Database db, DBResultSet rsResult
 public void vAdminSyncAdminsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
 	DataPack pack = view_as<DataPack>(iClient);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	delete pack;
 
 	int iClientIndex = GetClientOfUserId(iUserId);
@@ -260,9 +260,9 @@ public void vAdminSyncAdminsCallback(Database db, DBResultSet rsResult, const ch
 public void vAdminSyncGroupsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
 	DataPack pack = view_as<DataPack>(iClient);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	delete pack;
 
 	int iClientIndex = GetClientOfUserId(iUserId);
@@ -295,9 +295,9 @@ public void vAdminSyncGroupsCallback(Database db, DBResultSet rsResult, const ch
 public void vAdminSyncMembershipsCallback(Database db, DBResultSet rsResult, const char[] szError, any iClient)
 {
 	DataPack pack = view_as<DataPack>(iClient);
-	pack.Reset();
-	int iUserId = pack.ReadCell();
-	ReplySource eReplySource = view_as<ReplySource>(pack.ReadCell());
+	int iUserId;
+	ReplySource eReplySource;
+	vAdminSyncReadUserReplyContext(pack, iUserId, eReplySource);
 	delete pack;
 
 	int iClientIndex = GetClientOfUserId(iUserId);

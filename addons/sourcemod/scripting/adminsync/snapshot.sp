@@ -1,6 +1,6 @@
 void vConnectLocalSnapshot()
 {
-	if (GetSnapshotBackend() != Backend_SQLite)
+	if (!bUseSQLiteSnapshotBackend())
 	{
 		vAdminSyncDebug("Local snapshot backend is not SQLite; skipping local SQLite connection.");
 		return;

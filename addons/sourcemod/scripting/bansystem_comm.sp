@@ -34,6 +34,8 @@ bool g_bBSCommHasCoreLibrary;
 bool g_bBSCommHasBaseComm;
 bool g_bBSCommDatabaseReady;
 
+#include "bansystem_comm/schema.sp"
+
 enum eBSCommIdentityAction
 {
 	kBSCommIdentityAction_None = 0,
@@ -49,7 +51,7 @@ enum struct eBSCommResolvedDetail
 	int m_iAccountId;
 	int m_iLength;
 	int m_iBannedBy;
-	int m_iCommType;
+	eBSCommType m_eCommType;
 	char m_szPlayerName[MAX_NAME_LENGTH];
 	char m_szSteamId64[32];
 	char m_szReason[BANSYSTEM_COMM_MAX_REASON_LENGTH];
@@ -61,7 +63,6 @@ enum struct eBSCommResolvedDetail
 
 eBSCommResolvedDetail g_eBSCommResolvedDetail[MAXPLAYERS + 1];
 
-#include "bansystem_comm/schema.sp"
 #include "bansystem_comm/helpers.sp"
 #include "bansystem_comm/api.sp"
 #include "bansystem_comm/db.sp"
@@ -88,6 +89,7 @@ public void OnPluginStart()
 {
 	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSCommLogPath, sizeof(g_szBSCommLogPath), BANSYSTEM_COMM_DEBUG_LOG);
+	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_comm.phrases");
 	g_smBSCommIdentityRequestContext = new StringMap();
 	g_cvBSCommDebugMask = CreateConVar("sm_bs_comm_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
@@ -119,12 +121,31 @@ public void OnClientDisconnect(int iClient)
 	BSComm_ResetResolvedDetail(iClient);
 }
 
+public void OnClientPutInServer(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || IsFakeClient(iClient))
+		return;
+
+	if (g_eBSCommResolvedDetail[iClient].m_bLoaded)
+	{
+		BSComm_ApplyResolvedCommState(iClient);
+		return;
+	}
+
+	if (!BSComm_CanUseCoreLibrary() || !BSComm_CanUseDatabase() || !BSCore_HasResolvedSummary(iClient))
+		return;
+
+	BSComm_ReconcileClientCommStateFromCore(iClient);
+}
+
 public void OnLibraryAdded(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
 	{
 		g_bBSCommHasCoreLibrary = true;
 		BSComm_TryRegisterCoreModule();
+		if (BSCore_IsAuthReady())
+			BSComm_ReconcileAllCommStatesFromCore();
 		return;
 	}
 
@@ -145,4 +166,13 @@ public void OnLibraryRemoved(const char[] szName)
 
 	if (StrEqual(szName, "basecomm", false))
 		g_bBSCommHasBaseComm = false;
+}
+
+public void BSCore_OnAuthReadyChanged(bool bReady)
+{
+	BSComm_SQL("Received core auth ready changed event: ready=%d core_ready=%d db_ready=%d", bReady ? 1 : 0, BSComm_CanUseCoreLibrary() ? 1 : 0, BSComm_CanUseDatabase() ? 1 : 0);
+	if (!bReady || !BSComm_CanUseCoreLibrary() || !BSComm_CanUseDatabase())
+		return;
+
+	BSComm_ReconcileAllCommStatesFromCore();
 }

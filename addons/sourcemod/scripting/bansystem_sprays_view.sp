@@ -100,6 +100,17 @@ public void OnClientDisconnect(int iClient)
 	BSSpraysView_Debug(kBSSpraysViewDebug_General, "Client %d disconnected; spray cache cleared.", iClient);
 	BSSpraysView_ResetClient(iClient);
 }
+
+stock eBSSpraysViewTextLoc BSSpraysView_GetTextLocation()
+{
+	return view_as<eBSSpraysViewTextLoc>(g_cvBSSpraysViewTextLoc.IntValue);
+}
+
+stock bool BSSpraysView_HasInfoFlag(int iMask, eBSSpraysViewInfoMask eFlag)
+{
+	return ((iMask & view_as<int>(eFlag)) != 0);
+}
+
 public Action BSSpraysView_OnPlayerDecal(const char[] szName, const int[] iClients, int iCount, float flDelay)
 {
 	if (!g_cvBSSpraysViewEnabled.BoolValue)
@@ -131,7 +142,7 @@ public Action Timer_BSSpraysViewShowOwners(Handle hTimer)
 	if (!g_cvBSSpraysViewEnabled.BoolValue)
 		return Plugin_Continue;
 
-	if (g_cvBSSpraysViewTextLoc.IntValue == view_as<int>(kBSSpraysViewTextLoc_Disabled))
+	if (BSSpraysView_GetTextLocation() == kBSSpraysViewTextLoc_Disabled)
 		return Plugin_Continue;
 
 	float vecEnd[3];
@@ -218,16 +229,16 @@ stock void BSSpraysView_ResetClient(int iClient)
 
 stock void BSSpraysView_NormalizeTextLocation()
 {
-	int iTextLoc = g_cvBSSpraysViewTextLoc.IntValue;
-	if (iTextLoc == view_as<int>(kBSSpraysViewTextLoc_Disabled)
-		|| iTextLoc == view_as<int>(kBSSpraysViewTextLoc_Hint)
-		|| iTextLoc == view_as<int>(kBSSpraysViewTextLoc_Center))
+	eBSSpraysViewTextLoc eTextLoc = BSSpraysView_GetTextLocation();
+	if (eTextLoc == kBSSpraysViewTextLoc_Disabled
+		|| eTextLoc == kBSSpraysViewTextLoc_Hint
+		|| eTextLoc == kBSSpraysViewTextLoc_Center)
 	{
 		return;
 	}
 
 	g_cvBSSpraysViewTextLoc.SetInt(view_as<int>(kBSSpraysViewTextLoc_Hint), true);
-	BSSpraysView_Debug(kBSSpraysViewDebug_General, "Unsupported textloc=%d; forcing hint display.", iTextLoc);
+	BSSpraysView_Debug(kBSSpraysViewDebug_General, "Unsupported textloc=%d; forcing hint display.", view_as<int>(eTextLoc));
 }
 
 stock bool BSSpraysView_IsDebugEnabled(eBSSpraysViewDebugMask iMask)
@@ -242,7 +253,7 @@ stock void BSSpraysView_Debug(eBSSpraysViewDebugMask iMask, const char[] szMessa
 
 	static char szBuffer[512];
 	VFormat(szBuffer, sizeof(szBuffer), szMessage, 3);
-	LogToFileEx(g_szBSSpraysViewLogPath, "[Debug] %s", szBuffer);
+	BSLogToFileEx(g_szBSSpraysViewLogPath, "[Debug] %s", szBuffer);
 }
 
 stock void BSSpraysView_BuildClientInfoString(int iClient, char[] szBuffer, int iMaxLength, bool bCompact = false)
@@ -252,7 +263,7 @@ stock void BSSpraysView_BuildClientInfoString(int iClient, char[] szBuffer, int 
 	int iMask = g_cvBSSpraysViewInfoMask.IntValue;
 	int iFieldCount = 0;
 
-	if ((iMask & view_as<int>(kBSSpraysViewInfo_Name)) != 0)
+	if (BSSpraysView_HasInfoFlag(iMask, kBSSpraysViewInfo_Name))
 	{
 		BSSpraysView_AppendInfoSeparator(szBuffer, iMaxLength, bCompact, iFieldCount);
 
@@ -262,7 +273,7 @@ stock void BSSpraysView_BuildClientInfoString(int iClient, char[] szBuffer, int 
 		iFieldCount++;
 	}
 
-	if ((iMask & view_as<int>(kBSSpraysViewInfo_AccountId)) != 0)
+	if (BSSpraysView_HasInfoFlag(iMask, kBSSpraysViewInfo_AccountId))
 	{
 		BSSpraysView_AppendInfoSeparator(szBuffer, iMaxLength, bCompact, iFieldCount);
 
@@ -272,7 +283,7 @@ stock void BSSpraysView_BuildClientInfoString(int iClient, char[] szBuffer, int 
 		iFieldCount++;
 	}
 
-	if ((iMask & view_as<int>(kBSSpraysViewInfo_Steam2)) != 0)
+	if (BSSpraysView_HasInfoFlag(iMask, kBSSpraysViewInfo_Steam2))
 	{
 		BSSpraysView_AppendInfoSeparator(szBuffer, iMaxLength, bCompact, iFieldCount);
 
@@ -292,7 +303,7 @@ stock void BSSpraysView_BuildClientInfoString(int iClient, char[] szBuffer, int 
 		iFieldCount++;
 	}
 
-	if ((iMask & view_as<int>(kBSSpraysViewInfo_Ip)) != 0)
+	if (BSSpraysView_HasInfoFlag(iMask, kBSSpraysViewInfo_Ip))
 	{
 		BSSpraysView_AppendInfoSeparator(szBuffer, iMaxLength, bCompact, iFieldCount);
 

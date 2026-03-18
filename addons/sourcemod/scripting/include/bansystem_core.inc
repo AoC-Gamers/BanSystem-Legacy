@@ -27,6 +27,15 @@ enum eBSCoreCommType
 native bool BSCore_IsMapTransitionActive();
 
 /**
+ * Returns true if the BanSystem Core is ready to process auth work.
+ *
+ * Ready means map transition is complete and at least one summary backend is available.
+ *
+ * @return              True if the core auth pipeline is ready.
+ */
+native bool BSCore_IsAuthReady();
+
+/**
  * Returns true if the given client currently has a pending auth state inside the core.
  *
  * @param client        Client index.
@@ -126,6 +135,18 @@ native eBSCoreModuleBit BSCore_GetResolvedModuleMask(int client);
  */
 native eBSCoreCommType BSCore_GetResolvedCommType(int client);
 
+native int BSCore_GetResolvedCommLength(int client);
+native void BSCore_GetResolvedCommReason(int client, char[] buffer, int maxlen);
+native void BSCore_GetResolvedCommContext(int client, char[] buffer, int maxlen);
+native void BSCore_GetResolvedCommBannedByName(int client, char[] buffer, int maxlen);
+native int BSCore_GetResolvedCommExpireTs(int client);
+
+native int BSCore_GetResolvedSprayLength(int client);
+native void BSCore_GetResolvedSprayReason(int client, char[] buffer, int maxlen);
+native void BSCore_GetResolvedSprayContext(int client, char[] buffer, int maxlen);
+native void BSCore_GetResolvedSprayBannedByName(int client, char[] buffer, int maxlen);
+native int BSCore_GetResolvedSprayExpireTs(int client);
+
 /**
  * Returns the resolved ban id stored in the summary for the requested module bit.
  *
@@ -161,6 +182,7 @@ native bool BSCore_SetAccessSummary(int accountid, int banId);
  * @return              True if the summary mutation was accepted.
  */
 native bool BSCore_SetCommSummary(int accountid, int banId, eBSCoreCommType commType);
+native bool BSCore_SetCommSummaryDetail(int accountid, int banId, eBSCoreCommType commType, int length, const char[] reason, const char[] context, const char[] bannedByName, int expireTs);
 
 /**
  * Writes or updates the sprays summary state for an accountid.
@@ -170,6 +192,7 @@ native bool BSCore_SetCommSummary(int accountid, int banId, eBSCoreCommType comm
  * @return              True if the summary mutation was accepted.
  */
 native bool BSCore_SetSpraySummary(int accountid, int banId);
+native bool BSCore_SetSpraySummaryDetail(int accountid, int banId, int length, const char[] reason, const char[] context, const char[] bannedByName, int expireTs);
 
 /**
  * Clears one module bit from the summary state of an accountid.
@@ -225,6 +248,13 @@ forward void BSCore_OnCommDetailRequested(int client, int accountid, int banId, 
  */
 forward void BSCore_OnSprayDetailRequested(int client, int accountid, int banId);
 
+/**
+ * Fired when the core auth-ready state changes.
+ *
+ * @param ready         True when the core is ready to process auth work.
+ */
+forward void BSCore_OnAuthReadyChanged(bool ready);
+
 public SharedPlugin __pl_bansystem_core =
 {
 	name = "bansystem_core",
@@ -240,6 +270,7 @@ public SharedPlugin __pl_bansystem_core =
 public void __pl_bansystem_core_SetNTVOptional()
 {
 	MarkNativeAsOptional("BSCore_IsMapTransitionActive");
+	MarkNativeAsOptional("BSCore_IsAuthReady");
 	MarkNativeAsOptional("BSCore_IsClientAuthPending");
 	MarkNativeAsOptional("BSCore_IsLocalCleanCached");
 	MarkNativeAsOptional("BSCore_AddLocalCleanCache");
@@ -253,11 +284,23 @@ public void __pl_bansystem_core_SetNTVOptional()
 	MarkNativeAsOptional("BSCore_GetResolvedAccountId");
 	MarkNativeAsOptional("BSCore_GetResolvedModuleMask");
 	MarkNativeAsOptional("BSCore_GetResolvedCommType");
+	MarkNativeAsOptional("BSCore_GetResolvedCommLength");
+	MarkNativeAsOptional("BSCore_GetResolvedCommReason");
+	MarkNativeAsOptional("BSCore_GetResolvedCommContext");
+	MarkNativeAsOptional("BSCore_GetResolvedCommBannedByName");
+	MarkNativeAsOptional("BSCore_GetResolvedCommExpireTs");
+	MarkNativeAsOptional("BSCore_GetResolvedSprayLength");
+	MarkNativeAsOptional("BSCore_GetResolvedSprayReason");
+	MarkNativeAsOptional("BSCore_GetResolvedSprayContext");
+	MarkNativeAsOptional("BSCore_GetResolvedSprayBannedByName");
+	MarkNativeAsOptional("BSCore_GetResolvedSprayExpireTs");
 	MarkNativeAsOptional("BSCore_GetResolvedBanId");
 	MarkNativeAsOptional("BSCore_GetPendingDetailMask");
 	MarkNativeAsOptional("BSCore_SetAccessSummary");
 	MarkNativeAsOptional("BSCore_SetCommSummary");
+	MarkNativeAsOptional("BSCore_SetCommSummaryDetail");
 	MarkNativeAsOptional("BSCore_SetSpraySummary");
+	MarkNativeAsOptional("BSCore_SetSpraySummaryDetail");
 	MarkNativeAsOptional("BSCore_ClearSummaryModule");
 	MarkNativeAsOptional("BSCore_ClearSummary");
 	MarkNativeAsOptional("BSCore_MarkModuleDetailResolved");

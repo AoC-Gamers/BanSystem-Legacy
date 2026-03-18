@@ -92,4 +92,6 @@ public void BSComm_OnSchemaValidated(Database db, DBResultSet rsResult, const ch
 	delete rsResult;
 	g_bBSCommDatabaseReady = true;
 	BSComm_SQL("Communication schema validated.");
+	if (BSComm_CanUseCoreLibrary() && BSCore_IsAuthReady())
+		BSComm_ReconcileAllCommStatesFromCore();
 }

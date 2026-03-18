@@ -90,7 +90,7 @@ Action Command_BSSpraysAdd(int iClient, int iArgs)
 		return Plugin_Handled;
 	}
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
 		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Add, iLength, szReason, szContext, eReplySource);
 		return Plugin_Handled;
@@ -128,7 +128,7 @@ Action Command_BSSpraysRemove(int iClient, int iArgs)
 	int iNextArg = 0;
 	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
 		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Remove, 0, "", "", eReplySource);
 		return Plugin_Handled;
@@ -166,7 +166,7 @@ Action Command_BSSpraysInfo(int iClient, int iArgs)
 	int iNextArg = 0;
 	SteamIDTools_TryGetIdentityFromCmdArgs(1, iArgs, szInput, sizeof(szInput), iNextArg);
 
-	if (DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
+	if (IsValidSteamID64(szInput) || DetectSteamIDFormat(szInput) == STEAMID_FORMAT_STEAMID64)
 	{
 		BSSprays_QueueIdentityLookup(iClient, szInput, kBSSpraysIdentityAction_Info, 0, "", "", eReplySource);
 		return Plugin_Handled;

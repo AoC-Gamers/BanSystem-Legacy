@@ -265,37 +265,37 @@ public void BSModularTest_OnConnect(Handle hOwner, Handle hndl, const char[] szE
 	PrintToServer("[BS Modular Test] DB connected.");
 }
 
-public Action Timer_BSModularTestCommBanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestCommBanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_CommBanCheck, iUserId);
 	return Plugin_Stop;
 }
 
-public Action Timer_BSModularTestCommUnbanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestCommUnbanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_CommUnbanCheck, iUserId);
 	return Plugin_Stop;
 }
 
-public Action Timer_BSModularTestSpraysBanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestSpraysBanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_SpraysBanCheck, iUserId);
 	return Plugin_Stop;
 }
 
-public Action Timer_BSModularTestSpraysUnbanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestSpraysUnbanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_SpraysUnbanCheck, iUserId);
 	return Plugin_Stop;
 }
 
-public Action Timer_BSModularTestAccessBanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestAccessBanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_AccessBanCheck, iUserId);
 	return Plugin_Stop;
 }
 
-public Action Timer_BSModularTestAccessUnbanCheck(Handle hTimer, any iUserId)
+public Action Timer_BSModularTestAccessUnbanCheck(Handle hTimer, int iUserId)
 {
 	BSModularTest_QueueModuleStateCheck(kBSModularTestStep_AccessUnbanCheck, iUserId);
 	return Plugin_Stop;
@@ -357,6 +357,18 @@ stock void BSModularTest_RecordCheck(int iAdminUserId, const char[] szName, bool
 	);
 }
 
+stock bool BSModularTest_SummaryHasModule(eBSCoreModuleBit eModuleMask, eBSCoreModuleBit eModuleBit)
+{
+	return ((view_as<int>(eModuleMask) & view_as<int>(eModuleBit)) != 0);
+}
+
+stock void BSModularTest_ReadModuleStateContext(DataPack pContext, int &iAdminUserId, eBSModularTestStep &eStep)
+{
+	pContext.Reset();
+	iAdminUserId = pContext.ReadCell();
+	eStep = view_as<eBSModularTestStep>(pContext.ReadCell());
+}
+
 stock void BSModularTest_QueueModuleStateCheck(eBSModularTestStep eStep, int iAdminUserId)
 {
 	if (g_dbBSModularTest == null || !g_eBSModularTestSession.m_bActive)
@@ -407,9 +419,9 @@ stock void BSModularTest_QueueModuleStateCheck(eBSModularTestStep eStep, int iAd
 public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)
 {
 	DataPack pContext = view_as<DataPack>(pData);
-	pContext.Reset();
-	int iAdminUserId = pContext.ReadCell();
-	eBSModularTestStep eStep = view_as<eBSModularTestStep>(pContext.ReadCell());
+	int iAdminUserId;
+	eBSModularTestStep eStep;
+	BSModularTest_ReadModuleStateContext(pContext, iAdminUserId, eStep);
 	delete pContext;
 
 	if (rsResult == null || szError[0] != '\0')
@@ -427,7 +439,7 @@ public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult,
 	}
 
 	bool bModuleActive = rsResult.FetchInt(0) != 0;
-	int iModuleMask = rsResult.FetchInt(1);
+	eBSCoreModuleBit eModuleMask = view_as<eBSCoreModuleBit>(rsResult.FetchInt(1));
 	int iBanId = rsResult.FetchInt(2);
 	delete rsResult;
 
@@ -439,7 +451,7 @@ public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult,
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "state-comm-ban", iTarget > 0 && BSComm_IsClientBanned(iTarget));
 			BSModularTest_RecordCheck(iAdminUserId, "db-comm-ban", bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-comm-ban", ((iModuleMask & 2) != 0) && iBanId > 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-comm-ban", BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Communication) && iBanId > 0);
 			BSComm_RemoveBanByAccountId(0, g_eBSModularTestSession.m_iAccountId);
 			CreateTimer(1.0, Timer_BSModularTestCommUnbanCheck, iAdminUserId, TIMER_FLAG_NO_MAPCHANGE);
 		}
@@ -448,14 +460,14 @@ public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult,
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "state-comm-unban", iTarget <= 0 || !BSComm_IsClientBanned(iTarget));
 			BSModularTest_RecordCheck(iAdminUserId, "db-comm-unban", !bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-comm-unban", (iModuleMask & 2) == 0 && iBanId == 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-comm-unban", !BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Communication) && iBanId == 0);
 		}
 
 		case kBSModularTestStep_SpraysBanCheck:
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "state-sprays-ban", iTarget > 0 && BSSprays_IsClientBanned(iTarget));
 			BSModularTest_RecordCheck(iAdminUserId, "db-sprays-ban", bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-sprays-ban", ((iModuleMask & 4) != 0) && iBanId > 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-sprays-ban", BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Sprays) && iBanId > 0);
 			BSSprays_RemoveBanByAccountId(0, g_eBSModularTestSession.m_iAccountId);
 			CreateTimer(1.0, Timer_BSModularTestSpraysUnbanCheck, iAdminUserId, TIMER_FLAG_NO_MAPCHANGE);
 		}
@@ -464,14 +476,14 @@ public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult,
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "state-sprays-unban", iTarget <= 0 || !BSSprays_IsClientBanned(iTarget));
 			BSModularTest_RecordCheck(iAdminUserId, "db-sprays-unban", !bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-sprays-unban", (iModuleMask & 4) == 0 && iBanId == 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-sprays-unban", !BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Sprays) && iBanId == 0);
 		}
 
 		case kBSModularTestStep_AccessBanCheck:
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "disconnect-access-ban", g_eBSModularTestSession.m_bSawAccessDisconnect);
 			BSModularTest_RecordCheck(iAdminUserId, "db-access-ban", bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-access-ban", ((iModuleMask & 1) != 0) && iBanId > 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-access-ban", BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Access) && iBanId > 0);
 			BSAccess_RemoveBanByAccountId(0, g_eBSModularTestSession.m_iAccountId);
 			CreateTimer(1.0, Timer_BSModularTestAccessUnbanCheck, iAdminUserId, TIMER_FLAG_NO_MAPCHANGE);
 		}
@@ -479,7 +491,7 @@ public void BSModularTest_OnModuleStateLoaded(Database db, DBResultSet rsResult,
 		case kBSModularTestStep_AccessUnbanCheck:
 		{
 			BSModularTest_RecordCheck(iAdminUserId, "db-access-unban", !bModuleActive);
-			BSModularTest_RecordCheck(iAdminUserId, "summary-access-unban", (iModuleMask & 1) == 0 && iBanId == 0);
+			BSModularTest_RecordCheck(iAdminUserId, "summary-access-unban", !BSModularTest_SummaryHasModule(eModuleMask, kBSCoreModule_Access) && iBanId == 0);
 		}
 	}
 }
