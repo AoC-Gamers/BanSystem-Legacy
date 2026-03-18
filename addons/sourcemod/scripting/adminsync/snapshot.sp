@@ -29,11 +29,24 @@ void vEnsureLocalSQLiteSchema()
 	if (g_dbLocal == null)
 		return;
 
-	SQL_FastQuery(g_dbLocal, "CREATE TABLE IF NOT EXISTS `adminsync_admins` (`id` INTEGER PRIMARY KEY, `accountid` INTEGER NOT NULL, `name` TEXT NOT NULL DEFAULT 'UNKNOWN', `flags` TEXT NOT NULL DEFAULT '', `immunity` INTEGER NOT NULL DEFAULT 0, `enabled` INTEGER NOT NULL DEFAULT 1);");
+	char szQuery[512];
+	int iLen = 0;
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "CREATE TABLE IF NOT EXISTS `adminsync_admins` ");
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "(`id` INTEGER PRIMARY KEY, `accountid` INTEGER NOT NULL, `name` TEXT NOT NULL DEFAULT 'UNKNOWN', ");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "`flags` TEXT NOT NULL DEFAULT '', `immunity` INTEGER NOT NULL DEFAULT 0, `enabled` INTEGER NOT NULL DEFAULT 1);");
+	SQL_FastQuery(g_dbLocal, szQuery);
 	SQL_FastQuery(g_dbLocal, "CREATE UNIQUE INDEX IF NOT EXISTS `idx_adminsync_admins_accountid` ON `adminsync_admins` (`accountid`);");
-	SQL_FastQuery(g_dbLocal, "CREATE TABLE IF NOT EXISTS `adminsync_groups` (`id` INTEGER PRIMARY KEY, `name` TEXT NOT NULL, `flags` TEXT NOT NULL DEFAULT '', `immunity_level` INTEGER NOT NULL DEFAULT 0, `enabled` INTEGER NOT NULL DEFAULT 1);");
+	szQuery[0] = '\0';
+	iLen = 0;
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "CREATE TABLE IF NOT EXISTS `adminsync_groups` ");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "(`id` INTEGER PRIMARY KEY, `name` TEXT NOT NULL, `flags` TEXT NOT NULL DEFAULT '', `immunity_level` INTEGER NOT NULL DEFAULT 0, `enabled` INTEGER NOT NULL DEFAULT 1);");
+	SQL_FastQuery(g_dbLocal, szQuery);
 	SQL_FastQuery(g_dbLocal, "CREATE UNIQUE INDEX IF NOT EXISTS `idx_adminsync_groups_name` ON `adminsync_groups` (`name`);");
-	SQL_FastQuery(g_dbLocal, "CREATE TABLE IF NOT EXISTS `adminsync_admins_groups` (`admin_id` INTEGER NOT NULL, `group_id` INTEGER NOT NULL, `inherit_order` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (`admin_id`, `group_id`));");
+	szQuery[0] = '\0';
+	iLen = 0;
+	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "CREATE TABLE IF NOT EXISTS `adminsync_admins_groups` ");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "(`admin_id` INTEGER NOT NULL, `group_id` INTEGER NOT NULL, `inherit_order` INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (`admin_id`, `group_id`));");
+	SQL_FastQuery(g_dbLocal, szQuery);
 	vAdminSyncDebug("Ensured local SQLite snapshot schema.");
 }
 

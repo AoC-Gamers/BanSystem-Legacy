@@ -66,7 +66,8 @@ stock void BSAccess_QueueInfoByAccountId(int iAdmin, int iAccountId, ReplySource
 
 	char szQuery[512];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `ban_length`, `ban_reason`, `ban_context`, ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE `accountid` = %d ", iAccountId);
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
 
@@ -84,7 +85,8 @@ stock void BSAccess_QueueList(int iAdmin, int iLimit, ReplySource eReplySource =
 
 	char szQuery[768];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `accountid`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `player_name`, `accountid`, `ban_length`, `ban_reason`, `ban_context`, ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`banned_by`, `banned_by_name`, IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ORDER BY `date_reg` DESC LIMIT %d;", iLimit);
 
@@ -133,9 +135,13 @@ stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 
 	char szQuery[2048];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `bansystem_access_bans` (`accountid`, `steamid64`, `player_name`, `ip_address`, `ban_length`, `ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`) ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `bansystem_access_bans` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "(`accountid`, `steamid64`, `player_name`, `ip_address`, `ban_length`, `ban_reason`, ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`) ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES (%d, '%s', '%s', '%s', %d, '%s', '%s', %d, '%s', '%s') ", iAccountId, szSafeSteamId64, szSafePlayerName, szSafeIpAddress, iLength, szSafeReason, szSafeContext, iAdminAccountId, szSafeAdminName, szSafeAdminSteamId64);
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ON DUPLICATE KEY UPDATE `steamid64` = VALUES(`steamid64`), `player_name` = VALUES(`player_name`), `ip_address` = VALUES(`ip_address`), `ban_length` = VALUES(`ban_length`), `ban_reason` = VALUES(`ban_reason`), `ban_context` = VALUES(`ban_context`), `banned_by` = VALUES(`banned_by`), `banned_by_name` = VALUES(`banned_by_name`), `banned_by_steamid64` = VALUES(`banned_by_steamid64`);");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "ON DUPLICATE KEY UPDATE `steamid64` = VALUES(`steamid64`), `player_name` = VALUES(`player_name`), ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ip_address` = VALUES(`ip_address`), `ban_length` = VALUES(`ban_length`), `ban_reason` = VALUES(`ban_reason`), ");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_context` = VALUES(`ban_context`), `banned_by` = VALUES(`banned_by`), `banned_by_name` = VALUES(`banned_by_name`), `banned_by_steamid64` = VALUES(`banned_by_steamid64`);");
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(BSGetCommandIssuerUserId(iAdmin));
@@ -317,11 +323,14 @@ stock void BSAccess_RecordAttempt(int iClient)
 
 	char szQuery[512];
 	int iLen = 0;
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `bansystem_access_attempts` (`accountid`, `steamid64`, `player_name`, `ip_address`) VALUES (%d, '%s', '%s', '%s');", iAccountId, szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `bansystem_access_attempts` ");
+	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "(`accountid`, `steamid64`, `player_name`, `ip_address`) ");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES (%d, '%s', '%s', '%s');", iAccountId, szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
 
 	char szUpdateQuery[512];
 	iLen = 0;
-	iLen += g_dbBSAccess.Format(szUpdateQuery[iLen], sizeof(szUpdateQuery) - iLen, "UPDATE `bansystem_access_bans` SET `steamid64` = '%s', `player_name` = '%s', `ip_address` = '%s' WHERE `accountid` = %d;", szSafeSteamId64, szSafePlayerName, szSafeIpAddress, iAccountId);
+	iLen += g_dbBSAccess.Format(szUpdateQuery[iLen], sizeof(szUpdateQuery) - iLen, "UPDATE `bansystem_access_bans` SET `steamid64` = '%s', `player_name` = '%s', ", szSafeSteamId64, szSafePlayerName);
+	Format(szUpdateQuery[iLen], sizeof(szUpdateQuery) - iLen, "`ip_address` = '%s' WHERE `accountid` = %d;", szSafeIpAddress, iAccountId);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(iAccountId);

@@ -5,13 +5,12 @@
 #include <colors>
 
 #undef REQUIRE_PLUGIN
-#include <steamidtools>
-#define REQUIRE_PLUGIN
-
 #include <bansystem_core>
 #include <bansystem_access>
 #include <bansystem_comm>
 #include <bansystem_sprays>
+#include <steamidtools>
+#define REQUIRE_PLUGIN
 
 #define BANSYSTEM_MODULAR_TEST_VERSION "0.1.0-dev"
 
@@ -384,24 +383,30 @@ stock void BSModularTest_QueueModuleStateCheck(eBSModularTestStep eStep, int iAd
 		{
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT ");
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "EXISTS(SELECT 1 FROM `bansystem_comm_bans` WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP())) AS `module_active`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `comm_ban_id` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `comm_ban_id` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
 		}
 
 		case kBSModularTestStep_SpraysBanCheck, kBSModularTestStep_SpraysUnbanCheck:
 		{
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT ");
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "EXISTS(SELECT 1 FROM `bansystem_spray_bans` WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP())) AS `module_active`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `spray_ban_id` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `spray_ban_id` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
 		}
 
 		case kBSModularTestStep_AccessBanCheck, kBSModularTestStep_AccessUnbanCheck:
 		{
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT ");
 			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "EXISTS(SELECT 1 FROM `bansystem_access_bans` WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP())) AS `module_active`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
-			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `access_ban_id` FROM `bansystem_summary` WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `module_mask` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `module_mask`, ", iAccountId);
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL((SELECT `access_ban_id` FROM `bansystem_summary` ");
+			iLen += g_dbBSModularTest.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d LIMIT 1), 0) AS `ban_id`;", iAccountId);
 		}
 
 		default:

@@ -3,13 +3,12 @@
 
 #include <sourcemod>
 #include <colors>
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <steamidtools>
 #include <steamidtools_helpers>
 #define REQUIRE_PLUGIN
-
-#include <bansystem_shared>
 
 #define PLUGIN_VERSION "0.1.0"
 #define ADMINSYNC_DEBUG_LOG "logs/bansystem/BanSystem_AdminSync.log"

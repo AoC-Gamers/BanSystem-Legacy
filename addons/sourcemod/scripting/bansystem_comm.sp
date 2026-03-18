@@ -4,16 +4,12 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <steamidtools>
 #include <steamidtools_helpers>
 #include <basecomm>
-#define REQUIRE_PLUGIN
-
-#include <bansystem_shared>
-
-#undef REQUIRE_PLUGIN
 #include <bansystem_core>
 #define REQUIRE_PLUGIN
 

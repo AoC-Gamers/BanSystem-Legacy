@@ -4,12 +4,11 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
+#include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <steamidtools>
 #define REQUIRE_PLUGIN
-
-#include <bansystem_shared>
 
 #define BANSYSTEM_CORE_VERSION "0.1.0-dev"
 #define BANSYSTEM_CORE_DEBUG_LOG "logs/bansystem/BanSystem_Core.log"

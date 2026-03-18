@@ -4,14 +4,10 @@
 #include <sourcemod>
 #include <sdktools>
 #include <colors>
-
 #include <bansystem_shared>
 
 #undef REQUIRE_PLUGIN
 #include <bansystem_core>
-#define REQUIRE_PLUGIN
-
-#undef REQUIRE_PLUGIN
 #include <bansystem_access>
 #define REQUIRE_PLUGIN
 
