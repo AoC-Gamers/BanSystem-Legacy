@@ -8,6 +8,15 @@ DIST_DIR="$ROOT_DIR/dist/sourcemod"
 ARTIFACT_DIR="$DIST_DIR/artifact"
 SOURCEMOD_ARCHIVE_URL="${SOURCEMOD_ARCHIVE_URL:?SOURCEMOD_ARCHIVE_URL is required}"
 
+PROJECT_INCLUDE_FILES=(
+  "bansystem_core.inc"
+  "bansystem_access.inc"
+  "bansystem_comm.inc"
+  "bansystem_sprays.inc"
+  "bansystem_adminsync.inc"
+  "bansystem_shared.inc"
+)
+
 rm -rf "$WORK_DIR" "$DIST_DIR"
 mkdir -p "$WORK_DIR" "$ARTIFACT_DIR"
 
@@ -20,9 +29,10 @@ SPCOMP_BIN="$SOURCEMOD_DIR/addons/sourcemod/scripting/spcomp"
 SOURCEMOD_INCLUDE_DIR="$SOURCEMOD_DIR/addons/sourcemod/scripting/include"
 LOCAL_INCLUDE_DIR="$ROOT_DIR/addons/sourcemod/scripting/include"
 PACKAGE_SM_DIR="$ARTIFACT_DIR/addons/sourcemod"
+PACKAGE_PLUGIN_DIR="$PACKAGE_SM_DIR/plugins/bansystem"
 COMPILE_LOG="$ARTIFACT_DIR/compile.log"
 
-mkdir -p "$PACKAGE_SM_DIR/plugins"
+mkdir -p "$PACKAGE_PLUGIN_DIR"
 : > "$COMPILE_LOG"
 
 compile_plugin() {
@@ -38,13 +48,13 @@ compile_plugin() {
     2>&1 | tee -a "$COMPILE_LOG"
 }
 
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_core.sp" "$PACKAGE_SM_DIR/plugins/bansystem_core.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_access.sp" "$PACKAGE_SM_DIR/plugins/bansystem_access.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_comm.sp" "$PACKAGE_SM_DIR/plugins/bansystem_comm.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_sprays.sp" "$PACKAGE_SM_DIR/plugins/bansystem_sprays.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_sprays_view.sp" "$PACKAGE_SM_DIR/plugins/bansystem_sprays_view.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_adminsync.sp" "$PACKAGE_SM_DIR/plugins/bansystem_adminsync.smx"
-compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_adminmenu.sp" "$PACKAGE_SM_DIR/plugins/bansystem_adminmenu.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_core.sp" "$PACKAGE_PLUGIN_DIR/bansystem_core.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_access.sp" "$PACKAGE_PLUGIN_DIR/bansystem_access.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_comm.sp" "$PACKAGE_PLUGIN_DIR/bansystem_comm.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_sprays.sp" "$PACKAGE_PLUGIN_DIR/bansystem_sprays.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_sprays_view.sp" "$PACKAGE_PLUGIN_DIR/bansystem_sprays_view.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_adminsync.sp" "$PACKAGE_PLUGIN_DIR/bansystem_adminsync.smx"
+compile_plugin "$ROOT_DIR/addons/sourcemod/scripting/bansystem_adminmenu.sp" "$PACKAGE_PLUGIN_DIR/bansystem_adminmenu.smx"
 
 for plugin in \
   bansystem_core.smx \
@@ -55,7 +65,7 @@ for plugin in \
   bansystem_adminsync.smx \
   bansystem_adminmenu.smx
 do
-  if [[ ! -f "$PACKAGE_SM_DIR/plugins/$plugin" ]]; then
+  if [[ ! -f "$PACKAGE_PLUGIN_DIR/$plugin" ]]; then
     echo "Compiled plugin was not generated: $plugin" >&2
     exit 1
   fi
@@ -79,14 +89,12 @@ cp -R "$ROOT_DIR/addons/sourcemod/scripting/bansystem_core" "$PACKAGE_SCRIPTING_
 cp -R "$ROOT_DIR/addons/sourcemod/scripting/bansystem_access" "$PACKAGE_SCRIPTING_DIR/"
 cp -R "$ROOT_DIR/addons/sourcemod/scripting/bansystem_comm" "$PACKAGE_SCRIPTING_DIR/"
 cp -R "$ROOT_DIR/addons/sourcemod/scripting/bansystem_sprays" "$PACKAGE_SCRIPTING_DIR/"
-cp -R "$ROOT_DIR/addons/sourcemod/scripting/adminsync" "$PACKAGE_SCRIPTING_DIR/"
+cp -R "$ROOT_DIR/addons/sourcemod/scripting/bansystem_adminsync" "$PACKAGE_SCRIPTING_DIR/"
 
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_core.inc" "$PACKAGE_INCLUDE_DIR/"
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_access.inc" "$PACKAGE_INCLUDE_DIR/"
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_comm.inc" "$PACKAGE_INCLUDE_DIR/"
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_sprays.inc" "$PACKAGE_INCLUDE_DIR/"
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_adminsync.inc" "$PACKAGE_INCLUDE_DIR/"
-cp "$ROOT_DIR/addons/sourcemod/scripting/include/bansystem_shared.inc" "$PACKAGE_INCLUDE_DIR/"
+for include_file in "${PROJECT_INCLUDE_FILES[@]}"
+do
+  cp "$ROOT_DIR/addons/sourcemod/scripting/include/$include_file" "$PACKAGE_INCLUDE_DIR/"
+done
 
 cp "$ROOT_DIR/addons/sourcemod/translations/bansystem_core.phrases.txt" "$PACKAGE_TRANSLATIONS_DIR/"
 cp "$ROOT_DIR/addons/sourcemod/translations/bansystem_access.phrases.txt" "$PACKAGE_TRANSLATIONS_DIR/"
@@ -96,6 +104,25 @@ cp "$ROOT_DIR/addons/sourcemod/translations/bansystem_sprays_view.phrases.txt" "
 cp "$ROOT_DIR/addons/sourcemod/translations/bansystem_adminsync.phrases.txt" "$PACKAGE_TRANSLATIONS_DIR/"
 cp "$ROOT_DIR/addons/sourcemod/translations/bansystem_adminmenu.phrases.txt" "$PACKAGE_TRANSLATIONS_DIR/"
 
-cp -R "$ROOT_DIR/addons/sourcemod/configs/sql-init-bansystem" "$PACKAGE_SM_DIR/configs/"
+mkdir -p "$PACKAGE_SM_DIR/configs/sql-init-bansystem"
+cp -R "$ROOT_DIR/addons/sourcemod/configs/sql-init-bansystem/mysql" "$PACKAGE_SM_DIR/configs/sql-init-bansystem/"
+
+for packaged_include in "$PACKAGE_INCLUDE_DIR"/*.inc
+do
+  packaged_name="$(basename "$packaged_include")"
+  is_allowed="false"
+  for allowed_include in "${PROJECT_INCLUDE_FILES[@]}"
+  do
+    if [[ "$packaged_name" == "$allowed_include" ]]; then
+      is_allowed="true"
+      break
+    fi
+  done
+
+  if [[ "$is_allowed" != "true" ]]; then
+    echo "Unexpected external include in packaged artifact: $packaged_name" >&2
+    exit 1
+  fi
+done
 
 echo "SourceMod artifacts generated in $ARTIFACT_DIR"
