@@ -25,7 +25,7 @@ La forma recomendada es descargar los binarios generados por CI desde GitHub Rel
 - `bansystem-develop.zip`
   - canal de integracion desde `develop`
 - `bansystem-<version>.zip`
-  - release versionada por tag `sourcemod/vX.Y.Z`
+  - release versionada por tag `vX.Y.Z`
 
 Despliegue:
 

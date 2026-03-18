@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags:
-      - sourcemod/v*
+      - v*
   workflow_dispatch:
 
 concurrency:
@@ -74,6 +74,13 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
         run: bash ./scripts/ci-package-release-assets.sh
 
+      - name: Extract release notes from changelog
+        env:
+          RELEASE_VERSION: ${{ needs.prepare-release.outputs.version }}
+        run: |
+          mkdir -p dist/release
+          bash ./scripts/ci-extract-changelog-release-notes.sh "$RELEASE_VERSION" dist/release/release-notes.md
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -82,12 +89,13 @@ jobs:
           tag="${GITHUB_REF_NAME}"
           title="${{ needs.prepare-release.outputs.release_name }}"
           asset="dist/release/bansystem-${{ needs.prepare-release.outputs.version }}.zip"
+          notes="dist/release/release-notes.md"
 
           if gh release view "$tag" >/dev/null 2>&1; then
             if [[ "${{ needs.prepare-release.outputs.prerelease }}" == "true" ]]; then
-              gh release edit "$tag" --title "$title" --prerelease
+              gh release edit "$tag" --title "$title" --notes-file "$notes" --prerelease
             else
-              gh release edit "$tag" --title "$title" --latest
+              gh release edit "$tag" --title "$title" --notes-file "$notes" --latest
             fi
 
             gh release upload "$tag" "$asset" --clobber
@@ -95,7 +103,7 @@ jobs:
           fi
 
           if [[ "${{ needs.prepare-release.outputs.prerelease }}" == "true" ]]; then
-            gh release create "$tag" "$asset" --title "$title" --generate-notes --verify-tag --prerelease
+            gh release create "$tag" "$asset" --title "$title" --notes-file "$notes" --verify-tag --prerelease
           else
-            gh release create "$tag" "$asset" --title "$title" --generate-notes --verify-tag --latest
+            gh release create "$tag" "$asset" --title "$title" --notes-file "$notes" --verify-tag --latest
           fi

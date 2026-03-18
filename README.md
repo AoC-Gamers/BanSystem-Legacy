@@ -64,7 +64,7 @@ Suite modular de sanciones para SourceMod.
 - [Autorizacion](doc/AUTHORIZATION.md)
 - [AdminSync](doc/ADMINSYNC.md)
 - [Changelog](CHANGELOG.md)
-- [SQL init scripts](addons/sourcemod/configs/sql-init-bansystem/README.md)
+- [SQL init scripts](doc/SQL_INIT_SCRIPTS.md)
 - [SQLite en SourceMod](doc/SQLITE_SOURCEMOD.md)
 
 ## SQL

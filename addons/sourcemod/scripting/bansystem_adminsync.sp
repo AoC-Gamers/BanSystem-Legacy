@@ -75,13 +75,13 @@ enum AdminSyncIdentityAction
 	IdentityAction_AdminRemoveGroup
 }
 
-#include "adminsync/helpers.sp"
-#include "adminsync/api.sp"
-#include "adminsync/commands.sp"
-#include "adminsync/snapshot.sp"
-#include "adminsync/admincache.sp"
-#include "adminsync/db.sp"
-#include "adminsync/mutations.sp"
+#include "bansystem_adminsync/helpers.sp"
+#include "bansystem_adminsync/api.sp"
+#include "bansystem_adminsync/commands.sp"
+#include "bansystem_adminsync/snapshot.sp"
+#include "bansystem_adminsync/admincache.sp"
+#include "bansystem_adminsync/db.sp"
+#include "bansystem_adminsync/mutations.sp"
 
 public void OnPluginStart()
 {
