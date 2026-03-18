@@ -100,6 +100,11 @@ stock bool BSComm_CanUseDatabase()
 	return (g_dbBSComm != null && g_bBSCommDatabaseReady);
 }
 
+stock bool BSComm_HasResolvedCommunicationModule(int iClient)
+{
+	return ((BSCore_GetResolvedModuleMask(iClient) & kBSCoreModule_Communication) != kBSCoreModule_None);
+}
+
 stock SteamIDToolsProvider BSComm_GetSteamIdLookupProvider()
 {
 	if (!SteamIDTools_IsLibraryAvailable())

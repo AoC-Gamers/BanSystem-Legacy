@@ -26,7 +26,7 @@ stock void BSComm_ReconcileClientCommStateFromCore(int iClient)
 		return;
 	}
 
-	if ((view_as<int>(BSCore_GetResolvedModuleMask(iClient)) & view_as<int>(kBSCoreModule_Communication)) == 0)
+	if (!BSComm_HasResolvedCommunicationModule(iClient))
 	{
 		BSComm_SQL("Comm reconcile skipped for client %d: resolved module mask %d has no communication bit.", iClient, view_as<int>(BSCore_GetResolvedModuleMask(iClient)));
 		return;

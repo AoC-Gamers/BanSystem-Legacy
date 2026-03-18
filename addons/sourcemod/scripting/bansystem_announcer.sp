@@ -344,11 +344,10 @@ stock bool BSAnnouncer_BuildSummaryText(int iViewer, int iTarget, char[] szBuffe
 		return false;
 	}
 
-	int iMask = view_as<int>(BSCore_GetResolvedModuleMask(iTarget));
-	iMask &= view_as<int>(BSCore_GetRegisteredModuleMask());
-	bool bHasComm = (iMask & view_as<int>(kBSCoreModule_Communication)) != 0;
-	bool bHasSprays = (iMask & view_as<int>(kBSCoreModule_Sprays)) != 0;
-	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "BuildSummaryText mask evaluation: viewer=%d target=%d resolved_mask=%d registered_mask=%d effective_mask=%d has_comm=%d has_sprays=%d comm_type=%d", iViewer, iTarget, view_as<int>(BSCore_GetResolvedModuleMask(iTarget)), view_as<int>(BSCore_GetRegisteredModuleMask()), iMask, bHasComm ? 1 : 0, bHasSprays ? 1 : 0, view_as<int>(BSCore_GetResolvedCommType(iTarget)));
+	eBSCoreModuleBit eEffectiveMask = BSAnnouncer_GetEffectiveResolvedModuleMask(iTarget);
+	bool bHasComm = BSAnnouncer_HasEffectiveResolvedModule(iTarget, kBSCoreModule_Communication);
+	bool bHasSprays = BSAnnouncer_HasEffectiveResolvedModule(iTarget, kBSCoreModule_Sprays);
+	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "BuildSummaryText mask evaluation: viewer=%d target=%d resolved_mask=%d registered_mask=%d effective_mask=%d has_comm=%d has_sprays=%d comm_type=%d", iViewer, iTarget, view_as<int>(BSCore_GetResolvedModuleMask(iTarget)), view_as<int>(BSCore_GetRegisteredModuleMask()), view_as<int>(eEffectiveMask), bHasComm ? 1 : 0, bHasSprays ? 1 : 0, view_as<int>(BSCore_GetResolvedCommType(iTarget)));
 	if (!bHasComm && !bHasSprays)
 		return false;
 
@@ -437,11 +436,9 @@ stock void BSAnnouncer_FormatExpireDisplay(int iExpireTs, char[] szBuffer, int i
 
 stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient, const char[] szSummary)
 {
-	int iMask = view_as<int>(BSCore_GetResolvedModuleMask(iClient));
-	iMask &= view_as<int>(BSCore_GetRegisteredModuleMask());
 	bool bHeaderPrinted = false;
 
-	if ((iMask & view_as<int>(kBSCoreModule_Communication)) != 0)
+	if (BSAnnouncer_HasEffectiveResolvedModule(iClient, kBSCoreModule_Communication))
 	{
 		if (!bHeaderPrinted)
 		{
@@ -472,7 +469,7 @@ stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient, const char[] s
 		BSAnnouncer_PrintConsoleLine(iClient, "%T", "BSAnnouncerConsoleComm", iClient, szType, BSCore_GetResolvedCommLength(iClient), szReason[0] != '\0' ? szReason : "-", szContext[0] != '\0' ? szContext : "-", szAdmin[0] != '\0' ? szAdmin : "Console", szExpire);
 	}
 
-	if ((iMask & view_as<int>(kBSCoreModule_Sprays)) != 0)
+	if (BSAnnouncer_HasEffectiveResolvedModule(iClient, kBSCoreModule_Sprays))
 	{
 		if (!bHeaderPrinted)
 		{
@@ -493,6 +490,18 @@ stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient, const char[] s
 
 	if (bHeaderPrinted)
 		BSAnnouncer_FinishConsoleBlock(iClient);
+}
+
+stock eBSCoreModuleBit BSAnnouncer_GetEffectiveResolvedModuleMask(int iClient)
+{
+	eBSCoreModuleBit eMask = BSCore_GetResolvedModuleMask(iClient);
+	eMask &= BSCore_GetRegisteredModuleMask();
+	return eMask;
+}
+
+stock bool BSAnnouncer_HasEffectiveResolvedModule(int iClient, eBSCoreModuleBit eModuleBit)
+{
+	return ((BSAnnouncer_GetEffectiveResolvedModuleMask(iClient) & eModuleBit) != kBSCoreModule_None);
 }
 
 stock void BSAnnouncer_CReplyToCommandWithSource(int iClient, ReplySource eReplySource, const char[] szFormat, any ...)
