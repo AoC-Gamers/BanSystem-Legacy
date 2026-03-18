@@ -12,7 +12,7 @@
 #include <steamidtools>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_MODULAR_TEST_VERSION "0.1.0-dev"
+#define BANSYSTEM_MODULAR_TEST_VERSION "1.1.0"
 
 enum eBSModularTestStep
 {

@@ -10,7 +10,7 @@
 #include <steamidtools_helpers>
 #define REQUIRE_PLUGIN
 
-#define PLUGIN_VERSION "0.1.0"
+#define PLUGIN_VERSION "1.1.0"
 #define ADMINSYNC_DEBUG_LOG "logs/bansystem/BanSystem_AdminSync.log"
 
 #define MYSQL_TABLE_ADMINS "adminsync_admins"

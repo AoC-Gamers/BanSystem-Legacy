@@ -10,7 +10,7 @@
 #include <steamidtools>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_CORE_VERSION "0.1.0-dev"
+#define BANSYSTEM_CORE_VERSION "1.1.0"
 #define BANSYSTEM_CORE_DEBUG_LOG "logs/bansystem/BanSystem_Core.log"
 
 Database g_dbCorePrimary;

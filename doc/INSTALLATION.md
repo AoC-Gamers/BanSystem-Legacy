@@ -18,7 +18,7 @@ Dependencias opcionales:
 
 ## Despliegue minimo
 
-La forma recomendada es descargar los binarios generados por CI en GitHub Releases:
+La forma recomendada es descargar los binarios generados por CI desde GitHub Releases:
 
 - `bansystem-latest.zip`
   - canal estable desde `main`
@@ -37,11 +37,11 @@ Despliegue:
 
 Compilacion local:
 
-- sigue siendo util para desarrollo o cambios propios de la suite
+- util para desarrollo o cambios propios de la suite
 
 ## SQL de MySQL
 
-BanSystem no instala automaticamente el schema MySQL.
+BanSystem no instala automaticamente el schema MySQL principal.
 
 Importa:
 
@@ -113,7 +113,7 @@ Carga:
 
 ## Orden practico de carga
 
-La forma mas limpia es:
+Orden recomendado:
 
 1. `steamidtools` si lo usas
 2. `basecomm` si lo usas

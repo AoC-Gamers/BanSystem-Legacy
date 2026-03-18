@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-03-18
 
 - runtime SQL
   - se documenta como limitacion oficial que `CALL` + `SQL_TQuery` no es confiable en SourceMod DBI cuando un procedure puede devolver multiples resultsets
@@ -25,6 +25,17 @@
   - `README.md` paso a ser introduccion e indice
   - se agregaron `doc/INSTALLATION.md`, `doc/PLUGINS.md`, `doc/AUTHORIZATION.md` y `doc/ADMINSYNC.md`
   - se agrego una nota operativa para `sql-init-bansystem`
+- logging
+  - se agrega un modo de log compartido `sm_bs_log_mode` con `0=off`, `1=normal`, `2=debug`
+  - los logs normales se centralizan en `addons/sourcemod/logs/bansystem.log`
+  - los logs debug por plugin permanecen en `addons/sourcemod/logs/bansystem/`
+  - el modo normal reduce ruido eliminando eventos de librerias, auth y caminos exitosos de base de datos
+  - los subdirectorios debug solo se crean cuando el modo global esta en `debug`
+- enforcement y operacion
+  - `bansystem_access`, `bansystem_comm` y `bansystem_sprays` agregan eventos normales de enforcement para altas, bajas y denegacion efectiva
+  - `bansystem_core` elimina comandos admin obsoletos para estado y reinstalacion manual de cache
+- versionado
+  - la suite queda alineada en `1.1.0`
 - release automation
   - se agregaron workflows de build y release para SourceMod
   - el repo ahora soporta canales `develop`, `latest` y releases versionadas por tag

@@ -2,7 +2,7 @@
 
 Suite modular de sanciones para SourceMod.
 
-`BanSystem` separa la autorizacion, los bans de acceso, los castigos de comunicacion, los bans de sprays y la sincronizacion de admins en plugins pequenos que comparten una base MySQL y una API comun. La idea es poder desplegar solo los modulos que realmente necesita cada servidor sin duplicar logica de identidad, cache ni detalle de bans.
+`BanSystem` divide autorizacion, bans de acceso, castigos de comunicacion, bans de sprays y sincronizacion de admins en plugins pequenos que comparten una base MySQL y una API comun. La suite esta pensada para desplegar solo los modulos que necesita cada servidor sin duplicar logica de identidad, cache ni detalle de bans.
 
 ## Componentes
 
@@ -34,6 +34,10 @@ Suite modular de sanciones para SourceMod.
 - `adminsync` vive como satelite separado porque resuelve otro problema: sincronizar admins de SourceMod desde DB.
 - la suite crea autoexecs en:
   - `cfg/sourcemod/bansystem/`
+- la suite escribe logs normales en:
+  - `addons/sourcemod/logs/bansystem.log`
+- los logs debug por plugin viven en:
+  - `addons/sourcemod/logs/bansystem/`
 - los schemas MySQL viven en:
   - `addons/sourcemod/configs/sql-init-bansystem/`
 
@@ -61,10 +65,7 @@ Suite modular de sanciones para SourceMod.
 - [AdminSync](doc/ADMINSYNC.md)
 - [Changelog](CHANGELOG.md)
 - [SQL init scripts](addons/sourcemod/configs/sql-init-bansystem/README.md)
-- [BanSystem Modular Core](BANSYSTEM_MODULAR_CORE.md)
-- [BanSystem Core Build](BANSYSTEM_CORE_BUILD.md)
-- [BanSystem Naming](BANSYSTEM_NAMING.md)
-- [SQLite en SourceMod](SQLITE_SOURCEMOD.md)
+- [SQLite en SourceMod](doc/SQLITE_SOURCEMOD.md)
 
 ## SQL
 

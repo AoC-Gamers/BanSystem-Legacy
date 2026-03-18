@@ -10,7 +10,7 @@
 #include <steamidtools>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_SPRAYS_VIEW_VERSION "0.1.0-dev"
+#define BANSYSTEM_SPRAYS_VIEW_VERSION "1.1.0"
 #define BANSYSTEM_SPRAYS_VIEW_LOG "logs/bansystem/BanSystem_SpraysView.log"
 
 enum eBSSpraysViewInfoMask

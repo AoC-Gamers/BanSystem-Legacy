@@ -47,7 +47,8 @@ Natives utiles de `bansystem_core`:
 - `BSCore_AddLocalCleanCache(int accountid)`
 - `BSCore_RemoveLocalCleanCache(int accountid)`
 
-## Comando operativo
+## Visibilidad operativa
 
-- `sm_bs_core_status`
-  - muestra estado de transicion, cache local, modulos registrados y disponibilidad de DB
+- el estado operativo del core se observa por logs y por los modulos que consumen su API
+- en modo normal, los eventos relevantes de arranque y enforcement se escriben en `addons/sourcemod/logs/bansystem.log`
+- en modo debug, cada plugin escribe su detalle tecnico en `addons/sourcemod/logs/bansystem/`

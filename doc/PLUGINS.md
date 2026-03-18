@@ -11,9 +11,7 @@ Rol:
 
 Comandos:
 
-- `sm_bs_core_status`
-- `sm_bs_core_cache_install`
-- `sm_bs_core_cache_reinstall`
+- ninguno en la linea actual
 
 ConVars principales:
 
@@ -38,7 +36,6 @@ Rol:
 
 Comandos:
 
-- `sm_bs_access_status`
 - `sm_bs_access_detail`
 - `sm_bs_access_add`
 - `sm_bs_access_remove`
@@ -70,7 +67,6 @@ Rol:
 
 Comandos:
 
-- `sm_bs_comm_status`
 - `sm_bs_comm_detail`
 - `sm_bs_comm_add`
 - `sm_bs_comm_remove`
@@ -98,12 +94,11 @@ Library publica:
 Rol:
 
 - bans de sprays
-- consulta de detalle y listados
+- consultas de detalle y listados
 - panel de flujo rapido para admins via `bansystem_adminmenu`
 
 Comandos:
 
-- `sm_bs_sprays_status`
 - `sm_bs_sprays_detail`
 - `sm_bs_sprays_add`
 - `sm_bs_sprays_remove`
@@ -133,7 +128,7 @@ Rol:
 
 Comandos:
 
-- `sm_bs_sprays_view_status`
+- ninguno
 
 ConVars principales:
 
@@ -158,7 +153,6 @@ Rol:
 Comandos:
 
 - `sm_bs_adminsync_reload`
-- `sm_bs_adminsync_status`
 - `sm_bs_adminsync_verify`
 - `sm_bs_adminsync_ls_admins`
 - `sm_bs_adminsync_ls_groups`

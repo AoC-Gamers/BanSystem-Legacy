@@ -13,7 +13,7 @@
 #include <bansystem_core>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_COMM_VERSION "0.1.0-dev"
+#define BANSYSTEM_COMM_VERSION "1.1.0"
 #define BANSYSTEM_COMM_DEBUG_LOG "logs/bansystem/BanSystem_Comm.log"
 #define BANSYSTEM_COMM_MAX_REASON_LENGTH 256
 

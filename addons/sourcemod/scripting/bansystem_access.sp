@@ -12,7 +12,7 @@
 #include <bansystem_core>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_ACCESS_VERSION "0.1.0-dev"
+#define BANSYSTEM_ACCESS_VERSION "1.1.0"
 #define BANSYSTEM_ACCESS_DEBUG_LOG "logs/bansystem/BanSystem_Access.log"
 #define BANSYSTEM_ACCESS_MAX_REASON_LENGTH 256
 #define BANSYSTEM_ACCESS_APPLY_RETRY_INTERVAL 0.1

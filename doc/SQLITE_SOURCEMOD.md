@@ -31,9 +31,9 @@ Estas operaciones son adecuadas para BanSystem:
 
 Esto cubre bien el caso de uso actual:
 
-- tabla `BanCache`
-- trigger para reemplazar por `account_id`
-- vista `BanCache_Valid`
+- tabla `bansystem_cache_summary`
+- trigger `trg_bansystem_cache_summary_before_insert`
+- vista `view_bansystem_cache_summary_active`
 - validación simple de esquema
 
 ## Qué evitar
@@ -55,7 +55,7 @@ La razón no es que necesariamente no existan, sino que BanSystem no debe depend
 
 - Mantener el esquema SQLite mínimo.
 - Mantener nombres de objetos explícitos y alineados con el modelo actual.
-- Preferir `account_id` como llave lógica.
+- Preferir `accountid` como llave lógica.
 - No usar `steamid64` ni `steamid2` como llave de caché.
 - No mezclar demasiada lógica de negocio dentro de SQLite.
 - Si algo requiere lógica compleja o consistencia fuerte, resolverlo en MySQL.
@@ -64,10 +64,10 @@ La razón no es que necesariamente no existan, sino que BanSystem no debe depend
 
 El plugin debe validar solo lo que realmente necesita:
 
-- existencia de la tabla `BanCache`
-- existencia de la columna `account_id`
-- existencia del trigger `DeleteOldCacheForAccountID`
-- existencia de la vista `BanCache_Valid`
+- existencia de la tabla `bansystem_cache_summary`
+- existencia de la columna `accountid`
+- existencia del trigger `trg_bansystem_cache_summary_before_insert`
+- existencia de la vista `view_bansystem_cache_summary_active`
 
 No conviene hacer introspección más profunda si no aporta valor operativo.
 
@@ -76,18 +76,15 @@ No conviene hacer introspección más profunda si no aporta valor operativo.
 - El archivo SQLite puede existir aunque el esquema no esté instalado.
 - Tener conexión SQLite abierta no significa que la caché esté lista.
 - La caché solo debe considerarse usable si:
-  - `sm_bansystem_sqlitecache = 1`
+  - `sm_bs_core_sqlitecache = 1`
   - el handle SQLite existe
   - el esquema fue validado correctamente
 
 ## Instalación en BanSystem
 
-La instalación de SQLite se maneja desde el complemento:
+La cache SQLite del core se valida automaticamente al arranque.
 
-- `sm_bs_cache_install`
-- `sm_bs_cache_reinstall`
-
-El arranque normal del plugin no debe reinstalar automáticamente la caché.
+Si el schema de cache no coincide con lo esperado y la reparacion esta permitida, el core intenta repararlo e instalarlo de forma automatica antes de seguir.
 
 ## Depuración recomendada
 
@@ -95,18 +92,11 @@ Para depurar SQLite en este proyecto:
 
 - verificar si el handle está conectado
 - verificar si el esquema está validado
-- listar `BanCache_Valid`
-- consultar por `account_id`
+- listar `view_bansystem_cache_summary_active`
+- consultar por `accountid`
 - revisar logs de validación del plugin
 
-Los comandos del harness sirven como apoyo:
-
-- `sm_bs_test_sqlite_status`
-- `sm_bs_test_sqlite_ls`
-- `sm_bs_test_sqlite_a`
-- `sm_bs_test_sqlite_b`
-- `sm_bs_test_perm_comm`
-- `sm_bs_test_perm_access`
+En la linea actual no hay comandos admin dedicados solo a depuracion SQLite. La visibilidad operativa se apoya en logs, validacion de schema y consulta directa de los objetos SQLite si hace falta.
 
 ## Concurrencia y threading
 
@@ -126,7 +116,7 @@ BanSystem debe tratar SQLite como:
 - esquema pequeño
 - SQL conservador
 - validación explícita
-- recuperación manual mediante comandos admin
+- reparacion automatica del schema cuando aplica
 
 No debe tratarlo como una base secundaria rica en features.
 

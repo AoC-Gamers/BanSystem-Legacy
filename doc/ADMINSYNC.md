@@ -59,7 +59,6 @@ KV local:
 ## Comandos
 
 - `sm_bs_adminsync_reload`
-- `sm_bs_adminsync_status`
 - `sm_bs_adminsync_verify`
 - `sm_bs_adminsync_ls_admins`
 - `sm_bs_adminsync_ls_groups`

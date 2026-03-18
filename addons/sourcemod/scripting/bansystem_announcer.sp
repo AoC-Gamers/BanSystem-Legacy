@@ -11,7 +11,7 @@
 #include <bansystem_access>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_ANNOUNCER_VERSION "0.1.0-dev"
+#define BANSYSTEM_ANNOUNCER_VERSION "1.1.0"
 #define BANSYSTEM_ANNOUNCER_DEBUG_LOG "logs/bansystem/BanSystem_Announcer.log"
 
 enum eBSAnnouncerDebugMask

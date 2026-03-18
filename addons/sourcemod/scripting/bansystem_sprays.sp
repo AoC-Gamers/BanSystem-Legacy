@@ -12,7 +12,7 @@
 #include <bansystem_core>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_SPRAYS_VERSION "0.1.0-dev"
+#define BANSYSTEM_SPRAYS_VERSION "1.1.0"
 #define BANSYSTEM_SPRAYS_DEBUG_LOG "logs/bansystem/BanSystem_Sprays.log"
 #define BANSYSTEM_SPRAYS_MAX_REASON_LENGTH 256
 
