@@ -15,15 +15,19 @@
 #define BANSYSTEM_ACCESS_VERSION "0.1.0-dev"
 #define BANSYSTEM_ACCESS_DEBUG_LOG "logs/bansystem/BanSystem_Access.log"
 #define BANSYSTEM_ACCESS_MAX_REASON_LENGTH 256
+#define BANSYSTEM_ACCESS_APPLY_RETRY_INTERVAL 0.1
+#define BANSYSTEM_ACCESS_APPLY_MAX_RETRIES 20
 
 Database g_dbBSAccess;
 StringMap g_smBSAccessIdentityRequestContext;
 StringMap g_smBSAccessAttemptIpCache;
 GlobalForward g_gfBSAccessOnClientDenied;
+Handle g_hBSAccessPendingApplyTimer[MAXPLAYERS + 1];
 
 ConVar g_cvBSAccessDebugMask;
 ConVar g_cvBSAccessMysqlConfig;
 ConVar g_cvBSAccessSteamIdProvider;
+ConVar g_cvBSLogMode;
 
 char g_szBSAccessLogPath[PLATFORM_MAX_PATH];
 
@@ -56,6 +60,10 @@ enum struct eBSAccessResolvedDetail
 
 eBSAccessResolvedDetail g_eBSAccessResolvedDetail[MAXPLAYERS + 1];
 
+void BSAccess_CancelPendingApplyTimer(int iClient);
+void BSAccess_ScheduleResolvedBanApplyRetry(int iClient, int iAttempt);
+void BSAccess_FinalizeResolvedBanToClient(int iClient, bool bPrintConsole);
+
 #include "bansystem_access/schema.sp"
 #include "bansystem_access/helpers.sp"
 #include "bansystem_access/api.sp"
@@ -86,6 +94,7 @@ public void OnPluginStart()
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_access.phrases");
 	g_smBSAccessIdentityRequestContext = new StringMap();
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvBSAccessDebugMask = CreateConVar("sm_bs_access_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSAccessMysqlConfig = CreateConVar("sm_bs_access_mysql_config", "bansystem", "MySQL config used by BanSystem Access.", FCVAR_NONE);
 	g_cvBSAccessSteamIdProvider = CreateConVar("sm_bs_access_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
@@ -100,6 +109,7 @@ public void OnPluginStart()
 	BSAccess_OnPluginStart_Mutations();
 	BSAccess_OnPluginStart_Detail();
 	BSAccess_TryRegisterCoreModule();
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "startup", "Plugin started. version=%s core=%d", BANSYSTEM_ACCESS_VERSION, g_bBSAccessHasCoreLibrary ? 1 : 0);
 
 	BSAccess_Debug("Access scaffold initialized. core=%d", g_bBSAccessHasCoreLibrary ? 1 : 0);
 }
@@ -111,6 +121,7 @@ public void OnConfigsExecuted()
 
 public void OnClientDisconnect(int iClient)
 {
+	delete g_hBSAccessPendingApplyTimer[iClient];
 	BSAccess_ResetResolvedDetail(iClient);
 }
 
@@ -128,7 +139,9 @@ public void OnLibraryAdded(const char[] szName)
 public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
+	{
 		g_bBSAccessHasCoreLibrary = false;
+	}
 }
 
 public void BSCore_OnAuthReadyChanged(bool bReady)

@@ -52,6 +52,8 @@ BEGIN
 END $$
 
 DROP VIEW IF EXISTS `view_bansystem_spray_bans_active` $$
+-- Runtime contract: bansystem_sprays reads active-ban detail and refresh state from this view.
+-- Keep the projected columns aligned with the plugin detail queries.
 CREATE VIEW `view_bansystem_spray_bans_active` AS
 SELECT
     `id`,

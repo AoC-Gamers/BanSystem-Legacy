@@ -58,7 +58,7 @@
 	"BSSpraysContextPrompt"
 	{
 		"en"		"{olive}[BS Sprays]{default} Type spray context in chat or '-' to skip."
-		"es"		"{olive}[BS Sprays]{default} Escriba el contexto del ban de spray en el chat o '-' para omitirlo."
+		"es"		"{olive}[BS Sprays]{default} Escriba el contexto de la restriccion de spray en el chat o '-' para omitirlo."
 	}
 
 	"BSSpraysNoPanelFlow"
@@ -82,7 +82,7 @@
 	"BSSpraysReasonPrompt"
 	{
 		"en"		"{olive}[BS Sprays]{default} Type spray reason in chat."
-		"es"		"{olive}[BS Sprays]{default} Escriba la razon del ban de spray en el chat."
+		"es"		"{olive}[BS Sprays]{default} Escriba la razon de la restriccion de spray en el chat."
 	}
 
 	"BSSpraysNoResolvedDetail"
@@ -146,78 +146,165 @@
 	"BSSpraysPersistFailed"
 	{
 		"#format"	"{1:d}"
-		"en"		"{olive}[BS Sprays]{default} Failed to persist spray ban for accountid {1}."
-		"es"		"{olive}[BS Sprays]{default} No se pudo persistir el ban de spray para accountid {1}."
+		"en"		"{olive}[BS Sprays]{default} Failed to persist spray restriction for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se pudo persistir la restriccion de spray para accountid {1}."
 	}
 
 	"BSSpraysStored"
 	{
 		"#format"	"{1:d},{2:s}"
-		"en"		"{olive}[BS Sprays]{default} Spray ban stored for accountid {1} (reason={2})."
-		"es"		"{olive}[BS Sprays]{default} Ban de spray guardado para accountid {1} (razon={2})."
+		"en"		"{olive}[BS Sprays]{default} Spray restriction stored for accountid {1} (reason={2})."
+		"es"		"{olive}[BS Sprays]{default} Restriccion de spray guardada para accountid {1} (razon={2})."
 	}
 
 	"BSSpraysRemoveFailed"
 	{
 		"#format"	"{1:d}"
-		"en"		"{olive}[BS Sprays]{default} Failed to remove spray ban for accountid {1}."
-		"es"		"{olive}[BS Sprays]{default} No se pudo eliminar el ban de spray para accountid {1}."
+		"en"		"{olive}[BS Sprays]{default} Failed to remove spray restriction for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se pudo eliminar la restriccion de spray para accountid {1}."
 	}
 
 	"BSSpraysRemoved"
 	{
 		"#format"	"{1:d}"
-		"en"		"{olive}[BS Sprays]{default} Spray ban removed for accountid {1}."
-		"es"		"{olive}[BS Sprays]{default} Ban de spray eliminado para accountid {1}."
+		"en"		"{olive}[BS Sprays]{default} Spray restriction removed for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} Restriccion de spray eliminada para accountid {1}."
 	}
 
 	"BSSpraysPlayerBanned"
 	{
-		"en"		"{olive}[BS Sprays]{default} You have been spray banned."
-		"es"		"{olive}[BS Sprays]{default} Usted fue baneado de sprays."
+		"en"		"{olive}[BS Sprays]{default} A spray restriction was applied to you. Check your console for details."
+		"es"		"{olive}[BS Sprays]{default} Se te aplico una restriccion de spray. Revisa tu consola para ver el detalle."
 	}
 
 	"BSSpraysPlayerUnbanned"
 	{
-		"en"		"{olive}[BS Sprays]{default} Your spray ban has been removed."
-		"es"		"{olive}[BS Sprays]{default} Su ban de spray fue eliminado."
+		"en"		"{olive}[BS Sprays]{default} Your spray restriction has been removed."
+		"es"		"{olive}[BS Sprays]{default} Tu restriccion de spray fue eliminada."
 	}
 
 	"BSSpraysInfoLoadFailed"
 	{
 		"en"		"{olive}[BS Sprays]{default} Failed to load spray info."
-		"es"		"{olive}[BS Sprays]{default} No se pudo cargar la informacion del ban de spray."
+		"es"		"{olive}[BS Sprays]{default} No se pudo cargar el detalle de la restriccion de spray."
 	}
 
 	"BSSpraysNoActiveBan"
 	{
 		"#format"	"{1:d}"
-		"en"		"{olive}[BS Sprays]{default} No active spray ban found for accountid {1}."
-		"es"		"{olive}[BS Sprays]{default} No se encontro un ban de spray activo para accountid {1}."
+		"en"		"{olive}[BS Sprays]{default} No active spray restriction found for accountid {1}."
+		"es"		"{olive}[BS Sprays]{default} No se encontro una restriccion de spray activa para accountid {1}."
 	}
 
 	"BSSpraysInfoPrinted"
 	{
-		"en"		"{olive}[BS Sprays]{default} Spray info printed to console."
-		"es"		"{olive}[BS Sprays]{default} La informacion del ban de spray fue impresa en consola."
+		"en"		"{olive}[BS Sprays]{default} Spray restriction details printed to console."
+		"es"		"{olive}[BS Sprays]{default} El detalle de la restriccion de spray fue impreso en consola."
 	}
 
 	"BSSpraysListLoadFailed"
 	{
-		"en"		"{olive}[BS Sprays]{default} Failed to list spray bans."
-		"es"		"{olive}[BS Sprays]{default} No se pudo listar los bans de spray."
+		"en"		"{olive}[BS Sprays]{default} Failed to list spray restrictions."
+		"es"		"{olive}[BS Sprays]{default} No se pudieron listar las restricciones de spray."
 	}
 
 	"BSSpraysNoActiveBans"
 	{
-		"en"		"{olive}[BS Sprays]{default} No active modular spray bans found."
-		"es"		"{olive}[BS Sprays]{default} No se encontraron bans modulares de spray activos."
+		"en"		"{olive}[BS Sprays]{default} No active modular spray restrictions found."
+		"es"		"{olive}[BS Sprays]{default} No se encontraron restricciones modulares de spray activas."
 	}
 
 	"BSSpraysListPrinted"
 	{
-		"en"		"{olive}[BS Sprays]{default} Spray ban list printed to console."
-		"es"		"{olive}[BS Sprays]{default} La lista de bans de spray fue impresa en consola."
+		"en"		"{olive}[BS Sprays]{default} Spray restriction list printed to console."
+		"es"		"{olive}[BS Sprays]{default} La lista de restricciones de spray fue impresa en consola."
+	}
+
+	"BSSpraysInfoConsoleTitle"
+	{
+		"en"		"| Spray restriction details"
+		"es"		"| Detalle de la restriccion de spray"
+	}
+
+	"BSSpraysInfoConsoleSection"
+	{
+		"en"		"| Spray"
+		"es"		"| Spray"
+	}
+
+	"BSSpraysInfoPermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSSpraysInfoMinutesValue"
+	{
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
+	}
+
+	"BSSpraysInfoFieldPlayer"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Player    : {1}"
+		"es"		"|   Jugador   : {1}"
+	}
+
+	"BSSpraysInfoFieldAccountId"
+	{
+		"#format"	"{1:d}"
+		"en"		"|   AccountId : {1}"
+		"es"		"|   AccountId : {1}"
+	}
+
+	"BSSpraysInfoFieldSteam2"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Steam2    : {1}"
+		"es"		"|   Steam2    : {1}"
+	}
+
+	"BSSpraysInfoFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSSpraysInfoFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSSpraysInfoFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSSpraysInfoFieldIssuedBy"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSSpraysListConsoleTitle"
+	{
+		"en"		"| Active spray bans"
+		"es"		"| Bans de spray activos"
+	}
+
+	"BSSpraysInfoFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
 	}
 
 }

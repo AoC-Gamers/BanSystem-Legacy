@@ -6,13 +6,45 @@ stock void BSComm_OnPluginStart_Detail()
 {
 }
 
+stock void BSComm_SyncActiveBanIdentityForClient(int iClient, int iAccountId)
+{
+	if (!BSComm_CanUseDatabase() || iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || IsFakeClient(iClient) || iAccountId <= 0)
+		return;
+
+	char szSteamId64[32];
+	char szPlayerName[MAX_NAME_LENGTH];
+	char szIpAddress[64];
+	char szSafeSteamId64[65];
+	char szSafePlayerName[(MAX_NAME_LENGTH * 2) + 1];
+	char szSafeIpAddress[129];
+	BSComm_GetTargetIdentityData(iClient, szSteamId64, sizeof(szSteamId64), szPlayerName, sizeof(szPlayerName));
+	BSComm_GetClientIpAddressSafe(iClient, szIpAddress, sizeof(szIpAddress));
+	g_dbBSComm.Escape(szSteamId64, szSafeSteamId64, sizeof(szSafeSteamId64));
+	g_dbBSComm.Escape(szPlayerName, szSafePlayerName, sizeof(szSafePlayerName));
+	g_dbBSComm.Escape(szIpAddress, szSafeIpAddress, sizeof(szSafeIpAddress));
+
+	char szQuery[1024];
+	int iLen = 0;
+	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "UPDATE `%s` SET `steamid64` = '%s', `player_name` = '%s', `ip_address` = '%s' ", BANSYSTEM_COMM_MYSQL_TABLE_BANS, szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
+	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "WHERE `accountid` = %d AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) ", iAccountId);
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`steamid64` <> '%s' OR `player_name` <> '%s' OR `ip_address` <> '%s');", szSafeSteamId64, szSafePlayerName, szSafeIpAddress);
+
+	SQL_TQuery(g_dbBSComm, BSComm_OnIdentitySyncCompleted, szQuery, iAccountId, DBPrio_Low);
+}
+
+public void BSComm_OnIdentitySyncCompleted(Database db, DBResultSet rsResult, const char[] szError, any pData)
+{
+	int iAccountId = pData;
+	delete rsResult;
+
+	if (szError[0] != '\0')
+		BSComm_SQL("Communication identity sync failed for accountid %d: %s", iAccountId, szError);
+}
+
 stock void BSComm_ReconcileClientCommStateFromCore(int iClient)
 {
 	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || IsFakeClient(iClient))
-	{
-		BSComm_SQL("Comm reconcile skipped for client %d: client not usable.", iClient);
 		return;
-	}
 
 	if (!BSComm_CanUseCoreLibrary() || !BSComm_CanUseDatabase())
 	{
@@ -122,21 +154,15 @@ stock void BSComm_PrintResolvedDetailToClient(int iClient)
 
 	char szType[16];
 	BSComm_GetCommTypeLabel(g_eBSCommResolvedDetail[iClient].m_eCommType, szType, sizeof(szType));
-
-	PrintToConsole(iClient, "// -------------------------------- \\\\");
-	PrintToConsole(iClient, "|");
-	PrintToConsole(iClient, "%T", "BSCommConsoleReceived", iClient);
-	PrintToConsole(iClient, "%T", "BSCommConsoleExecutedBy", iClient, g_eBSCommResolvedDetail[iClient].m_szBannedByName[0] != '\0' ? g_eBSCommResolvedDetail[iClient].m_szBannedByName : "Console");
-	if (g_eBSCommResolvedDetail[iClient].m_iLength > 0)
-		PrintToConsole(iClient, "%T", "BSCommConsoleDurationMinutes", iClient, g_eBSCommResolvedDetail[iClient].m_iLength);
-	else
-		PrintToConsole(iClient, "%T", "BSCommConsoleDurationPermanent", iClient);
-	PrintToConsole(iClient, "%T", "BSCommConsoleType", iClient, szType);
-	PrintToConsole(iClient, "%T", "BSCommConsoleReason", iClient, g_eBSCommResolvedDetail[iClient].m_szReason);
-	if (g_eBSCommResolvedDetail[iClient].m_szContext[0] != '\0')
-		PrintToConsole(iClient, "%T", "BSCommConsoleContext", iClient, g_eBSCommResolvedDetail[iClient].m_szContext);
-	PrintToConsole(iClient, "|");
-	PrintToConsole(iClient, "// -------------------------------- \\\\");
+	BSComm_PrintClientResolvedDetailConsoleCard(
+		iClient,
+		szType,
+		g_eBSCommResolvedDetail[iClient].m_iLength,
+		g_eBSCommResolvedDetail[iClient].m_szReason,
+		g_eBSCommResolvedDetail[iClient].m_szContext,
+		g_eBSCommResolvedDetail[iClient].m_szBannedByName,
+		g_eBSCommResolvedDetail[iClient].m_iDateExpireTs
+	);
 }
 
 stock void BSComm_FillResolvedDetailFromRow(int iClient, DBResultSet rsResult)
@@ -166,8 +192,7 @@ stock void BSComm_QueueResolvedDetailRefreshForClient(int iClient, int iAccountI
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `id`, `accountid`, `steamid64`, `player_name`, `ban_type`, `ban_length`, ");
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, ");
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
-	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_comm_bans` WHERE `accountid` = %d ", iAccountId);
-	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` WHERE `accountid` = %d LIMIT 1;", BANSYSTEM_COMM_MYSQL_VIEW_BANS_ACTIVE, iAccountId);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iClient));
@@ -203,8 +228,7 @@ public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, e
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `id`, `accountid`, `steamid64`, `player_name`, `ban_type`, `ban_length`, ");
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_reason`, `ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, ");
 	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
-	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_comm_bans` WHERE `id` = %d ", banId);
-	iLen += g_dbBSComm.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` WHERE `id` = %d LIMIT 1;", BANSYSTEM_COMM_MYSQL_VIEW_BANS_ACTIVE, banId);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(client));
@@ -288,6 +312,7 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 		g_eBSCommResolvedDetail[iClient].m_iLength,
 		g_bBSCommHasBaseComm ? 1 : 0
 	);
+	BSComm_SyncActiveBanIdentityForClient(iClient, iExpectedAccountId);
 
 	BSComm_ApplyResolvedCommState(iClient);
 	BSComm_PrintResolvedDetailToClient(iClient);
@@ -342,6 +367,7 @@ public void BSComm_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsResu
 	BSComm_FillResolvedDetailFromRow(iClient, rsResult);
 	delete rsResult;
 	BSComm_SQL("Resolved communication detail refresh loaded for client %d: accountid=%d ban_id=%d comm_type=%d apply_state=%d basecomm=%d", iClient, g_eBSCommResolvedDetail[iClient].m_iAccountId, g_eBSCommResolvedDetail[iClient].m_iBanId, view_as<int>(g_eBSCommResolvedDetail[iClient].m_eCommType), bApplyState ? 1 : 0, g_bBSCommHasBaseComm ? 1 : 0);
+	BSComm_SyncActiveBanIdentityForClient(iClient, iExpectedAccountId);
 
 	if (bApplyState)
 	{

@@ -2,6 +2,79 @@
 			D E T A I L
 *****************************************************************/
 
+public void BSAccess_CancelPendingApplyTimer(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients)
+		return;
+
+	delete g_hBSAccessPendingApplyTimer[iClient];
+}
+
+public void BSAccess_ScheduleResolvedBanApplyRetry(int iClient, int iAttempt)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientConnected(iClient) || g_eBSAccessResolvedDetail[iClient].m_iAccountId <= 0)
+		return;
+
+	BSAccess_CancelPendingApplyTimer(iClient);
+
+	DataPack pTimerData;
+	g_hBSAccessPendingApplyTimer[iClient] = CreateDataTimer(BANSYSTEM_ACCESS_APPLY_RETRY_INTERVAL, BSAccess_OnDeferredApplyTimer, pTimerData, TIMER_FLAG_NO_MAPCHANGE);
+	pTimerData.WriteCell(GetClientUserId(iClient));
+	pTimerData.WriteCell(g_eBSAccessResolvedDetail[iClient].m_iAccountId);
+	pTimerData.WriteCell(iAttempt);
+
+	BSAccess_SQL(
+		"Scheduled deferred access apply for client %d: accountid=%d attempt=%d/%d",
+		iClient,
+		g_eBSAccessResolvedDetail[iClient].m_iAccountId,
+		iAttempt + 1,
+		BANSYSTEM_ACCESS_APPLY_MAX_RETRIES
+	);
+}
+
+public Action BSAccess_OnDeferredApplyTimer(Handle hTimer, DataPack pTimerData)
+{
+	pTimerData.Reset();
+	int iUserId = pTimerData.ReadCell();
+	int iExpectedAccountId = pTimerData.ReadCell();
+	int iAttempt = pTimerData.ReadCell();
+
+	int iClient = GetClientOfUserId(iUserId);
+	if (iClient <= 0)
+		return Plugin_Stop;
+
+	if (g_hBSAccessPendingApplyTimer[iClient] == hTimer)
+		g_hBSAccessPendingApplyTimer[iClient] = null;
+
+	if (!g_eBSAccessResolvedDetail[iClient].m_bLoaded || g_eBSAccessResolvedDetail[iClient].m_iAccountId != iExpectedAccountId)
+		return Plugin_Stop;
+
+	if (IsClientInGame(iClient))
+	{
+		BSAccess_ApplyResolvedBanToClient(iClient);
+		return Plugin_Stop;
+	}
+
+	if (!IsClientConnected(iClient))
+		return Plugin_Stop;
+
+	if (iAttempt + 1 >= BANSYSTEM_ACCESS_APPLY_MAX_RETRIES)
+	{
+		BSAccess_SQL(
+			"Deferred access apply retries exhausted for client %d: accountid=%d connected=%d in_game=%d",
+			iClient,
+			iExpectedAccountId,
+			IsClientConnected(iClient) ? 1 : 0,
+			IsClientInGame(iClient) ? 1 : 0
+		);
+		BSAccess_FinalizeResolvedBanToClient(iClient, false);
+		return Plugin_Stop;
+	}
+
+	BSAccess_ScheduleResolvedBanApplyRetry(iClient, iAttempt + 1);
+	return Plugin_Stop;
+}
+
 stock void BSAccess_OnPluginStart_Detail()
 {
 }
@@ -9,10 +82,7 @@ stock void BSAccess_OnPluginStart_Detail()
 stock void BSAccess_ReconcileClientAccessStateFromCore(int iClient)
 {
 	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient) || IsFakeClient(iClient))
-	{
-		BSAccess_SQL("Access reconcile skipped for client %d: client not usable.", iClient);
 		return;
-	}
 
 	if (!BSAccess_CanUseCoreLibrary() || !BSAccess_CanUseDatabase())
 	{
@@ -83,8 +153,7 @@ public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBan
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "SELECT `accountid`, `steamid64`, `player_name`, `ban_length`, `ban_reason`, ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "`ban_context`, `banned_by`, `banned_by_name`, `banned_by_steamid64`, ");
 	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "IFNULL(UNIX_TIMESTAMP(`date_expire`), 0) AS `date_expire_ts` ");
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `bansystem_access_bans` WHERE `id` = %d ", iBanId);
-	iLen += g_dbBSAccess.Format(szQuery[iLen], sizeof(szQuery) - iLen, "AND (`ban_length` = 0 OR `date_expire` IS NULL OR `date_expire` > UTC_TIMESTAMP()) LIMIT 1;");
+	Format(szQuery[iLen], sizeof(szQuery) - iLen, "FROM `%s` WHERE `id` = %d LIMIT 1;", BANSYSTEM_ACCESS_MYSQL_VIEW_BANS_ACTIVE, iBanId);
 
 	DataPack pContext = new DataPack();
 	pContext.WriteCell(GetClientUserId(iClient));

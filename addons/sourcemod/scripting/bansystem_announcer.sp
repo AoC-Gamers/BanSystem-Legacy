@@ -27,6 +27,7 @@ ConVar g_cvBSAnnouncerSelfJoin;
 ConVar g_cvBSAnnouncerPublicJoin;
 ConVar g_cvBSAnnouncerPublicAccessDenied;
 ConVar g_cvBSAnnouncerDebugMask;
+ConVar g_cvBSLogMode;
 
 char g_szBSAnnouncerLogPath[PLATFORM_MAX_PATH];
 
@@ -50,6 +51,7 @@ public void OnPluginStart()
 	BSEnsureLogFolder();
 	BuildPath(Path_SM, g_szBSAnnouncerLogPath, sizeof(g_szBSAnnouncerLogPath), BANSYSTEM_ANNOUNCER_DEBUG_LOG);
 	LoadTranslations("bansystem_announcer.phrases");
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvBSAnnouncerSelfJoin = CreateConVar("sm_bs_announcer_join_self", "1", "Announce active BanSystem sanctions to the affected player when they join a team.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvBSAnnouncerPublicJoin = CreateConVar("sm_bs_announcer_join_public", "0", "Announce active BanSystem sanctions to other players when a sanctioned player joins a team.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvBSAnnouncerPublicAccessDenied = CreateConVar("sm_bs_announcer_access_denied_public", "1", "Announce to other players when BanSystem denies access to a player.", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -61,12 +63,13 @@ public void OnPluginStart()
 
 	RegConsoleCmd("sm_bs_status", Command_BSStatus, "Show your BanSystem sanction summary.");
 	HookEvent("player_team", BSAnnouncer_OnPlayerTeam_Post, EventHookMode_Post);
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Announcer]", "startup", "Plugin started. core=%d", g_bBSAnnouncerHasCoreLibrary ? 1 : 0);
 	BSAnnouncer_Debug(kBSAnnouncerDebug_General, "Announcer started. core=%d", g_bBSAnnouncerHasCoreLibrary ? 1 : 0);
 }
 public void OnClientPutInServer(int iClient)
 {
 	BSAnnouncer_ResetClientState(iClient);
-	BSAnnouncer_Debug(kBSAnnouncerDebug_General, "Client put in server: client=%d usable=%d", iClient, BSAnnouncer_IsUsablePlayer(iClient) ? 1 : 0);
+	BSAnnouncer_Debug(kBSAnnouncerDebug_General, "Client put in server: client=%d target_usable=%d viewer_usable=%d", iClient, BSAnnouncer_IsAnnounceTarget(iClient) ? 1 : 0, BSAnnouncer_CanReceiveAnnouncements(iClient) ? 1 : 0);
 }
 
 public void OnClientDisconnect(int iClient)
@@ -110,7 +113,7 @@ public void BSAccess_OnClientDenied(int iClient, int iAccountId)
 	if (g_cvBSAnnouncerPublicAccessDenied == null || !g_cvBSAnnouncerPublicAccessDenied.BoolValue)
 		return;
 
-	if (!BSAnnouncer_IsUsablePlayer(iClient))
+	if (!BSAnnouncer_IsAnnounceTarget(iClient))
 		return;
 
 	char szSteam2[32];
@@ -122,7 +125,7 @@ public void BSAccess_OnClientDenied(int iClient, int iAccountId)
 
 	for (int iViewer = 1; iViewer <= MaxClients; iViewer++)
 	{
-		if (iViewer == iClient || !BSAnnouncer_IsUsablePlayer(iViewer) || !IsClientInGame(iViewer))
+		if (iViewer == iClient || !BSAnnouncer_CanReceiveAnnouncements(iViewer) || !IsClientInGame(iViewer))
 			continue;
 
 		CPrintToChat(iViewer, "%t", "BSAnnouncerAccessDeniedPublic", szDisplay);
@@ -133,8 +136,8 @@ public void BSAnnouncer_OnPlayerTeam_Post(Event hEvent, const char[] szName, boo
 {
 	int iClient = GetClientOfUserId(hEvent.GetInt("userid"));
 	int iTeam = hEvent.GetInt("team");
-	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "player_team event: client=%d team=%d oldteam=%d dont_broadcast=%d usable=%d", iClient, iTeam, hEvent.GetInt("oldteam"), bDontBroadcast ? 1 : 0, BSAnnouncer_IsUsablePlayer(iClient) ? 1 : 0);
-	if (!BSAnnouncer_IsUsablePlayer(iClient))
+	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "player_team event: client=%d team=%d oldteam=%d dont_broadcast=%d target_usable=%d viewer_usable=%d", iClient, iTeam, hEvent.GetInt("oldteam"), bDontBroadcast ? 1 : 0, BSAnnouncer_IsAnnounceTarget(iClient) ? 1 : 0, BSAnnouncer_CanReceiveAnnouncements(iClient) ? 1 : 0);
+	if (!BSAnnouncer_IsAnnounceTarget(iClient))
 		return;
 
 	if (iTeam <= 1)
@@ -153,7 +156,7 @@ public Action Command_BSStatus(int iClient, int iArgs)
 {
 	ReplySource eReplySource = GetCmdReplySource();
 
-	if (!BSAnnouncer_IsUsablePlayer(iClient))
+	if (!BSAnnouncer_IsAnnounceTarget(iClient))
 	{
 		ReplyToCommand(iClient, "[BanSystem] This command is only available for connected players.");
 		return Plugin_Handled;
@@ -173,7 +176,7 @@ public Action Command_BSStatus(int iClient, int iArgs)
 	}
 
 	BSAnnouncer_CReplyToCommandWithSource(iClient, eReplySource, "%t", "BSAnnouncerStatusSelf", szSummary);
-	BSAnnouncer_PrintResolvedDetailsToConsole(iClient, szSummary);
+	BSAnnouncer_PrintResolvedDetailsToConsole(iClient);
 	BSAnnouncer_CReplyToCommandWithSource(iClient, eReplySource, "%t", "BSAnnouncerDetailPrinted");
 	return Plugin_Handled;
 }
@@ -197,9 +200,20 @@ stock void BSAnnouncer_ResetClientState(int iClient)
 	}
 }
 
-stock bool BSAnnouncer_IsUsablePlayer(int iClient)
+stock bool BSAnnouncer_IsAnnounceTarget(int iClient)
 {
 	return (iClient > 0 && iClient <= MaxClients && IsClientConnected(iClient) && !IsFakeClient(iClient));
+}
+
+stock bool BSAnnouncer_CanReceiveAnnouncements(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientConnected(iClient))
+		return false;
+
+	if (!IsFakeClient(iClient))
+		return true;
+
+	return IsClientSourceTV(iClient);
 }
 
 stock void BSAnnouncer_EnsureJoinTimer(int iClient)
@@ -214,11 +228,19 @@ stock void BSAnnouncer_EnsureJoinTimer(int iClient)
 	BSAnnouncer_Debug(kBSAnnouncerDebug_Timer, "Join timer created: client=%d userid=%d", iClient, GetClientUserId(iClient));
 }
 
+stock bool BSAnnouncer_ShouldLogJoinTimerTick(int iRetryCount)
+{
+	return (iRetryCount <= 0 || (iRetryCount % 5) == 0 || iRetryCount >= 14);
+}
+
 public Action BSAnnouncer_OnJoinTimer(Handle hTimer, int iUserId)
 {
 	int iClient = GetClientOfUserId(iUserId);
-	BSAnnouncer_Debug(kBSAnnouncerDebug_Timer, "Join timer tick: userid=%d client=%d pending=%d shown=%d retries=%d in_game=%d team=%d core=%d auth_ready=%d auth_pending=%d resolved=%d", iUserId, iClient, (iClient > 0 && iClient <= MaxClients && g_bBSAnnouncerJoinAnnouncementPending[iClient]) ? 1 : 0, (iClient > 0 && iClient <= MaxClients && g_bBSAnnouncerJoinAnnouncementShown[iClient]) ? 1 : 0, (iClient > 0 && iClient <= MaxClients) ? g_iBSAnnouncerJoinRetryCount[iClient] : -1, (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) ? 1 : 0, (iClient > 0 && iClient <= MaxClients && IsClientInGame(iClient)) ? GetClientTeam(iClient) : -1, g_bBSAnnouncerHasCoreLibrary ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary && BSCore_IsAuthReady()) ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary && iClient > 0 && iClient <= MaxClients) ? (BSCore_IsClientAuthPending(iClient) ? 1 : 0) : 0, (g_bBSAnnouncerHasCoreLibrary && iClient > 0 && iClient <= MaxClients) ? (BSCore_HasResolvedSummary(iClient) ? 1 : 0) : 0);
-	if (!BSAnnouncer_IsUsablePlayer(iClient))
+	if (iClient > 0 && iClient <= MaxClients && BSAnnouncer_ShouldLogJoinTimerTick(g_iBSAnnouncerJoinRetryCount[iClient]))
+	{
+		BSAnnouncer_Debug(kBSAnnouncerDebug_Timer, "Join timer tick: userid=%d client=%d pending=%d shown=%d retries=%d in_game=%d team=%d core=%d auth_ready=%d auth_pending=%d resolved=%d", iUserId, iClient, g_bBSAnnouncerJoinAnnouncementPending[iClient] ? 1 : 0, g_bBSAnnouncerJoinAnnouncementShown[iClient] ? 1 : 0, g_iBSAnnouncerJoinRetryCount[iClient], IsClientInGame(iClient) ? 1 : 0, IsClientInGame(iClient) ? GetClientTeam(iClient) : -1, g_bBSAnnouncerHasCoreLibrary ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary && BSCore_IsAuthReady()) ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary ? (BSCore_IsClientAuthPending(iClient) ? 1 : 0) : 0), (g_bBSAnnouncerHasCoreLibrary ? (BSCore_HasResolvedSummary(iClient) ? 1 : 0) : 0));
+	}
+	if (!BSAnnouncer_IsAnnounceTarget(iClient))
 		return Plugin_Stop;
 
 	if (g_hBSAnnouncerJoinTimer[iClient] != hTimer)
@@ -261,7 +283,7 @@ stock void BSAnnouncer_TryAnnounceAllEligibleClients()
 {
 	for (int iClient = 1; iClient <= MaxClients; iClient++)
 	{
-		if (!BSAnnouncer_IsUsablePlayer(iClient) || !IsClientInGame(iClient) || GetClientTeam(iClient) <= 1)
+		if (!BSAnnouncer_IsAnnounceTarget(iClient) || !IsClientInGame(iClient) || GetClientTeam(iClient) <= 1)
 			continue;
 
 		BSAnnouncer_Debug(kBSAnnouncerDebug_API, "Rechecking eligible client after core/library change: client=%d shown=%d pending=%d", iClient, g_bBSAnnouncerJoinAnnouncementShown[iClient] ? 1 : 0, g_bBSAnnouncerJoinAnnouncementPending[iClient] ? 1 : 0);
@@ -275,8 +297,8 @@ stock void BSAnnouncer_TryAnnounceAllEligibleClients()
 
 stock bool BSAnnouncer_TryAnnounceClient(int iClient)
 {
-	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "TryAnnounceClient start: client=%d usable=%d in_game=%d team=%d shown=%d core=%d auth_ready=%d auth_pending=%d resolved=%d", iClient, BSAnnouncer_IsUsablePlayer(iClient) ? 1 : 0, IsClientInGame(iClient) ? 1 : 0, IsClientInGame(iClient) ? GetClientTeam(iClient) : -1, g_bBSAnnouncerJoinAnnouncementShown[iClient] ? 1 : 0, g_bBSAnnouncerHasCoreLibrary ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary && BSCore_IsAuthReady()) ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary ? (BSCore_IsClientAuthPending(iClient) ? 1 : 0) : 0), (g_bBSAnnouncerHasCoreLibrary ? (BSCore_HasResolvedSummary(iClient) ? 1 : 0) : 0));
-	if (!BSAnnouncer_IsUsablePlayer(iClient) || !IsClientInGame(iClient) || GetClientTeam(iClient) <= 1)
+	BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "TryAnnounceClient start: client=%d target_usable=%d viewer_usable=%d in_game=%d team=%d shown=%d core=%d auth_ready=%d auth_pending=%d resolved=%d", iClient, BSAnnouncer_IsAnnounceTarget(iClient) ? 1 : 0, BSAnnouncer_CanReceiveAnnouncements(iClient) ? 1 : 0, IsClientInGame(iClient) ? 1 : 0, IsClientInGame(iClient) ? GetClientTeam(iClient) : -1, g_bBSAnnouncerJoinAnnouncementShown[iClient] ? 1 : 0, g_bBSAnnouncerHasCoreLibrary ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary && BSCore_IsAuthReady()) ? 1 : 0, (g_bBSAnnouncerHasCoreLibrary ? (BSCore_IsClientAuthPending(iClient) ? 1 : 0) : 0), (g_bBSAnnouncerHasCoreLibrary ? (BSCore_HasResolvedSummary(iClient) ? 1 : 0) : 0));
+	if (!BSAnnouncer_IsAnnounceTarget(iClient) || !IsClientInGame(iClient) || GetClientTeam(iClient) <= 1)
 		return false;
 
 	if (g_bBSAnnouncerJoinAnnouncementShown[iClient])
@@ -287,7 +309,8 @@ stock bool BSAnnouncer_TryAnnounceClient(int iClient)
 
 	if (!g_bBSAnnouncerHasCoreLibrary || !BSCore_IsAuthReady() || BSCore_IsClientAuthPending(iClient) || !BSCore_HasResolvedSummary(iClient))
 	{
-		BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "TryAnnounceClient waiting for core resolution: client=%d", iClient);
+		if (!g_bBSAnnouncerJoinAnnouncementPending[iClient])
+			BSAnnouncer_Debug(kBSAnnouncerDebug_Announce, "TryAnnounceClient waiting for core resolution: client=%d", iClient);
 		return false;
 	}
 
@@ -313,7 +336,7 @@ stock bool BSAnnouncer_TryAnnounceClient(int iClient)
 	{
 		for (int iViewer = 1; iViewer <= MaxClients; iViewer++)
 		{
-			if (iViewer == iClient || !BSAnnouncer_IsUsablePlayer(iViewer) || !IsClientInGame(iViewer))
+			if (iViewer == iClient || !BSAnnouncer_CanReceiveAnnouncements(iViewer) || !IsClientInGame(iViewer))
 				continue;
 
 			char szPublicSummary[192];
@@ -382,10 +405,7 @@ stock bool BSAnnouncer_BuildSummaryText(int iViewer, int iTarget, char[] szBuffe
 
 stock void BSAnnouncer_LogCategory(eBSAnnouncerDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvBSAnnouncerDebugMask == null)
-		return;
-
-	if ((g_cvBSAnnouncerDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAnnouncerDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szBSAnnouncerLogPath, "[%s] %s", szTag, szMessage);
@@ -393,7 +413,7 @@ stock void BSAnnouncer_LogCategory(eBSAnnouncerDebugMask eMask, const char[] szT
 
 stock void BSAnnouncer_Debug(eBSAnnouncerDebugMask eMask, const char[] szMessage, any ...)
 {
-	if (g_cvBSAnnouncerDebugMask == null || (g_cvBSAnnouncerDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAnnouncerDebugMask, view_as<int>(eMask)))
 		return;
 
 	static char szBuffer[1024];
@@ -404,43 +424,83 @@ stock void BSAnnouncer_Debug(eBSAnnouncerDebugMask eMask, const char[] szMessage
 stock void BSAnnouncer_PrintConsoleLine(int iClient, const char[] szFormat, any ...)
 {
 	static char szBuffer[256];
+	if (iClient > 0)
+		SetGlobalTransTarget(iClient);
 	VFormat(szBuffer, sizeof(szBuffer), szFormat, 3);
 	PrintToConsole(iClient, "%s", szBuffer);
 }
 
-stock void BSAnnouncer_PrintSummaryConsoleBlock(int iClient, const char[] szSummary)
+stock void BSAnnouncer_PrintConsoleFrameTop(int iClient)
 {
-	BSAnnouncer_PrintConsoleLine(iClient, "// -------------------------------- \\\\\\");
-	BSAnnouncer_PrintConsoleLine(iClient, "%T", "BSAnnouncerConsoleHeader", iClient, szSummary);
+	PrintToConsole(iClient, "//============= BanSystem =============\\");
 }
 
-stock void BSAnnouncer_FinishConsoleBlock(int iClient)
+stock void BSAnnouncer_PrintConsoleFrameBottom(int iClient)
 {
-	BSAnnouncer_PrintConsoleLine(iClient, "// -------------------------------- \\\\\\");
+	PrintToConsole(iClient, "//=====================================\\");
 }
 
-stock void BSAnnouncer_FormatExpireDisplay(int iExpireTs, char[] szBuffer, int iMaxLength)
+stock void BSAnnouncer_PrintConsoleTitle(int iClient)
+{
+	BSAnnouncer_PrintConsoleLine(iClient, "%T", "BSAnnouncerConsoleTitle", iClient);
+}
+
+stock void BSAnnouncer_PrintConsoleSpacer(int iClient)
+{
+	PrintToConsole(iClient, "|");
+}
+
+stock void BSAnnouncer_PrintConsoleSectionTitle(int iClient, const char[] szPhrase)
+{
+	BSAnnouncer_PrintConsoleLine(iClient, "%T", szPhrase, iClient);
+}
+
+stock void BSAnnouncer_PrintConsoleField(int iClient, const char[] szPhrase, const char[] szValue)
+{
+	BSAnnouncer_PrintConsoleLine(iClient, "%T", szPhrase, iClient, szValue);
+}
+
+stock void BSAnnouncer_FormatExpireDisplay(int iClient, int iExpireTs, char[] szBuffer, int iMaxLength)
 {
 	if (iExpireTs <= 0)
 	{
-		FormatEx(szBuffer, iMaxLength, "%T", "BSAnnouncerConsolePermanent", 1);
+		FormatEx(szBuffer, iMaxLength, "%T", "BSAnnouncerConsolePermanent", iClient);
 		return;
 	}
 
 	FormatTime(szBuffer, iMaxLength, "%Y-%m-%d %H:%M:%S", iExpireTs);
 }
 
-stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient, const char[] szSummary)
+stock void BSAnnouncer_FormatDurationDisplay(int iClient, int iDurationMinutes, char[] szBuffer, int iMaxLength)
+{
+	if (iDurationMinutes <= 0)
+	{
+		FormatEx(szBuffer, iMaxLength, "%T", "BSAnnouncerConsolePermanent", iClient);
+		return;
+	}
+
+	FormatEx(szBuffer, iMaxLength, "%T", "BSAnnouncerConsoleDurationMinutes", iClient, iDurationMinutes);
+}
+
+stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient)
 {
 	bool bHeaderPrinted = false;
+	bool bPrintedSection = false;
 
 	if (BSAnnouncer_HasEffectiveResolvedModule(iClient, kBSCoreModule_Communication))
 	{
 		if (!bHeaderPrinted)
 		{
-			BSAnnouncer_PrintSummaryConsoleBlock(iClient, szSummary);
+			BSAnnouncer_PrintConsoleFrameTop(iClient);
+			BSAnnouncer_PrintConsoleTitle(iClient);
+			BSAnnouncer_PrintConsoleSpacer(iClient);
 			bHeaderPrinted = true;
 		}
+
+		if (bPrintedSection)
+			BSAnnouncer_PrintConsoleSpacer(iClient);
+
+		BSAnnouncer_PrintConsoleSectionTitle(iClient, "BSAnnouncerConsoleCommSection");
 
 		char szType[48];
 		switch (BSCore_GetResolvedCommType(iClient))
@@ -455,37 +515,59 @@ stock void BSAnnouncer_PrintResolvedDetailsToConsole(int iClient, const char[] s
 				FormatEx(szType, sizeof(szType), "%T", "BSAnnouncerLabelComm", iClient);
 		}
 		char szExpire[64];
-		BSAnnouncer_FormatExpireDisplay(BSCore_GetResolvedCommExpireTs(iClient), szExpire, sizeof(szExpire));
+		BSAnnouncer_FormatExpireDisplay(iClient, BSCore_GetResolvedCommExpireTs(iClient), szExpire, sizeof(szExpire));
+		char szDuration[32];
+		BSAnnouncer_FormatDurationDisplay(iClient, BSCore_GetResolvedCommLength(iClient), szDuration, sizeof(szDuration));
 		char szReason[256];
 		char szContext[512];
 		char szAdmin[64];
 		BSCore_GetResolvedCommReason(iClient, szReason, sizeof(szReason));
 		BSCore_GetResolvedCommContext(iClient, szContext, sizeof(szContext));
 		BSCore_GetResolvedCommBannedByName(iClient, szAdmin, sizeof(szAdmin));
-		BSAnnouncer_PrintConsoleLine(iClient, "%T", "BSAnnouncerConsoleComm", iClient, szType, BSCore_GetResolvedCommLength(iClient), szReason[0] != '\0' ? szReason : "-", szContext[0] != '\0' ? szContext : "-", szAdmin[0] != '\0' ? szAdmin : "Console", szExpire);
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldType", szType);
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldDuration", szDuration);
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldReason", szReason[0] != '\0' ? szReason : "-");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldContext", szContext[0] != '\0' ? szContext : "-");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldAdmin", szAdmin[0] != '\0' ? szAdmin : "Console");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldExpire", szExpire);
+		bPrintedSection = true;
 	}
 
 	if (BSAnnouncer_HasEffectiveResolvedModule(iClient, kBSCoreModule_Sprays))
 	{
 		if (!bHeaderPrinted)
 		{
-			BSAnnouncer_PrintSummaryConsoleBlock(iClient, szSummary);
+			BSAnnouncer_PrintConsoleFrameTop(iClient);
+			BSAnnouncer_PrintConsoleTitle(iClient);
+			BSAnnouncer_PrintConsoleSpacer(iClient);
 			bHeaderPrinted = true;
 		}
 
+		if (bPrintedSection)
+			BSAnnouncer_PrintConsoleSpacer(iClient);
+
+		BSAnnouncer_PrintConsoleSectionTitle(iClient, "BSAnnouncerConsoleSpraysSection");
+
 		char szExpire[64];
-		BSAnnouncer_FormatExpireDisplay(BSCore_GetResolvedSprayExpireTs(iClient), szExpire, sizeof(szExpire));
+		BSAnnouncer_FormatExpireDisplay(iClient, BSCore_GetResolvedSprayExpireTs(iClient), szExpire, sizeof(szExpire));
+		char szDuration[32];
+		BSAnnouncer_FormatDurationDisplay(iClient, BSCore_GetResolvedSprayLength(iClient), szDuration, sizeof(szDuration));
 		char szReason[256];
 		char szContext[512];
 		char szAdmin[64];
 		BSCore_GetResolvedSprayReason(iClient, szReason, sizeof(szReason));
 		BSCore_GetResolvedSprayContext(iClient, szContext, sizeof(szContext));
 		BSCore_GetResolvedSprayBannedByName(iClient, szAdmin, sizeof(szAdmin));
-		BSAnnouncer_PrintConsoleLine(iClient, "%T", "BSAnnouncerConsoleSprays", iClient, BSCore_GetResolvedSprayLength(iClient), szReason[0] != '\0' ? szReason : "-", szContext[0] != '\0' ? szContext : "-", szAdmin[0] != '\0' ? szAdmin : "Console", szExpire);
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldDuration", szDuration);
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldReason", szReason[0] != '\0' ? szReason : "-");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldContext", szContext[0] != '\0' ? szContext : "-");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldAdmin", szAdmin[0] != '\0' ? szAdmin : "Console");
+		BSAnnouncer_PrintConsoleField(iClient, "BSAnnouncerConsoleFieldExpire", szExpire);
+		bPrintedSection = true;
 	}
 
 	if (bHeaderPrinted)
-		BSAnnouncer_FinishConsoleBlock(iClient);
+		BSAnnouncer_PrintConsoleFrameBottom(iClient);
 }
 
 stock eBSCoreModuleBit BSAnnouncer_GetEffectiveResolvedModuleMask(int iClient)

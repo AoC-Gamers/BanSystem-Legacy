@@ -4,10 +4,7 @@
 
 stock void BSSprays_LogCategory(eBSSpraysDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvBSSpraysDebugMask == null)
-		return;
-
-	if ((g_cvBSSpraysDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
@@ -15,10 +12,7 @@ stock void BSSprays_LogCategory(eBSSpraysDebugMask eMask, const char[] szTag, co
 
 stock void BSSprays_LogCategoryFormatted(eBSSpraysDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvBSSpraysDebugMask == null)
-		return;
-
-	if ((g_cvBSSpraysDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szBSSpraysLogPath, "[%s] %s", szTag, szMessage);
@@ -26,7 +20,7 @@ stock void BSSprays_LogCategoryFormatted(eBSSpraysDebugMask eMask, const char[] 
 
 stock void BSSprays_Debug(const char[] szMessage, any ...)
 {
-	if (g_cvBSSpraysDebugMask == null || (g_cvBSSpraysDebugMask.IntValue & view_as<int>(kBSSpraysDebug_General)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(kBSSpraysDebug_General)))
 		return;
 
 	static char szBuffer[1024];
@@ -36,7 +30,7 @@ stock void BSSprays_Debug(const char[] szMessage, any ...)
 
 stock void BSSprays_SQL(const char[] szMessage, any ...)
 {
-	if (g_cvBSSpraysDebugMask == null || (g_cvBSSpraysDebugMask.IntValue & view_as<int>(kBSSpraysDebug_SQL)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(kBSSpraysDebug_SQL)))
 		return;
 
 	static char szBuffer[1024];
@@ -46,7 +40,7 @@ stock void BSSprays_SQL(const char[] szMessage, any ...)
 
 stock void BSSprays_Menu(const char[] szMessage, any ...)
 {
-	if (g_cvBSSpraysDebugMask == null || (g_cvBSSpraysDebugMask.IntValue & view_as<int>(kBSSpraysDebug_Menu)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(kBSSpraysDebug_Menu)))
 		return;
 
 	static char szBuffer[1024];
@@ -56,7 +50,7 @@ stock void BSSprays_Menu(const char[] szMessage, any ...)
 
 stock void BSSprays_API(const char[] szMessage, any ...)
 {
-	if (g_cvBSSpraysDebugMask == null || (g_cvBSSpraysDebugMask.IntValue & view_as<int>(kBSSpraysDebug_API)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysDebugMask, view_as<int>(kBSSpraysDebug_API)))
 		return;
 
 	static char szBuffer[1024];
@@ -69,6 +63,19 @@ stock void BSSprays_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 	static char szBuffer[1024];
 	VFormat(szBuffer, sizeof(szBuffer), szMessage, 3);
 
+	if (iAdmin > 0)
+		PrintToConsole(iAdmin, "%s", szBuffer);
+	else
+		PrintToServer("%s", szBuffer);
+}
+
+stock void BSSprays_PrintAdminConsoleTranslatedLine(int iAdmin, const char[] szFormat, any ...)
+{
+	static char szBuffer[1024];
+	if (iAdmin > 0)
+		SetGlobalTransTarget(iAdmin);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 3);
 	if (iAdmin > 0)
 		PrintToConsole(iAdmin, "%s", szBuffer);
 	else
@@ -346,6 +353,7 @@ stock void BSSprays_TryRegisterCoreModule()
 		return;
 
 	BSCore_RegisterModule(BANSYSTEM_SPRAYS_MODULE_NAME, kBSCoreModule_Sprays);
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Sprays]", "module", "module=sprays action=registered");
 	BSSprays_API("Registered sprays module in bansystem_core.");
 }
 
@@ -420,6 +428,57 @@ stock void BSSprays_FormatExpireDisplay(int iExpireTs, char[] szBuffer, int iMax
 	}
 
 	FormatTime(szBuffer, iMaxLength, "%Y-%m-%d %H:%M:%S", iExpireTs);
+}
+
+stock void BSSprays_FormatConsoleDurationDisplay(int iAdmin, int iDurationMinutes, char[] szBuffer, int iMaxLength)
+{
+	if (iDurationMinutes <= 0)
+	{
+		FormatEx(szBuffer, iMaxLength, "%T", "BSSpraysInfoPermanent", iAdmin);
+		return;
+	}
+
+	FormatEx(szBuffer, iMaxLength, "%T", "BSSpraysInfoMinutesValue", iAdmin, iDurationMinutes);
+}
+
+stock void BSSprays_PrintAdminInfoConsoleCard(int iAdmin, int iAccountId, const char[] szPlayerName, const char[] szSteam2, int iLength, const char[] szReason, const char[] szContext, const char[] szBannedByName, const char[] szExpire)
+{
+	char szDuration[64];
+	BSSprays_FormatConsoleDurationDisplay(iAdmin, iLength, szDuration, sizeof(szDuration));
+
+	BSSprays_PrintAdminConsoleLine(iAdmin, "//============= BanSystem =============\\");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoConsoleTitle", iAdmin);
+	BSSprays_PrintAdminConsoleLine(iAdmin, "|");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoConsoleSection", iAdmin);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldPlayer", iAdmin, szPlayerName);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldAccountId", iAdmin, iAccountId);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldSteam2", iAdmin, szSteam2);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldDuration", iAdmin, szDuration);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldReason", iAdmin, szReason[0] != '\0' ? szReason : "-");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldContext", iAdmin, szContext[0] != '\0' ? szContext : "-");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldIssuedBy", iAdmin, szBannedByName[0] != '\0' ? szBannedByName : "Console");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldExpire", iAdmin, szExpire);
+	BSSprays_PrintAdminConsoleLine(iAdmin, "//=====================================\\");
+}
+
+stock void BSSprays_PrintAdminListConsoleCard(int iAdmin, int iAccountId, const char[] szPlayerName, const char[] szSteam2, int iLength, const char[] szReason, const char[] szContext, const char[] szBannedByName, const char[] szExpire)
+{
+	char szDuration[64];
+	BSSprays_FormatConsoleDurationDisplay(iAdmin, iLength, szDuration, sizeof(szDuration));
+
+	BSSprays_PrintAdminConsoleLine(iAdmin, "//============= BanSystem =============\\");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysListConsoleTitle", iAdmin);
+	BSSprays_PrintAdminConsoleLine(iAdmin, "|");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoConsoleSection", iAdmin);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldPlayer", iAdmin, szPlayerName);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldAccountId", iAdmin, iAccountId);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldSteam2", iAdmin, szSteam2);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldDuration", iAdmin, szDuration);
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldReason", iAdmin, szReason[0] != '\0' ? szReason : "-");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldContext", iAdmin, szContext[0] != '\0' ? szContext : "-");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldIssuedBy", iAdmin, szBannedByName[0] != '\0' ? szBannedByName : "Console");
+	BSSprays_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSSpraysInfoFieldExpire", iAdmin, szExpire);
+	BSSprays_PrintAdminConsoleLine(iAdmin, "//=====================================\\");
 }
 
 stock bool BSSprays_IsClientSprayBanned(int iClient)

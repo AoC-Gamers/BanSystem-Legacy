@@ -22,6 +22,7 @@ public void BSComm_OnDatabaseConnected(Database db, const char[] szError, any da
 	{
 		BSComm_SQL("Communication database connection failed: %s", szError);
 		g_bBSCommDatabaseReady = false;
+		BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Comm]", "database", "action=connect_failed error=%s", szError);
 		return;
 	}
 

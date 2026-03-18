@@ -235,10 +235,7 @@ void vAdminSyncAPI(const char[] szFormat, any ...)
 
 void vAdminSyncLog(eAdminSyncDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvDebug == null)
-		return;
-
-	if (!(g_cvDebug.IntValue & view_as<int>(eMask)))
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvDebug, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szDebugLogPath, "[%s] %s", szTag, szMessage);

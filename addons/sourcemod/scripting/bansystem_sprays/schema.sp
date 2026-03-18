@@ -8,6 +8,8 @@
 #define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
 #define BANSYSTEM_SPRAYS_SCHEMA_COMPONENT "sprays"
 #define BANSYSTEM_SPRAYS_SCHEMA_VERSION 1
+#define BANSYSTEM_SPRAYS_MYSQL_TABLE_BANS "bansystem_spray_bans"
+#define BANSYSTEM_SPRAYS_MYSQL_VIEW_BANS_ACTIVE "view_bansystem_spray_bans_active"
 
 enum eBSSpraysDebugMask
 {

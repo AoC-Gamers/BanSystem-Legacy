@@ -2,16 +2,6 @@
 			S U M M A R Y
 *****************************************************************/
 
-stock void BSCore_GetSummaryMysqlTableName(char[] szBuffer, int iMaxLength)
-{
-	strcopy(szBuffer, iMaxLength, BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY);
-}
-
-stock void BSCore_GetSummarySqliteTableName(char[] szBuffer, int iMaxLength)
-{
-	strcopy(szBuffer, iMaxLength, BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
-}
-
 stock void BSCore_GetSummarySelectQueryByAccountId(int iAccountId, char[] szQuery, int iMaxLength)
 {
 	szQuery[0] = '\0';
@@ -26,31 +16,10 @@ stock void BSCore_GetActiveSummarySelectQueryByAccountId(int iAccountId, char[] 
 {
 	szQuery[0] = '\0';
 	int iLen = 0;
-
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "SELECT ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "((CASE WHEN access_ban.`id` IS NOT NULL THEN 1 ELSE 0 END) ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "| (CASE WHEN comm_ban.`id` IS NOT NULL THEN 2 ELSE 0 END) ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "| (CASE WHEN spray_ban.`id` IS NOT NULL THEN 4 ELSE 0 END)) AS `module_mask`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(access_ban.`id`, 0) AS `access_ban_id`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`id`, 0) AS `comm_ban_id`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(spray_ban.`id`, 0) AS `spray_ban_id`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`ban_type`, 0) AS `comm_type`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`ban_length`, 0) AS `comm_length`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`ban_reason`, '') AS `comm_reason`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`ban_context`, '') AS `comm_context`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(comm_ban.`banned_by_name`, '') AS `comm_banned_by_name`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(UNIX_TIMESTAMP(comm_ban.`date_expire`), 0) AS `comm_expire_ts`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(spray_ban.`ban_length`, 0) AS `spray_length`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(spray_ban.`ban_reason`, '') AS `spray_reason`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(spray_ban.`ban_context`, '') AS `spray_context`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(spray_ban.`banned_by_name`, '') AS `spray_banned_by_name`, ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "IFNULL(UNIX_TIMESTAMP(spray_ban.`date_expire`), 0) AS `spray_expire_ts` ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "FROM (SELECT %d AS `accountid`) AS src ", iAccountId);
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "LEFT JOIN `view_bansystem_access_bans_active` AS access_ban ON access_ban.`accountid` = src.`accountid` ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "LEFT JOIN `view_bansystem_comm_bans_active` AS comm_ban ON comm_ban.`accountid` = src.`accountid` ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "LEFT JOIN `view_bansystem_spray_bans_active` AS spray_ban ON spray_ban.`accountid` = src.`accountid` ");
-	iLen += Format(szQuery[iLen], iMaxLength - iLen, "WHERE access_ban.`id` IS NOT NULL OR comm_ban.`id` IS NOT NULL OR spray_ban.`id` IS NOT NULL ");
-	Format(szQuery[iLen], iMaxLength - iLen, "LIMIT 1;");
+	iLen += Format(szQuery[iLen], iMaxLength - iLen, "SELECT `module_mask`, `access_ban_id`, `comm_ban_id`, `spray_ban_id`, `comm_type`, ");
+	iLen += Format(szQuery[iLen], iMaxLength - iLen, "`comm_length`, `comm_reason`, `comm_context`, `comm_banned_by_name`, `comm_expire_ts`, ");
+	iLen += Format(szQuery[iLen], iMaxLength - iLen, "`spray_length`, `spray_reason`, `spray_context`, `spray_banned_by_name`, `spray_expire_ts` ");
+	Format(szQuery[iLen], iMaxLength - iLen, "FROM `%s` WHERE `accountid` = %d LIMIT 1;", BANSYSTEM_CORE_MYSQL_VIEW_ACTIVE_SUMMARY, iAccountId);
 }
 
 stock void BSCore_GetSummaryCacheSelectQueryByAccountId(int iAccountId, char[] szQuery, int iMaxLength)
@@ -61,26 +30,6 @@ stock void BSCore_GetSummaryCacheSelectQueryByAccountId(int iAccountId, char[] s
 	iLen += Format(szQuery[iLen], iMaxLength - iLen, "`comm_length`, `comm_reason`, `comm_context`, `comm_banned_by_name`, `comm_expire_ts`, ");
 	iLen += Format(szQuery[iLen], iMaxLength - iLen, "`spray_length`, `spray_reason`, `spray_context`, `spray_banned_by_name`, `spray_expire_ts` ");
 	Format(szQuery[iLen], iMaxLength - iLen, "FROM `%s` WHERE `accountid` = %d LIMIT 1;", BANSYSTEM_CORE_SQLITE_VIEW_SUMMARY_ACTIVE, iAccountId);
-}
-
-stock bool BSCore_SummaryRequiresModuleDetails(eBSCoreModuleBit eModuleMask)
-{
-	return (eModuleMask != kBSCoreModule_None);
-}
-
-stock bool BSCore_SummaryDeniesAccess(eBSCoreModuleBit eModuleMask)
-{
-	return BSCore_HasModule(eModuleMask, kBSCoreModule_Access);
-}
-
-stock bool BSCore_SummaryHasCommState(eBSCoreModuleBit eModuleMask)
-{
-	return BSCore_HasModule(eModuleMask, kBSCoreModule_Communication);
-}
-
-stock bool BSCore_SummaryHasSprayState(eBSCoreModuleBit eModuleMask)
-{
-	return BSCore_HasModule(eModuleMask, kBSCoreModule_Sprays);
 }
 
 stock void BSCore_ScheduleCacheSummarySync(int iAccountId)

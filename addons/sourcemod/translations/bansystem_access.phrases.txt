@@ -193,8 +193,8 @@
 
 	"BSAccessInfoPrinted"
 	{
-		"en"		"{olive}[BS Access]{default} Access info printed to console."
-		"es"		"{olive}[BS Access]{default} La informacion del ban de acceso fue impresa en consola."
+		"en"		"{olive}[BS Access]{default} Access ban details printed to console."
+		"es"		"{olive}[BS Access]{default} El detalle del ban de acceso fue impreso en consola."
 	}
 
 	"BSAccessListLoadFailed"
@@ -215,50 +215,115 @@
 		"es"		"{olive}[BS Access]{default} La lista de bans de acceso fue impresa en consola."
 	}
 
-	"BSAccessConsoleReceived"
+	"BSAccessConsoleTitle"
 	{
-		"en"		"| You received an access ban"
-		"es"		"| Usted recibio un ban de acceso"
+		"en"		"| Access denied"
+		"es"		"| Acceso denegado"
 	}
 
-	"BSAccessConsoleExecutedBy"
+	"BSAccessConsoleSection"
 	{
-		"#format"	"{1:s}"
-		"en"		"| Executed by: {1}"
-		"es"		"| Ejecutado por: {1}"
+		"en"		"| Access"
+		"es"		"| Acceso"
 	}
 
-	"BSAccessConsoleDurationMinutes"
+	"BSAccessConsolePermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSAccessConsoleDurationMinutesValue"
 	{
 		"#format"	"{1:d}"
-		"en"		"| Duration: {1} minutes"
-		"es"		"| Duracion: {1} minutos"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
 	}
 
-	"BSAccessConsoleDurationPermanent"
-	{
-		"en"		"| Duration: Permanent"
-		"es"		"| Duracion: Permanente"
-	}
-
-	"BSAccessConsoleReason"
+	"BSAccessConsoleFieldDuration"
 	{
 		"#format"	"{1:s}"
-		"en"		"| Reason: {1}"
-		"es"		"| Razon: {1}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
 	}
 
-	"BSAccessConsoleContext"
+	"BSAccessConsoleFieldReason"
 	{
 		"#format"	"{1:s}"
-		"en"		"| Context: {1}"
-		"es"		"| Contexto: {1}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
 	}
 
-	"BSAccessKickMessage"
+	"BSAccessConsoleFieldContext"
 	{
-		"en"		"You received an access ban. Read your console for details."
-		"es"		"Usted recibio un ban de acceso. Lea su consola para mas detalles."
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSAccessConsoleFieldAdmin"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSAccessListConsoleTitle"
+	{
+		"en"		"| Active access bans"
+		"es"		"| Bans de acceso activos"
+	}
+
+	"BSAccessInfoConsoleTitle"
+	{
+		"en"		"| Access ban details"
+		"es"		"| Detalle de ban de acceso"
+	}
+
+	"BSAccessInfoConsoleSection"
+	{
+		"en"		"| Access"
+		"es"		"| Acceso"
+	}
+
+	"BSAccessInfoFieldPlayer"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Player    : {1}"
+		"es"		"|   Jugador   : {1}"
+	}
+
+	"BSAccessInfoFieldAccountId"
+	{
+		"#format"	"{1:d}"
+		"en"		"|   AccountId : {1}"
+		"es"		"|   AccountId : {1}"
+	}
+
+	"BSAccessInfoFieldSteam2"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Steam2    : {1}"
+		"es"		"|   Steam2    : {1}"
+	}
+
+	"BSAccessConsoleFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
+	}
+
+	"BSAccessKickMessageBase"
+	{
+		"en"		"You received an access ban"
+		"es"		"Recibiste un ban de acceso"
+	}
+
+	"BSAccessKickMessageConsoleSuffix"
+	{
+		"en"		"Read your console for details"
+		"es"		"Revisa tu consola para ver el detalle"
 	}
 
 }

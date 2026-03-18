@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `bansystem_schema_meta` (
     PRIMARY KEY (`component`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 $$
 
+DROP VIEW IF EXISTS `view_bansystem_active_summary` $$
 DROP VIEW IF EXISTS `view_bansystem_auth_summary` $$
 DROP TRIGGER IF EXISTS `trg_bansystem_summary_before_insert` $$
 DROP TRIGGER IF EXISTS `trg_bansystem_summary_before_update` $$
@@ -56,6 +57,39 @@ SELECT
     `updated_at`
 FROM `bansystem_summary`
 WHERE `module_mask` <> 0 $$
+
+-- Requires the active module views from access, communication, and sprays schemas
+-- to be created before this migration is applied.
+CREATE VIEW `view_bansystem_active_summary` AS
+SELECT
+    src.`accountid`,
+    ((CASE WHEN access_ban.`id` IS NOT NULL THEN 1 ELSE 0 END)
+        | (CASE WHEN comm_ban.`id` IS NOT NULL THEN 2 ELSE 0 END)
+        | (CASE WHEN spray_ban.`id` IS NOT NULL THEN 4 ELSE 0 END)) AS `module_mask`,
+    IFNULL(access_ban.`id`, 0) AS `access_ban_id`,
+    IFNULL(comm_ban.`id`, 0) AS `comm_ban_id`,
+    IFNULL(spray_ban.`id`, 0) AS `spray_ban_id`,
+    IFNULL(comm_ban.`ban_type`, 0) AS `comm_type`,
+    IFNULL(comm_ban.`ban_length`, 0) AS `comm_length`,
+    IFNULL(comm_ban.`ban_reason`, '') AS `comm_reason`,
+    IFNULL(comm_ban.`ban_context`, '') AS `comm_context`,
+    IFNULL(comm_ban.`banned_by_name`, '') AS `comm_banned_by_name`,
+    IFNULL(comm_ban.`date_expire_ts`, 0) AS `comm_expire_ts`,
+    IFNULL(spray_ban.`ban_length`, 0) AS `spray_length`,
+    IFNULL(spray_ban.`ban_reason`, '') AS `spray_reason`,
+    IFNULL(spray_ban.`ban_context`, '') AS `spray_context`,
+    IFNULL(spray_ban.`banned_by_name`, '') AS `spray_banned_by_name`,
+    IFNULL(spray_ban.`date_expire_ts`, 0) AS `spray_expire_ts`
+FROM (
+    SELECT `accountid` FROM `view_bansystem_access_bans_active`
+    UNION
+    SELECT `accountid` FROM `view_bansystem_comm_bans_active`
+    UNION
+    SELECT `accountid` FROM `view_bansystem_spray_bans_active`
+) AS src
+LEFT JOIN `view_bansystem_access_bans_active` AS access_ban ON access_ban.`accountid` = src.`accountid`
+LEFT JOIN `view_bansystem_comm_bans_active` AS comm_ban ON comm_ban.`accountid` = src.`accountid`
+LEFT JOIN `view_bansystem_spray_bans_active` AS spray_ban ON spray_ban.`accountid` = src.`accountid` $$
 
 DROP TRIGGER IF EXISTS `trg_bansystem_summary_before_insert` $$
 CREATE TRIGGER `trg_bansystem_summary_before_insert`
@@ -120,7 +154,7 @@ DROP PROCEDURE IF EXISTS `bansystem_rebuild_summary_all` $$
 DROP PROCEDURE IF EXISTS `bansystem_get_auth_summary` $$
 
 INSERT INTO `bansystem_schema_meta` (`component`, `version_num`)
-VALUES ('core', 2)
+VALUES ('core', 3)
 ON DUPLICATE KEY UPDATE `version_num` = VALUES(`version_num`) $$
 
 DELIMITER ;

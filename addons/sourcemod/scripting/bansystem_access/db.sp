@@ -22,6 +22,7 @@ public void BSAccess_OnDatabaseConnected(Database db, const char[] szError, any 
 	{
 		BSAccess_SQL("Access database connection failed: %s", szError);
 		g_bBSAccessDatabaseReady = false;
+		BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "database", "action=connect_failed error=%s", szError);
 		return;
 	}
 

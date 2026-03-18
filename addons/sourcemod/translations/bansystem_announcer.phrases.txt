@@ -21,15 +21,15 @@
 
 	"BSAnnouncerDetailPrinted"
 	{
-		"en"		"{olive}[BanSystem]{default} Detailed sanction info printed to console."
-		"es"		"{olive}[BanSystem]{default} La informacion detallada de sanciones fue impresa en consola."
+		"en"		"{olive}[BanSystem]{default} Check your console to review the sanction details."
+		"es"		"{olive}[BanSystem]{default} Revisa tu consola para ver el detalle de tus sanciones."
 	}
 
 	"BSAnnouncerJoinSelf"
 	{
 		"#format"	"{1:s},{2:s}"
-		"en"		"{olive}[BanSystem]{default} You joined with active sanctions: {lightgreen}{1}{default}. Use {lightgreen}{2}{default} to review your status."
-		"es"		"{olive}[BanSystem]{default} Entraste con sanciones activas: {lightgreen}{1}{default}. Usa {lightgreen}{2}{default} para revisar tu estado."
+		"en"		"{olive}[BanSystem]{default} You joined with active sanctions: {lightgreen}{1}{default}. Use {lightgreen}{2}{default} to review the details."
+		"es"		"{olive}[BanSystem]{default} Entraste con sanciones activas: {lightgreen}{1}{default}. Usa {lightgreen}{2}{default} para ver el detalle."
 	}
 
 	"BSAnnouncerJoinPublic"
@@ -42,8 +42,8 @@
 	"BSAnnouncerAccessDeniedPublic"
 	{
 		"#format"	"{1:s}"
-		"en"		"{olive}[BanSystem]{default} Access denied for {lightgreen}{1}{default}."
-		"es"		"{olive}[BanSystem]{default} Acceso denegado para {lightgreen}{1}{default}."
+		"en"		"{olive}[BanSystem]{default} Access attempt denied for {lightgreen}{1}{default}."
+		"es"		"{olive}[BanSystem]{default} Intento de acceso denegado para {lightgreen}{1}{default}."
 	}
 
 	"BSAnnouncerLabelComm"
@@ -97,23 +97,76 @@
 		"es"		"| Sanciones activas: {1}"
 	}
 
+	"BSAnnouncerConsoleTitle"
+	{
+		"en"		"| Active sanctions"
+		"es"		"| Sanciones activas"
+	}
+
 	"BSAnnouncerConsolePermanent"
 	{
 		"en"		"Permanent"
 		"es"		"Permanente"
 	}
 
-	"BSAnnouncerConsoleComm"
+	"BSAnnouncerConsoleDurationMinutes"
 	{
-		"#format"	"{1:s},{2:d},{3:s},{4:s},{5:s},{6:s}"
-		"en"		"| Communication: type={1} duration={2} reason={3} context={4} by={5} expire={6}"
-		"es"		"| Comunicacion: tipo={1} duracion={2} razon={3} contexto={4} por={5} expira={6}"
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
 	}
 
-	"BSAnnouncerConsoleSprays"
+	"BSAnnouncerConsoleCommSection"
 	{
-		"#format"	"{1:d},{2:s},{3:s},{4:s},{5:s}"
-		"en"		"| Sprays: duration={1} reason={2} context={3} by={4} expire={5}"
-		"es"		"| Sprays: duracion={1} razon={2} contexto={3} por={4} expira={5}"
+		"en"		"| Communication"
+		"es"		"| Comunicacion"
+	}
+
+	"BSAnnouncerConsoleSpraysSection"
+	{
+		"en"		"| Spray"
+		"es"		"| Spray"
+	}
+
+	"BSAnnouncerConsoleFieldType"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Type      : {1}"
+		"es"		"|   Tipo      : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldAdmin"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSAnnouncerConsoleFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
 	}
 }

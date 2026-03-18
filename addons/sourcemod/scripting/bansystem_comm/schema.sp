@@ -8,6 +8,8 @@
 #define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
 #define BANSYSTEM_COMM_SCHEMA_COMPONENT "comm"
 #define BANSYSTEM_COMM_SCHEMA_VERSION 1
+#define BANSYSTEM_COMM_MYSQL_TABLE_BANS "bansystem_comm_bans"
+#define BANSYSTEM_COMM_MYSQL_VIEW_BANS_ACTIVE "view_bansystem_comm_bans_active"
 
 enum eBSCommType
 {

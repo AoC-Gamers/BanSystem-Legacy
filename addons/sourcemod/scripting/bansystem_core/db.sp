@@ -43,6 +43,7 @@ public void BSCore_OnPrimaryDatabaseConnected(Database db, const char[] szError,
 	{
 		BSCore_SQL("Primary database connection failed: %s", szError);
 		g_bCorePrimaryReady = false;
+		BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Core]", "database", "target=primary action=connect_failed error=%s", szError);
 		return;
 	}
 
@@ -59,6 +60,7 @@ public void BSCore_OnCacheDatabaseConnected(Database db, const char[] szError, a
 	{
 		BSCore_SQL("Cache database connection failed: %s", szError);
 		g_bCoreCacheReady = false;
+		BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Core]", "database", "target=cache action=connect_failed error=%s", szError);
 		return;
 	}
 

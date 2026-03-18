@@ -7,6 +7,8 @@
 #define BANSYSTEM_SCHEMA_META_TABLE "bansystem_schema_meta"
 #define BANSYSTEM_ACCESS_SCHEMA_COMPONENT "access"
 #define BANSYSTEM_ACCESS_SCHEMA_VERSION 1
+#define BANSYSTEM_ACCESS_MYSQL_TABLE_BANS "bansystem_access_bans"
+#define BANSYSTEM_ACCESS_MYSQL_VIEW_BANS_ACTIVE "view_bansystem_access_bans_active"
 
 enum eBSAccessDebugMask
 {

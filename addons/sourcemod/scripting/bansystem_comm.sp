@@ -23,6 +23,7 @@ StringMap g_smBSCommIdentityRequestContext;
 ConVar g_cvBSCommDebugMask;
 ConVar g_cvBSCommMysqlConfig;
 ConVar g_cvBSCommSteamIdProvider;
+ConVar g_cvBSLogMode;
 
 char g_szBSCommLogPath[PLATFORM_MAX_PATH];
 
@@ -88,6 +89,7 @@ public void OnPluginStart()
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_comm.phrases");
 	g_smBSCommIdentityRequestContext = new StringMap();
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvBSCommDebugMask = CreateConVar("sm_bs_comm_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSCommMysqlConfig = CreateConVar("sm_bs_comm_mysql_config", "bansystem", "MySQL config used by BanSystem Comm.", FCVAR_NONE);
 	g_cvBSCommSteamIdProvider = CreateConVar("sm_bs_comm_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
@@ -103,6 +105,7 @@ public void OnPluginStart()
 	BSComm_OnPluginStart_Mutations();
 	BSComm_OnPluginStart_Detail();
 	BSComm_TryRegisterCoreModule();
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Comm]", "startup", "Plugin started. version=%s core=%d basecomm=%d", BANSYSTEM_COMM_VERSION, g_bBSCommHasCoreLibrary ? 1 : 0, g_bBSCommHasBaseComm ? 1 : 0);
 
 	BSComm_Debug("Comm scaffold initialized. core=%d basecomm=%d", g_bBSCommHasCoreLibrary ? 1 : 0, g_bBSCommHasBaseComm ? 1 : 0);
 }
@@ -161,7 +164,9 @@ public void OnLibraryRemoved(const char[] szName)
 	}
 
 	if (StrEqual(szName, "basecomm", false))
+	{
 		g_bBSCommHasBaseComm = false;
+	}
 }
 
 public void BSCore_OnAuthReadyChanged(bool bReady)

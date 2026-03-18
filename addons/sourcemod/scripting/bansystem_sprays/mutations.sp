@@ -112,6 +112,7 @@ stock void BSSprays_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 	pContext.WriteCell(view_as<int>(eReplySource));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iTargetClient);
+	pContext.WriteCell(iLength);
 	pContext.WriteString(szReason);
 
 	BSSprays_SQL("Queueing spray add mutation for accountid=%d query=%s", iAccountId, szQuery);
@@ -144,6 +145,7 @@ public void BSSprays_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 	ReplySource eReplySource = view_as<ReplySource>(pContext.ReadCell());
 	int iAccountId = pContext.ReadCell();
 	int iTargetClient = pContext.ReadCell();
+	int iLength = pContext.ReadCell();
 	char szReason[BANSYSTEM_SPRAYS_MAX_REASON_LENGTH];
 	pContext.ReadString(szReason, sizeof(szReason));
 	delete pContext;
@@ -177,6 +179,8 @@ public void BSSprays_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 
 	if (bCanReply)
 		BSSprays_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSSpraysStored", iAccountId, szReason);
+
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Sprays]", "enforcement", "action=ban_added accountid=%d length=%d live_target=%d", iAccountId, iLength, (iLiveTarget > 0 && IsClientInGame(iLiveTarget)) ? 1 : 0);
 }
 
 public void BSSprays_OnRemoveBanCompleted(Database db, DBResultSet rsResult, const char[] szError, any pData)
@@ -208,6 +212,8 @@ public void BSSprays_OnRemoveBanCompleted(Database db, DBResultSet rsResult, con
 		BSSprays_ResetResolvedDetail(iTarget);
 		CPrintToChat(iTarget, "%t", "BSSpraysPlayerUnbanned");
 	}
+
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Sprays]", "enforcement", "action=ban_removed accountid=%d live_target=%d", iAccountId, (iTarget > 0 && IsClientInGame(iTarget)) ? 1 : 0);
 
 	if (bCanReply)
 		BSSprays_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSSpraysRemoved", iAccountId);
@@ -361,18 +367,7 @@ public void BSSprays_OnInfoLoaded(Database db, DBResultSet rsResult, const char[
 	if (!AccountIDToSteamID2(iBannedBy, szBannedBySteam2, sizeof(szBannedBySteam2)))
 		strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 
-	BSSprays_PrintAdminConsoleLine(iAdmin, "== BanSystem Sprays Info ==");
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Player: %s", szPlayerName);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "AccountId: %d", iAccountId);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Steam2: %s", szSteam2);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Length: %s", iLength > 0 ? "Temporary" : "Permanent");
-	if (iLength > 0)
-		BSSprays_PrintAdminConsoleLine(iAdmin, "Minutes: %d", iLength);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Reason: %s", szReason);
-	if (szContext[0] != '\0')
-		BSSprays_PrintAdminConsoleLine(iAdmin, "Context: %s", szContext);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Banned by: %d (%s / %s)", iBannedBy, szBannedByName, szBannedBySteam2);
-	BSSprays_PrintAdminConsoleLine(iAdmin, "Expire: %s", szDateExpire);
+	BSSprays_PrintAdminInfoConsoleCard(iAdmin, iAccountId, szPlayerName, szSteam2, iLength, szReason, szContext, szBannedByName, szDateExpire);
 	BSSprays_NotifyConsolePrinted(iAdmin, eReplySource, "BSSpraysInfoPrinted");
 }
 
@@ -406,7 +401,6 @@ public void BSSprays_OnListLoaded(Database db, DBResultSet rsResult, const char[
 		return;
 	}
 
-	BSSprays_PrintAdminConsoleLine(iAdmin, "== BanSystem Sprays Active Bans ==");
 	do
 	{
 		char szPlayerName[MAX_NAME_LENGTH];
@@ -430,10 +424,7 @@ public void BSSprays_OnListLoaded(Database db, DBResultSet rsResult, const char[
 			strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 		BSSprays_FormatExpireDisplay(iDateExpireTs, szDateExpire, sizeof(szDateExpire));
 
-		BSSprays_PrintAdminConsoleLine(iAdmin, "> %s | %s | %s | by=%d (%s / %s)", szPlayerName, szSteam2, iLength > 0 ? szDateExpire : "Permanent", iBannedBy, szBannedByName, szBannedBySteam2);
-		BSSprays_PrintAdminConsoleLine(iAdmin, "  reason=%s", szReason);
-		if (szContext[0] != '\0')
-			BSSprays_PrintAdminConsoleLine(iAdmin, "  context=%s", szContext);
+		BSSprays_PrintAdminListConsoleCard(iAdmin, iAccountId, szPlayerName, szSteam2, iLength, szReason, szContext, szBannedByName, szDateExpire);
 	} while (rsResult.FetchRow());
 
 	delete rsResult;

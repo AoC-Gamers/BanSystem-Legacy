@@ -26,6 +26,7 @@ ConVar g_cvCoreCacheConfig;
 ConVar g_cvCoreLocalCache;
 ConVar g_cvCoreAuthTimeout;
 ConVar g_cvCoreDebugMask;
+ConVar g_cvBSLogMode;
 
 ArrayList g_alCoreLocalCleanCache;
 StringMap g_smCoreRegisteredModules;
@@ -92,6 +93,7 @@ public void OnPluginStart()
 	BuildPath(Path_SM, g_szCoreLogPath, sizeof(g_szCoreLogPath), BANSYSTEM_CORE_DEBUG_LOG);
 	LoadTranslations("bansystem_core.phrases");
 
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvCoreMysqlConfig = CreateConVar("sm_bs_core_mysql_config", "bansystem", "MySQL config used by BanSystem Core.");
 	g_cvCoreSqliteCache = CreateConVar("sm_bs_core_sqlitecache", "1", "Enable the BanSystem Core SQLite summary cache.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvCoreCacheConfig = CreateConVar("sm_bs_core_cache_config", "bansystemcache", "SQLite config used by BanSystem Core.");
@@ -107,10 +109,8 @@ public void OnPluginStart()
 
 	BSEnsureAutoExecFolder();
 	AutoExecConfig(true, "bansystem_core", BANSYSTEM_AUTOEXEC_FOLDER);
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Core]", "startup", "Plugin started. version=%s changelevel=%d", BANSYSTEM_CORE_VERSION, g_bCoreHasL4D2ChangeLevel ? 1 : 0);
 
-	RegAdminCmd("sm_bs_core_status", Command_BSCoreStatus, ADMFLAG_ROOT, "Show BanSystem Core runtime status.");
-	RegAdminCmd("sm_bs_core_cache_install", Command_BSCoreCacheInstall, ADMFLAG_ROOT, "Install the BanSystem Core SQLite summary cache schema.");
-	RegAdminCmd("sm_bs_core_cache_reinstall", Command_BSCoreCacheReinstall, ADMFLAG_ROOT, "Reinstall the BanSystem Core SQLite summary cache schema.");
 	BSCore_Debug("Core bootstrap initialized. l4d2_changelevel=%d", g_bCoreHasL4D2ChangeLevel);
 }
 
@@ -161,53 +161,4 @@ public void OnClientAuthorized(int iClient, const char[] szAuth)
 
 	BSCore_BeginClientAuthorizationCheck(iClient);
 	BSCore_HandleClientAuthorization(iClient, szAuth);
-}
-
-Action Command_BSCoreStatus(int iClient, int iArgs)
-{
-	char szModules[128];
-	BSCore_BuildRegisteredModulesString(szModules, sizeof(szModules));
-
-	CReplyToCommand(
-		iClient,
-		"%t",
-		"BSCoreStatus",
-		g_bCoreMapTransitionActive ? 1 : 0,
-		BSCore_CanUseLocalCleanCache() ? 1 : 0,
-		BSCore_GetLocalCleanCacheSize(),
-		view_as<int>(g_eCoreRegisteredModuleMask),
-		szModules,
-		g_bCoreHasL4D2ChangeLevel ? 1 : 0,
-		g_bCorePrimaryReady ? 1 : 0,
-		g_bCoreCacheReady ? 1 : 0
-	);
-
-	return Plugin_Handled;
-}
-
-Action Command_BSCoreCacheInstall(int iClient, int iArgs)
-{
-	if (g_dbCoreCache == null)
-	{
-		CReplyToCommand(iClient, "%t", "BSCoreCacheHandleNotConnected");
-		return Plugin_Handled;
-	}
-
-	BSCore_InstallCacheSchema();
-	CReplyToCommand(iClient, "%t", "BSCoreCacheInstallRequested");
-	return Plugin_Handled;
-}
-
-Action Command_BSCoreCacheReinstall(int iClient, int iArgs)
-{
-	if (g_dbCoreCache == null)
-	{
-		CReplyToCommand(iClient, "%t", "BSCoreCacheHandleNotConnected");
-		return Plugin_Handled;
-	}
-
-	BSCore_DropCacheSchema();
-	BSCore_InstallCacheSchema();
-	CReplyToCommand(iClient, "%t", "BSCoreCacheReinstallRequested");
-	return Plugin_Handled;
 }

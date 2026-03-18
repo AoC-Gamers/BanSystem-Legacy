@@ -4,10 +4,7 @@
 
 stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvBSAccessDebugMask == null)
-		return;
-
-	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
@@ -15,10 +12,7 @@ stock void BSAccess_LogCategory(eBSAccessDebugMask eMask, const char[] szTag, co
 
 stock void BSAccess_LogCategoryFormatted(eBSAccessDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvBSAccessDebugMask == null)
-		return;
-
-	if ((g_cvBSAccessDebugMask.IntValue & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szBSAccessLogPath, "[%s] %s", szTag, szMessage);
@@ -26,7 +20,7 @@ stock void BSAccess_LogCategoryFormatted(eBSAccessDebugMask eMask, const char[] 
 
 stock void BSAccess_Debug(const char[] szMessage, any ...)
 {
-	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_General)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(kBSAccessDebug_General)))
 		return;
 
 	static char szBuffer[1024];
@@ -36,7 +30,7 @@ stock void BSAccess_Debug(const char[] szMessage, any ...)
 
 stock void BSAccess_SQL(const char[] szMessage, any ...)
 {
-	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_SQL)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(kBSAccessDebug_SQL)))
 		return;
 
 	static char szBuffer[1024];
@@ -46,7 +40,7 @@ stock void BSAccess_SQL(const char[] szMessage, any ...)
 
 stock void BSAccess_Menu(const char[] szMessage, any ...)
 {
-	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_Menu)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(kBSAccessDebug_Menu)))
 		return;
 
 	static char szBuffer[1024];
@@ -56,7 +50,7 @@ stock void BSAccess_Menu(const char[] szMessage, any ...)
 
 stock void BSAccess_API(const char[] szMessage, any ...)
 {
-	if (g_cvBSAccessDebugMask == null || (g_cvBSAccessDebugMask.IntValue & view_as<int>(kBSAccessDebug_API)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSAccessDebugMask, view_as<int>(kBSAccessDebug_API)))
 		return;
 
 	static char szBuffer[1024];
@@ -73,6 +67,53 @@ stock void BSAccess_PrintAdminConsoleLine(int iAdmin, const char[] szMessage, an
 		PrintToConsole(iAdmin, "%s", szBuffer);
 	else
 		PrintToServer("%s", szBuffer);
+}
+
+stock void BSAccess_PrintAdminConsoleTranslatedLine(int iAdmin, const char[] szFormat, any ...)
+{
+	static char szBuffer[1024];
+	if (iAdmin > 0)
+		SetGlobalTransTarget(iAdmin);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 3);
+	if (iAdmin > 0)
+		PrintToConsole(iAdmin, "%s", szBuffer);
+	else
+		PrintToServer("%s", szBuffer);
+}
+
+stock void BSAccess_PrintClientConsoleLine(int iClient, const char[] szFormat, any ...)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+		return;
+
+	static char szBuffer[512];
+	if (iClient > 0)
+		SetGlobalTransTarget(iClient);
+
+	VFormat(szBuffer, sizeof(szBuffer), szFormat, 3);
+	PrintToConsole(iClient, "%s", szBuffer);
+}
+
+stock void BSAccess_PrintClientConsoleFrameTop(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+		return;
+
+	PrintToConsole(iClient, "//============= BanSystem =============\\");
+}
+
+stock void BSAccess_PrintClientConsoleFrameBottom(int iClient)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+		return;
+
+	PrintToConsole(iClient, "//=====================================\\");
+}
+
+stock void BSAccess_PrintClientConsoleField(int iClient, const char[] szPhrase, const char[] szValue)
+{
+	BSAccess_PrintClientConsoleLine(iClient, "%T", szPhrase, iClient, szValue);
 }
 
 stock void BSAccess_CReplyToCommandWithSource(int iAdmin, ReplySource eReplySource, const char[] szFormat, any ...)
@@ -346,6 +387,7 @@ stock void BSAccess_TryRegisterCoreModule()
 		return;
 
 	BSCore_RegisterModule(BANSYSTEM_ACCESS_MODULE_NAME, kBSCoreModule_Access);
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "module", "module=access action=registered");
 	BSAccess_API("Registered access module in bansystem_core.");
 }
 
@@ -446,4 +488,88 @@ stock void BSAccess_FormatExpireDisplay(int iExpireTs, char[] szBuffer, int iMax
 	}
 
 	FormatTime(szBuffer, iMaxLength, "%Y-%m-%d %H:%M:%S", iExpireTs);
+}
+
+stock void BSAccess_FormatConsoleExpireDisplay(int iClient, int iExpireTs, char[] szBuffer, int iMaxLength)
+{
+	if (iExpireTs <= 0)
+	{
+		FormatEx(szBuffer, iMaxLength, "%T", "BSAccessConsolePermanent", iClient);
+		return;
+	}
+
+	FormatTime(szBuffer, iMaxLength, "%Y-%m-%d %H:%M:%S", iExpireTs);
+}
+
+stock void BSAccess_FormatConsoleDurationDisplay(int iClient, int iDurationMinutes, char[] szBuffer, int iMaxLength)
+{
+	if (iDurationMinutes <= 0)
+	{
+		FormatEx(szBuffer, iMaxLength, "%T", "BSAccessConsolePermanent", iClient);
+		return;
+	}
+
+	FormatEx(szBuffer, iMaxLength, "%T", "BSAccessConsoleDurationMinutesValue", iClient, iDurationMinutes);
+}
+
+stock void BSAccess_PrintClientBanConsoleCard(int iClient, int iDurationMinutes, const char[] szReason, const char[] szContext, const char[] szAdminName, int iExpireTs)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientInGame(iClient))
+		return;
+
+	char szDuration[64];
+	char szExpire[64];
+	BSAccess_FormatConsoleDurationDisplay(iClient, iDurationMinutes, szDuration, sizeof(szDuration));
+	BSAccess_FormatConsoleExpireDisplay(iClient, iExpireTs, szExpire, sizeof(szExpire));
+
+	BSAccess_PrintClientConsoleFrameTop(iClient);
+	BSAccess_PrintClientConsoleLine(iClient, "%T", "BSAccessConsoleTitle", iClient);
+	PrintToConsole(iClient, "|");
+	BSAccess_PrintClientConsoleLine(iClient, "%T", "BSAccessConsoleSection", iClient);
+	BSAccess_PrintClientConsoleField(iClient, "BSAccessConsoleFieldDuration", szDuration);
+	BSAccess_PrintClientConsoleField(iClient, "BSAccessConsoleFieldReason", szReason[0] != '\0' ? szReason : "-");
+	BSAccess_PrintClientConsoleField(iClient, "BSAccessConsoleFieldContext", szContext[0] != '\0' ? szContext : "-");
+	BSAccess_PrintClientConsoleField(iClient, "BSAccessConsoleFieldAdmin", szAdminName[0] != '\0' ? szAdminName : "Console");
+	BSAccess_PrintClientConsoleField(iClient, "BSAccessConsoleFieldExpire", szExpire);
+	BSAccess_PrintClientConsoleFrameBottom(iClient);
+}
+
+stock void BSAccess_PrintAdminInfoConsoleCard(int iAdmin, int iAccountId, const char[] szPlayerName, const char[] szSteam2, int iLength, const char[] szReason, const char[] szContext, const char[] szBannedByName, const char[] szExpire)
+{
+	char szDuration[64];
+	BSAccess_FormatConsoleDurationDisplay(iAdmin, iLength, szDuration, sizeof(szDuration));
+
+	BSAccess_PrintAdminConsoleLine(iAdmin, "//============= BanSystem =============\\");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoConsoleTitle", iAdmin);
+	BSAccess_PrintAdminConsoleLine(iAdmin, "|");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoConsoleSection", iAdmin);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldPlayer", iAdmin, szPlayerName);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldAccountId", iAdmin, iAccountId);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldSteam2", iAdmin, szSteam2);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldDuration", iAdmin, szDuration);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldReason", iAdmin, szReason[0] != '\0' ? szReason : "-");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldContext", iAdmin, szContext[0] != '\0' ? szContext : "-");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldAdmin", iAdmin, szBannedByName[0] != '\0' ? szBannedByName : "Console");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldExpire", iAdmin, szExpire);
+	BSAccess_PrintAdminConsoleLine(iAdmin, "//=====================================\\");
+}
+
+stock void BSAccess_PrintAdminListConsoleCard(int iAdmin, int iAccountId, const char[] szPlayerName, const char[] szSteam2, int iLength, const char[] szReason, const char[] szContext, const char[] szBannedByName, const char[] szExpire)
+{
+	char szDuration[64];
+	BSAccess_FormatConsoleDurationDisplay(iAdmin, iLength, szDuration, sizeof(szDuration));
+
+	BSAccess_PrintAdminConsoleLine(iAdmin, "//============= BanSystem =============\\");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessListConsoleTitle", iAdmin);
+	BSAccess_PrintAdminConsoleLine(iAdmin, "|");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoConsoleSection", iAdmin);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldPlayer", iAdmin, szPlayerName);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldAccountId", iAdmin, iAccountId);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessInfoFieldSteam2", iAdmin, szSteam2);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldDuration", iAdmin, szDuration);
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldReason", iAdmin, szReason[0] != '\0' ? szReason : "-");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldContext", iAdmin, szContext[0] != '\0' ? szContext : "-");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldAdmin", iAdmin, szBannedByName[0] != '\0' ? szBannedByName : "Console");
+	BSAccess_PrintAdminConsoleTranslatedLine(iAdmin, "%T", "BSAccessConsoleFieldExpire", iAdmin, szExpire);
+	BSAccess_PrintAdminConsoleLine(iAdmin, "//=====================================\\");
 }

@@ -198,14 +198,14 @@
 
 	"BSCommPlayerBanned"
 	{
-		"en"		"{olive}[BS Comm]{default} You have been communication banned. Check your console for details."
-		"es"		"{olive}[BS Comm]{default} Recibiste un ban de comunicacion. Revisa tu consola para ver los detalles."
+		"en"		"{olive}[BS Comm]{default} A communication restriction was applied to you. Check your console for details."
+		"es"		"{olive}[BS Comm]{default} Se te aplico una restriccion de comunicacion. Revisa tu consola para ver el detalle."
 	}
 
 	"BSCommInfoLoadFailed"
 	{
 		"en"		"{olive}[BS Comm]{default} Failed to load communication info."
-		"es"		"{olive}[BS Comm]{default} No se pudo cargar la informacion del ban de comunicacion."
+		"es"		"{olive}[BS Comm]{default} No se pudo cargar el detalle de la restriccion de comunicacion."
 	}
 
 	"BSCommNoActiveBan"
@@ -217,8 +217,8 @@
 
 	"BSCommInfoPrinted"
 	{
-		"en"		"{olive}[BS Comm]{default} Communication info printed to console."
-		"es"		"{olive}[BS Comm]{default} La informacion del ban de comunicacion fue impresa en consola."
+		"en"		"{olive}[BS Comm]{default} Communication ban details printed to console."
+		"es"		"{olive}[BS Comm]{default} El detalle del ban de comunicacion fue impreso en consola."
 	}
 
 	"BSCommListLoadFailed"
@@ -241,8 +241,20 @@
 
 	"BSCommConsoleReceived"
 	{
-		"en"		"| You received a communication ban"
-		"es"		"| Usted recibio un ban de comunicacion"
+		"en"		"| Communication restriction applied"
+		"es"		"| Restriccion de comunicacion aplicada"
+	}
+
+	"BSCommConsoleTitle"
+	{
+		"en"		"| Communication restriction applied"
+		"es"		"| Restriccion de comunicacion aplicada"
+	}
+
+	"BSCommConsoleSection"
+	{
+		"en"		"| Communication"
+		"es"		"| Comunicacion"
 	}
 
 	"BSCommConsoleExecutedBy"
@@ -284,6 +296,100 @@
 		"#format"	"{1:s}"
 		"en"		"| Context: {1}"
 		"es"		"| Contexto: {1}"
+	}
+
+	"BSCommInfoConsoleTitle"
+	{
+		"en"		"| Communication ban details"
+		"es"		"| Detalle de ban de comunicacion"
+	}
+
+	"BSCommInfoConsoleSection"
+	{
+		"en"		"| Communication"
+		"es"		"| Comunicacion"
+	}
+
+	"BSCommInfoPermanent"
+	{
+		"en"		"Permanent"
+		"es"		"Permanente"
+	}
+
+	"BSCommInfoMinutesValue"
+	{
+		"#format"	"{1:d}"
+		"en"		"{1} minutes"
+		"es"		"{1} minutos"
+	}
+
+	"BSCommInfoFieldPlayer"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Player    : {1}"
+		"es"		"|   Jugador   : {1}"
+	}
+
+	"BSCommInfoFieldAccountId"
+	{
+		"#format"	"{1:d}"
+		"en"		"|   AccountId : {1}"
+		"es"		"|   AccountId : {1}"
+	}
+
+	"BSCommInfoFieldSteam2"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Steam2    : {1}"
+		"es"		"|   Steam2    : {1}"
+	}
+
+	"BSCommInfoFieldType"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Type      : {1}"
+		"es"		"|   Tipo      : {1}"
+	}
+
+	"BSCommInfoFieldDuration"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Duration  : {1}"
+		"es"		"|   Duracion  : {1}"
+	}
+
+	"BSCommInfoFieldReason"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Reason    : {1}"
+		"es"		"|   Razon     : {1}"
+	}
+
+	"BSCommInfoFieldContext"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Context   : {1}"
+		"es"		"|   Contexto  : {1}"
+	}
+
+	"BSCommInfoFieldIssuedBy"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Issued by : {1}"
+		"es"		"|   Aplicado por : {1}"
+	}
+
+	"BSCommListConsoleTitle"
+	{
+		"en"		"| Active communication bans"
+		"es"		"| Bans de comunicacion activos"
+	}
+
+	"BSCommInfoFieldExpire"
+	{
+		"#format"	"{1:s}"
+		"en"		"|   Expire    : {1}"
+		"es"		"|   Expira    : {1}"
 	}
 
 }

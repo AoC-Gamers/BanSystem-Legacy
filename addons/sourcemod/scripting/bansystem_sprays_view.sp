@@ -43,6 +43,7 @@ ConVar g_cvBSSpraysViewTextLoc;
 ConVar g_cvBSSpraysViewInfoMask;
 ConVar g_cvBSSpraysViewDistance;
 ConVar g_cvBSSpraysViewDebugMask;
+ConVar g_cvBSLogMode;
 
 char g_szBSSpraysViewLogPath[PLATFORM_MAX_PATH];
 float g_vecBSSpraysViewPosition[MAXPLAYERS + 1][3];
@@ -64,6 +65,7 @@ public void OnPluginStart()
 	BuildPath(Path_SM, g_szBSSpraysViewLogPath, sizeof(g_szBSSpraysViewLogPath), BANSYSTEM_SPRAYS_VIEW_LOG);
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_sprays_view.phrases");
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 
 	g_cvBSSpraysViewEnabled = CreateConVar("sm_bs_sprays_view_enabled", "1", "Enable BanSystem spray owner display.", FCVAR_NONE, true, 0.0, true, 1.0);
 	g_cvBSSpraysViewTextLoc = CreateConVar("sm_bs_sprays_view_textloc", "1", "Where spray owner info is displayed. 0=disabled, 1=hint, 2=center.", FCVAR_NONE, true, 0.0, true, 2.0);
@@ -77,6 +79,7 @@ public void OnPluginStart()
 	AddTempEntHook("Player Decal", BSSpraysView_OnPlayerDecal);
 	CreateTimer(0.5, Timer_BSSpraysViewShowOwners, _, TIMER_REPEAT);
 	BSSpraysView_NormalizeTextLocation();
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem SpraysView]", "startup", "Plugin started. version=%s", BANSYSTEM_SPRAYS_VIEW_VERSION);
 }
 
 public void OnMapStart()
@@ -242,7 +245,7 @@ stock void BSSpraysView_NormalizeTextLocation()
 
 stock bool BSSpraysView_IsDebugEnabled(eBSSpraysViewDebugMask iMask)
 {
-	return (g_cvBSSpraysViewDebugMask != null && (g_cvBSSpraysViewDebugMask.IntValue & view_as<int>(iMask)) != 0);
+	return BSDebugMaskEnabled(g_cvBSLogMode, g_cvBSSpraysViewDebugMask, view_as<int>(iMask));
 }
 
 stock void BSSpraysView_Debug(eBSSpraysViewDebugMask iMask, const char[] szMessage, any ...)

@@ -22,6 +22,7 @@ StringMap g_smBSSpraysIdentityRequestContext;
 ConVar g_cvBSSpraysDebugMask;
 ConVar g_cvBSSpraysMysqlConfig;
 ConVar g_cvBSSpraysSteamIdProvider;
+ConVar g_cvBSLogMode;
 
 char g_szBSSpraysLogPath[PLATFORM_MAX_PATH];
 
@@ -84,6 +85,7 @@ public void OnPluginStart()
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_sprays.phrases");
 	g_smBSSpraysIdentityRequestContext = new StringMap();
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvBSSpraysDebugMask = CreateConVar("sm_bs_sprays_debug_mask", "0", "Debug bitmask: 1=general, 2=sql, 4=menu, 8=api (all=15).", FCVAR_NONE, true, 0.0);
 	g_cvBSSpraysMysqlConfig = CreateConVar("sm_bs_sprays_mysql_config", "bansystem", "MySQL config used by BanSystem Sprays.", FCVAR_NONE);
 	g_cvBSSpraysSteamIdProvider = CreateConVar("sm_bs_sprays_steamid_provider", "auto", "SteamIDTools provider for SteamID64 resolution: auto, steamworks or system2.", FCVAR_NONE);
@@ -98,6 +100,7 @@ public void OnPluginStart()
 	BSSprays_OnPluginStart_Mutations();
 	BSSprays_OnPluginStart_Detail();
 	BSSprays_TryRegisterCoreModule();
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Sprays]", "startup", "Plugin started. version=%s core=%d", BANSYSTEM_SPRAYS_VERSION, g_bBSSpraysHasCoreLibrary ? 1 : 0);
 	AddTempEntHook("Player Decal", BSSprays_OnPlayerDecal);
 
 	BSSprays_Debug("Sprays scaffold initialized. core=%d", g_bBSSpraysHasCoreLibrary ? 1 : 0);
@@ -127,7 +130,9 @@ public void OnLibraryAdded(const char[] szName)
 public void OnLibraryRemoved(const char[] szName)
 {
 	if (StrEqual(szName, "bansystem_core", false))
+	{
 		g_bBSSpraysHasCoreLibrary = false;
+	}
 }
 
 public void BSCore_OnAuthReadyChanged(bool bReady)

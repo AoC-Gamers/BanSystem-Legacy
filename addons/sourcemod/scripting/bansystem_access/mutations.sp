@@ -150,6 +150,7 @@ stock void BSAccess_QueueAddBan(int iAdmin, int iAccountId, int iTargetClient, i
 	pContext.WriteCell(iTargetClient);
 	pContext.WriteCell(iLength);
 	pContext.WriteString(szReason);
+	pContext.WriteString(szContext);
 
 	BSAccess_SQL("Queueing access add mutation for accountid=%d query=%s", iAccountId, szQuery);
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnAddBanCompleted, szQuery, pContext, DBPrio_High);
@@ -183,7 +184,9 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 	int iTargetClient = pContext.ReadCell();
 	int iLength = pContext.ReadCell();
 	char szReason[sizeof(g_eBSAccessResolvedDetail[].m_szReason)];
+	char szContext[sizeof(g_eBSAccessResolvedDetail[].m_szContext)];
 	pContext.ReadString(szReason, sizeof(szReason));
+	pContext.ReadString(szContext, sizeof(szContext));
 	delete pContext;
 	delete rsResult;
 
@@ -209,16 +212,12 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 
 	if (iLiveTarget > 0 && IsClientInGame(iLiveTarget))
 	{
-		PrintToConsole(iLiveTarget, "// -------------------------------- \\\\");
-		PrintToConsole(iLiveTarget, "|");
-		PrintToConsole(iLiveTarget, "%T", "BSAccessConsoleReceived", iLiveTarget);
-		if (iLength > 0)
-			PrintToConsole(iLiveTarget, "%T", "BSAccessConsoleDurationMinutes", iLiveTarget, iLength);
-		else
-			PrintToConsole(iLiveTarget, "%T", "BSAccessConsoleDurationPermanent", iLiveTarget);
-		PrintToConsole(iLiveTarget, "%T", "BSAccessConsoleReason", iLiveTarget, szReason);
-		PrintToConsole(iLiveTarget, "|");
-		PrintToConsole(iLiveTarget, "// -------------------------------- \\\\");
+		char szAdminName[MAX_NAME_LENGTH];
+		char szAdminSteamId64[32];
+		int iAdminAccountId;
+		BSAccess_GetAdminAuditData(iAdmin, iAdminAccountId, szAdminName, sizeof(szAdminName), szAdminSteamId64, sizeof(szAdminSteamId64));
+		int iExpireTs = (iLength > 0) ? (GetTime() + (iLength * 60)) : 0;
+		BSAccess_PrintClientBanConsoleCard(iLiveTarget, iLength, szReason, szContext, szAdminName, iExpireTs);
 		char szKickMessage[192];
 		Format(szKickMessage, sizeof(szKickMessage), "%T", "BSAccessKickMessage", iLiveTarget);
 		KickClient(iLiveTarget, "%s", szKickMessage);
@@ -231,6 +230,8 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 		else
 			BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessStoredAccount", iAccountId, iLength, szReason);
 	}
+
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "enforcement", "action=ban_added accountid=%d length=%d live_target=%d", iAccountId, iLength, (iLiveTarget > 0 && IsClientInGame(iLiveTarget)) ? 1 : 0);
 }
 
 public void BSAccess_OnRemoveBanCompleted(Database db, DBResultSet rsResult, const char[] szError, any pData)
@@ -255,6 +256,8 @@ public void BSAccess_OnRemoveBanCompleted(Database db, DBResultSet rsResult, con
 
 	if (BSAccess_CanUseCoreLibrary())
 		BSCore_ClearSummaryModule(iAccountId, kBSCoreModule_Access);
+
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "enforcement", "action=ban_removed accountid=%d", iAccountId);
 
 	if (bCanReply)
 		BSAccess_CReplyToCommandWithSource(iAdmin, eReplySource, "%t", "BSAccessRemoved", iAccountId);
@@ -342,24 +345,53 @@ stock void BSAccess_RecordAttempt(int iClient)
 	SQL_ExecuteTransaction(g_dbBSAccess, txn, BSAccess_OnAttemptRecordedTxnSuccess, BSAccess_OnAttemptRecordedTxnFailure, pContext, DBPrio_Normal);
 }
 
+stock void BSAccess_FormatKickMessage(int iClient, bool bPrintedConsole, char[] szBuffer, int iMaxLength)
+{
+	char szBase[128];
+	FormatEx(szBase, sizeof(szBase), "%T", "BSAccessKickMessageBase", iClient);
+
+	if (!bPrintedConsole)
+	{
+		strcopy(szBuffer, iMaxLength, szBase);
+		return;
+	}
+
+	char szConsoleSuffix[128];
+	FormatEx(szConsoleSuffix, sizeof(szConsoleSuffix), "%T", "BSAccessKickMessageConsoleSuffix", iClient);
+	FormatEx(szBuffer, iMaxLength, "%s %s", szBase, szConsoleSuffix);
+}
+
 stock void BSAccess_ApplyResolvedBanToClient(int iClient)
 {
 	if (iClient <= 0 || iClient > MaxClients || !IsClientConnected(iClient) || !g_eBSAccessResolvedDetail[iClient].m_bLoaded)
 		return;
 
-	PrintToConsole(iClient, "// -------------------------------- \\\\");
-	PrintToConsole(iClient, "|");
-	PrintToConsole(iClient, "%T", "BSAccessConsoleReceived", iClient);
-	PrintToConsole(iClient, "%T", "BSAccessConsoleExecutedBy", iClient, g_eBSAccessResolvedDetail[iClient].m_szBannedByName[0] != '\0' ? g_eBSAccessResolvedDetail[iClient].m_szBannedByName : "Console");
-	if (g_eBSAccessResolvedDetail[iClient].m_iLength > 0)
-		PrintToConsole(iClient, "%T", "BSAccessConsoleDurationMinutes", iClient, g_eBSAccessResolvedDetail[iClient].m_iLength);
-	else
-		PrintToConsole(iClient, "%T", "BSAccessConsoleDurationPermanent", iClient);
-	PrintToConsole(iClient, "%T", "BSAccessConsoleReason", iClient, g_eBSAccessResolvedDetail[iClient].m_szReason);
-	if (g_eBSAccessResolvedDetail[iClient].m_szContext[0] != '\0')
-		PrintToConsole(iClient, "%T", "BSAccessConsoleContext", iClient, g_eBSAccessResolvedDetail[iClient].m_szContext);
-	PrintToConsole(iClient, "|");
-	PrintToConsole(iClient, "// -------------------------------- \\\\");
+	if (!IsClientInGame(iClient))
+	{
+		BSAccess_ScheduleResolvedBanApplyRetry(iClient, 0);
+		return;
+	}
+
+	BSAccess_CancelPendingApplyTimer(iClient);
+	BSAccess_FinalizeResolvedBanToClient(iClient, true);
+}
+
+public void BSAccess_FinalizeResolvedBanToClient(int iClient, bool bPrintConsole)
+{
+	if (iClient <= 0 || iClient > MaxClients || !IsClientConnected(iClient) || !g_eBSAccessResolvedDetail[iClient].m_bLoaded)
+		return;
+
+	if (bPrintConsole)
+	{
+		BSAccess_PrintClientBanConsoleCard(
+			iClient,
+			g_eBSAccessResolvedDetail[iClient].m_iLength,
+			g_eBSAccessResolvedDetail[iClient].m_szReason,
+			g_eBSAccessResolvedDetail[iClient].m_szContext,
+			g_eBSAccessResolvedDetail[iClient].m_szBannedByName,
+			g_eBSAccessResolvedDetail[iClient].m_iDateExpireTs
+		);
+	}
 
 	BSAccess_RecordAttempt(iClient);
 	if (g_gfBSAccessOnClientDenied != null)
@@ -371,7 +403,8 @@ stock void BSAccess_ApplyResolvedBanToClient(int iClient)
 	}
 
 	char szKickMessage[192];
-	Format(szKickMessage, sizeof(szKickMessage), "%T", "BSAccessKickMessage", iClient);
+	BSAccess_FormatKickMessage(iClient, bPrintConsole, szKickMessage, sizeof(szKickMessage));
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Access]", "enforcement", "action=access_denied accountid=%d client=%N printed_console=%d", g_eBSAccessResolvedDetail[iClient].m_iAccountId, iClient, bPrintConsole ? 1 : 0);
 	KickClient(iClient, "%s", szKickMessage);
 }
 
@@ -513,18 +546,7 @@ public void BSAccess_OnInfoLoaded(Database db, DBResultSet rsResult, const char[
 	if (!AccountIDToSteamID2(iBannedBy, szBannedBySteam2, sizeof(szBannedBySteam2)))
 		strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 
-	BSAccess_PrintAdminConsoleLine(iAdmin, "== BanSystem Access Info ==");
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Player: %s", szPlayerName);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "AccountId: %d", iAccountId);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Steam2: %s", szSteam2);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Length: %s", iLength > 0 ? "Temporary" : "Permanent");
-	if (iLength > 0)
-		BSAccess_PrintAdminConsoleLine(iAdmin, "Minutes: %d", iLength);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Reason: %s", szReason);
-	if (szContext[0] != '\0')
-		BSAccess_PrintAdminConsoleLine(iAdmin, "Context: %s", szContext);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Banned by: %d (%s / %s)", iBannedBy, szBannedByName, szBannedBySteam2);
-	BSAccess_PrintAdminConsoleLine(iAdmin, "Expire: %s", szDateExpire);
+	BSAccess_PrintAdminInfoConsoleCard(iAdmin, iAccountId, szPlayerName, szSteam2, iLength, szReason, szContext, szBannedByName, szDateExpire);
 	BSAccess_NotifyConsolePrinted(iAdmin, eReplySource, "BSAccessInfoPrinted");
 }
 
@@ -558,7 +580,6 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 		return;
 	}
 
-	BSAccess_PrintAdminConsoleLine(iAdmin, "== BanSystem Access Active Bans ==");
 	do
 	{
 		char szPlayerName[MAX_NAME_LENGTH];
@@ -582,10 +603,7 @@ public void BSAccess_OnListLoaded(Database db, DBResultSet rsResult, const char[
 			strcopy(szBannedBySteam2, sizeof(szBannedBySteam2), "UNKNOWN");
 		BSAccess_FormatExpireDisplay(iDateExpireTs, szDateExpire, sizeof(szDateExpire));
 
-		BSAccess_PrintAdminConsoleLine(iAdmin, "> %s | %s | %s | by=%d (%s / %s)", szPlayerName, szSteam2, iLength > 0 ? szDateExpire : "Permanent", iBannedBy, szBannedByName, szBannedBySteam2);
-		BSAccess_PrintAdminConsoleLine(iAdmin, "  reason=%s", szReason);
-		if (szContext[0] != '\0')
-			BSAccess_PrintAdminConsoleLine(iAdmin, "  context=%s", szContext);
+		BSAccess_PrintAdminListConsoleCard(iAdmin, iAccountId, szPlayerName, szSteam2, iLength, szReason, szContext, szBannedByName, szDateExpire);
 	} while (rsResult.FetchRow());
 
 	delete rsResult;

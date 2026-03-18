@@ -4,11 +4,7 @@
 
 stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvCoreDebugMask == null)
-		return;
-
-	int iMask = g_cvCoreDebugMask.IntValue;
-	if ((iMask & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
@@ -16,11 +12,7 @@ stock void BSCore_Log(eBSCoreDebugMask eMask, const char[] szTag, const char[] s
 
 stock void BSCore_LogFormatted(eBSCoreDebugMask eMask, const char[] szTag, const char[] szMessage)
 {
-	if (g_cvCoreDebugMask == null)
-		return;
-
-	int iMask = g_cvCoreDebugMask.IntValue;
-	if ((iMask & view_as<int>(eMask)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(eMask)))
 		return;
 
 	BSLogToFileEx(g_szCoreLogPath, "[%s] %s", szTag, szMessage);
@@ -28,7 +20,7 @@ stock void BSCore_LogFormatted(eBSCoreDebugMask eMask, const char[] szTag, const
 
 stock void BSCore_Debug(const char[] szMessage, any ...)
 {
-	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_General)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(kBSCoreDebug_General)))
 		return;
 
 	static char szBuffer[1024];
@@ -38,7 +30,7 @@ stock void BSCore_Debug(const char[] szMessage, any ...)
 
 stock void BSCore_SQL(const char[] szMessage, any ...)
 {
-	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_SQL)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(kBSCoreDebug_SQL)))
 		return;
 
 	static char szBuffer[1024];
@@ -48,7 +40,7 @@ stock void BSCore_SQL(const char[] szMessage, any ...)
 
 stock void BSCore_TransitionLog(const char[] szMessage, any ...)
 {
-	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_Transition)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(kBSCoreDebug_Transition)))
 		return;
 
 	static char szBuffer[1024];
@@ -58,7 +50,7 @@ stock void BSCore_TransitionLog(const char[] szMessage, any ...)
 
 stock void BSCore_API(const char[] szMessage, any ...)
 {
-	if (g_cvCoreDebugMask == null || (g_cvCoreDebugMask.IntValue & view_as<int>(kBSCoreDebug_API)) == 0)
+	if (!BSDebugMaskEnabled(g_cvBSLogMode, g_cvCoreDebugMask, view_as<int>(kBSCoreDebug_API)))
 		return;
 
 	static char szBuffer[1024];

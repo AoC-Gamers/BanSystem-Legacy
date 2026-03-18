@@ -22,6 +22,7 @@ public void BSSprays_OnDatabaseConnected(Database db, const char[] szError, any 
 	{
 		BSSprays_SQL("Sprays database connection failed: %s", szError);
 		g_bBSSpraysDatabaseReady = false;
+		BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem Sprays]", "database", "action=connect_failed error=%s", szError);
 		return;
 	}
 

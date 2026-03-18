@@ -50,6 +50,7 @@ ConVar g_cvBackend;
 ConVar g_cvAutoSync;
 ConVar g_cvSteamIdProvider;
 ConVar g_cvDebug;
+ConVar g_cvBSLogMode;
 
 char g_szKvSnapshotPath[PLATFORM_MAX_PATH];
 char g_szDebugLogPath[PLATFORM_MAX_PATH];
@@ -87,6 +88,7 @@ public void OnPluginStart()
 	BSEnsureLogFolder();
 	LoadTranslations("common.phrases");
 	LoadTranslations("bansystem_adminsync.phrases");
+	g_cvBSLogMode = BSEnsureLogModeConVar();
 	g_cvMysqlConfig = CreateConVar("sm_bs_adminsync_mysql_config", "bansystem", "MySQL config name used by BanSystem Admin Sync.");
 	g_cvBackend = CreateConVar("sm_bs_adminsync_backend", "sqlite", "Local snapshot backend: sqlite or kv.");
 	g_cvAutoSync = CreateConVar("sm_bs_adminsync_autosync", "1", "Synchronize the local snapshot on plugin start.", FCVAR_NONE, true, 0.0, true, 1.0);
@@ -102,6 +104,7 @@ public void OnPluginStart()
 	BuildPath(Path_SM, g_szDebugLogPath, sizeof(g_szDebugLogPath), ADMINSYNC_DEBUG_LOG);
 	g_smIdentityRequestContext = new StringMap();
 	vConnectLocalSnapshot();
+	BSNormalLogToFileEx(g_cvBSLogMode, "[BanSystem AdminSync]", "startup", "Plugin started. version=%s backend=%d", PLUGIN_VERSION, view_as<int>(GetSnapshotBackend()));
 
 	if (g_cvAutoSync.BoolValue)
 		vStartAdminSync();
