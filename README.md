@@ -2,8 +2,7 @@
 
 Suite modular de sanciones para SourceMod y MySQL. Este repositorio conserva la
 línea clásica de BanSystem (versiones 1.0.0 y 1.1.0), independiente del
-[BanSystem actual](https://github.com/AoC-Gamers/BanSystem), que utiliza
-Frontend, Backend y Node Agent.
+BanSystem actual, que utiliza Frontend, Backend y Node Agent.
 
 **Legacy no significa abandonado:** esta línea puede recibir correcciones y
 mejoras de calidad de vida. No es la implementación principal ni comparte su
