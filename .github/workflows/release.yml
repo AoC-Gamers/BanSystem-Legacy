@@ -39,8 +39,9 @@ jobs:
       - name: Ensure tag points to main history
         shell: bash
         run: |
-          git fetch origin main --depth=1
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" "origin/main"; then
+          git fetch origin main
+          tag_commit="$(git rev-parse "${GITHUB_REF}^{commit}")"
+          if ! git merge-base --is-ancestor "$tag_commit" "origin/main"; then
             echo "Tag ${GITHUB_REF_NAME} does not point to a commit on main." >&2
             exit 1
           fi
