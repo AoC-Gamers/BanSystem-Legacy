@@ -16,12 +16,12 @@ if [[ ! -d "$SOURCEMOD_ARTIFACT_DIR" ]]; then
   exit 1
 fi
 
-python3 - "$SOURCEMOD_ARTIFACT_DIR" "$RELEASE_DIR/$RELEASE_NAME" <<'PY'
+python3 - "$SOURCEMOD_ARTIFACT_DIR" "$RELEASE_DIR/$RELEASE_NAME" "$ROOT_DIR" <<'PY'
 import os
 import sys
 import zipfile
 
-src_dir, out_file = sys.argv[1], sys.argv[2]
+src_dir, out_file, repo_dir = sys.argv[1], sys.argv[2], sys.argv[3]
 
 with zipfile.ZipFile(out_file, "w", zipfile.ZIP_DEFLATED) as zf:
     for root, dirs, files in os.walk(src_dir):
@@ -36,6 +36,8 @@ with zipfile.ZipFile(out_file, "w", zipfile.ZIP_DEFLATED) as zf:
             if arcname == "compile.log":
                 continue
             zf.write(path, arcname)
+    for name in ("LICENSE", "THIRD_PARTY_NOTICES.md"):
+        zf.write(os.path.join(repo_dir, name), name)
 PY
 
 echo "Release assets generated in $RELEASE_DIR"

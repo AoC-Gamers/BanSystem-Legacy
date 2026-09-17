@@ -1,8 +1,42 @@
-# BanSystem
+# BanSystem Legacy
 
-Suite modular de sanciones para SourceMod.
+Suite modular de sanciones para SourceMod y MySQL. Este repositorio conserva la
+línea clásica de BanSystem (versiones 1.0.0 y 1.1.0), independiente del
+[BanSystem actual](https://github.com/AoC-Gamers/BanSystem), que utiliza
+Frontend, Backend y Node Agent.
 
-`BanSystem` divide autorizacion, bans de acceso, castigos de comunicacion, bans de sprays y sincronizacion de admins en plugins pequenos que comparten una base MySQL y una API comun. La suite esta pensada para desplegar solo los modulos que necesita cada servidor sin duplicar logica de identidad, cache ni detalle de bans.
+**Legacy no significa abandonado:** esta línea puede recibir correcciones y
+mejoras de calidad de vida. No es la implementación principal ni comparte su
+arquitectura, base de datos o rutas de actualización con el BanSystem actual.
+Quien use esta versión debe seguir las instrucciones y releases de este
+repositorio; no debe aplicar migraciones ni paquetes de la línea nueva.
+
+## Versiones y soporte
+
+- [BanSystem 1.1.0](https://github.com/AoC-Gamers/BanSystem-Legacy/releases/tag/v1.1.0)
+  es la última versión clásica empaquetada.
+- La rama `main` puede incorporar futuras correcciones y mejoras compatibles
+  con esta línea. Una release publicada es una referencia histórica; consulta
+  las notas de cada nueva versión antes de actualizar.
+- Para instalar o actualizar, consulta la [guía de instalación](doc/INSTALLATION.md)
+  y haz una copia de seguridad de la base MySQL y de la configuración del
+  servidor antes de cambiar los plugins.
+
+## Licencia
+
+El código propio de AoC-Gamers en este repositorio se distribuye bajo
+[GNU GPL versión 3](LICENSE). Se conservan los avisos y condiciones originales
+de los archivos de terceros incluidos en `addons/sourcemod/scripting/include/`;
+la licencia del proyecto no sustituye las licencias de sus respectivos autores.
+Consulta [los avisos de terceros](THIRD_PARTY_NOTICES.md).
+
+## Descripción
+
+`BanSystem` divide autorización, bans de acceso, castigos de comunicación,
+bans de sprays y sincronización de admins en plugins pequeños que comparten
+una base MySQL y una API común. La suite está pensada para desplegar solo los
+módulos que necesita cada servidor sin duplicar lógica de identidad, caché ni
+detalle de bans.
 
 ## Componentes
 
