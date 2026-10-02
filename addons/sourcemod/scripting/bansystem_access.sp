@@ -12,7 +12,7 @@
 #include <bansystem_core>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_ACCESS_VERSION "1.1.0"
+#define BANSYSTEM_ACCESS_VERSION "1.2.3"
 #define BANSYSTEM_ACCESS_DEBUG_LOG "logs/bansystem/BanSystem_Access.log"
 #define BANSYSTEM_ACCESS_MAX_REASON_LENGTH 256
 #define BANSYSTEM_ACCESS_APPLY_RETRY_INTERVAL 0.1
@@ -33,6 +33,14 @@ char g_szBSAccessLogPath[PLATFORM_MAX_PATH];
 
 bool g_bBSAccessHasCoreLibrary;
 bool g_bBSAccessDatabaseReady;
+bool g_bBSAccessDatabaseConnectPending;
+bool g_bBSAccessSchemaValidationPending;
+int g_iBSAccessDatabaseGeneration;
+int g_iBSAccessDatabaseRetryAttempt;
+int g_iBSAccessSchemaQueryFailureCount;
+Handle g_hBSAccessDatabaseConnectWatchdog;
+Handle g_hBSAccessSchemaWatchdog;
+Handle g_hBSAccessDatabaseRetryTimer;
 
 enum eBSAccessIdentityAction
 {
@@ -117,6 +125,12 @@ public void OnPluginStart()
 public void OnConfigsExecuted()
 {
 	BSAccess_ConnectDatabase();
+}
+
+public void OnPluginEnd()
+{
+	BSAccess_CancelDatabaseTimers();
+	BSAccess_AdvanceDatabaseGeneration();
 }
 
 public void OnClientDisconnect(int iClient)

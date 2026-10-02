@@ -326,4 +326,10 @@
 		"es"		"Revisa tu consola para ver el detalle"
 	}
 
+	"BSAccessKickMessage"
+	{
+		"en"		"You received an access ban. Read your console for details"
+		"es"		"Recibiste un ban de acceso. Revisa tu consola para ver el detalle"
+	}
+
 }

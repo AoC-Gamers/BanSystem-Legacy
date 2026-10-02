@@ -81,7 +81,11 @@ stock void BSComm_ReconcileClientCommStateFromCore(int iClient)
 		view_as<int>(eCoreCommType)
 	);
 
-	BSCore_OnCommDetailRequested(iClient, iAccountId, iBanId, eCoreCommType);
+	int iAuthGeneration = BSCore_GetClientAuthGeneration(iClient, iAccountId);
+	if (iAuthGeneration <= 0)
+		return;
+
+	BSCore_OnCommDetailRequested(iClient, iAccountId, iBanId, eCoreCommType, iAuthGeneration);
 }
 
 stock void BSComm_ReconcileAllCommStatesFromCore()
@@ -201,17 +205,18 @@ stock void BSComm_QueueResolvedDetailRefreshForClient(int iClient, int iAccountI
 	SQL_TQuery(g_dbBSComm, BSComm_OnResolvedDetailRefreshLoaded, szQuery, pContext, DBPrio_High);
 }
 
-public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, eBSCoreCommType commType)
+public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, eBSCoreCommType commType, int auth_generation)
 {
 	BSComm_SQL(
-		"Received core communication detail request: client=%d accountid=%d ban_id=%d comm_type=%d",
+		"Received core communication detail request: client=%d accountid=%d ban_id=%d comm_type=%d auth_generation=%d",
 		client,
 		accountid,
 		banId,
-		commType
+		commType,
+		auth_generation
 	);
 
-	if (!BSComm_CanUseCoreLibrary())
+	if (!BSComm_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(client, accountid, auth_generation))
 		return;
 
 	BSComm_ResetResolvedDetail(client);
@@ -219,7 +224,6 @@ public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, e
 	if (!BSComm_CanUseDatabase() || banId <= 0)
 	{
 		BSComm_SQL("Communication detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", client);
-		BSCore_MarkModuleDetailResolved(client, kBSCoreModule_Communication);
 		return;
 	}
 
@@ -235,6 +239,7 @@ public void BSCore_OnCommDetailRequested(int client, int accountid, int banId, e
 	pContext.WriteCell(accountid);
 	pContext.WriteCell(banId);
 	pContext.WriteCell(view_as<int>(commType));
+	pContext.WriteCell(auth_generation);
 
 	BSComm_SQL("Communication detail query: %s", szQuery);
 	SQL_TQuery(g_dbBSComm, BSComm_OnCommDetailLoaded, szQuery, pContext, DBPrio_High);
@@ -248,10 +253,11 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 	int iExpectedAccountId = pContext.ReadCell();
 	int iBanId = pContext.ReadCell();
 	eBSCoreCommType eExpectedCommType = view_as<eBSCoreCommType>(pContext.ReadCell());
+	int iAuthGeneration = pContext.ReadCell();
 	delete pContext;
 
 	int iClient = GetClientOfUserId(iUserId);
-	if (iClient <= 0 || !BSComm_CanUseCoreLibrary())
+	if (iClient <= 0 || !BSComm_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(iClient, iExpectedAccountId, iAuthGeneration))
 	{
 		delete rsResult;
 		return;
@@ -261,19 +267,17 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 	{
 		BSComm_SQL("Communication detail query failed for client %d ban_id %d: %s", iClient, iBanId, szError);
 		delete rsResult;
-		BSComm_ClearClientCommState(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
 		return;
 	}
 
 	if (!rsResult.FetchRow())
 	{
 		if (BSComm_CanUseCoreLibrary())
-			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
+		BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
 		BSComm_SQL("Communication detail query returned no row for client %d ban_id %d.", iClient, iBanId);
 		delete rsResult;
 		BSComm_ClearClientCommState(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication, iAuthGeneration);
 		return;
 	}
 
@@ -292,9 +296,6 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 			iResolvedBanId
 		);
 		delete rsResult;
-		BSComm_ClearClientCommState(iClient);
-		BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Communication);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
 		return;
 	}
 
@@ -326,7 +327,7 @@ public void BSComm_OnCommDetailLoaded(Database db, DBResultSet rsResult, const c
 		g_eBSCommResolvedDetail[iClient].m_szBannedByName,
 		g_eBSCommResolvedDetail[iClient].m_iDateExpireTs
 	);
-	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication);
+	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Communication, iAuthGeneration);
 }
 
 public void BSComm_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)

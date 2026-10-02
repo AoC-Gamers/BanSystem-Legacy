@@ -117,7 +117,11 @@ stock void BSAccess_ReconcileClientAccessStateFromCore(int iClient)
 		iBanId
 	);
 
-	BSCore_OnAccessDetailRequested(iClient, iAccountId, iBanId);
+	int iAuthGeneration = BSCore_GetClientAuthGeneration(iClient, iAccountId);
+	if (iAuthGeneration <= 0)
+		return;
+
+	BSCore_OnAccessDetailRequested(iClient, iAccountId, iBanId, iAuthGeneration);
 }
 
 stock void BSAccess_ReconcileAllAccessStatesFromCore()
@@ -127,16 +131,17 @@ stock void BSAccess_ReconcileAllAccessStatesFromCore()
 		BSAccess_ReconcileClientAccessStateFromCore(iClient);
 }
 
-public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBanId)
+public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBanId, int iAuthGeneration)
 {
 	BSAccess_Debug(
-		"Received core access detail request: client=%d accountid=%d ban_id=%d",
+		"Received core access detail request: client=%d accountid=%d ban_id=%d auth_generation=%d",
 		iClient,
 		iAccountId,
-		iBanId
+		iBanId,
+		iAuthGeneration
 	);
 
-	if (!BSAccess_CanUseCoreLibrary())
+	if (!BSAccess_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(iClient, iAccountId, iAuthGeneration))
 		return;
 
 	BSAccess_ResetResolvedDetail(iClient);
@@ -144,7 +149,6 @@ public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBan
 	if (!BSAccess_CanUseDatabase() || iBanId <= 0)
 	{
 		BSAccess_SQL("Access detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
@@ -159,6 +163,7 @@ public void BSCore_OnAccessDetailRequested(int iClient, int iAccountId, int iBan
 	pContext.WriteCell(GetClientUserId(iClient));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iBanId);
+	pContext.WriteCell(iAuthGeneration);
 
 	BSAccess_SQL("Access detail query: %s", szQuery);
 	SQL_TQuery(g_dbBSAccess, BSAccess_OnAccessDetailLoaded, szQuery, pContext, DBPrio_High);
@@ -171,10 +176,11 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 	int iUserId = pContext.ReadCell();
 	int iExpectedAccountId = pContext.ReadCell();
 	int iBanId = pContext.ReadCell();
+	int iAuthGeneration = pContext.ReadCell();
 	delete pContext;
 
 	int iClient = GetClientOfUserId(iUserId);
-	if (iClient <= 0 || !BSAccess_CanUseCoreLibrary())
+	if (iClient <= 0 || !BSAccess_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(iClient, iExpectedAccountId, iAuthGeneration))
 	{
 		delete rsResult;
 		return;
@@ -184,7 +190,6 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 	{
 		BSAccess_SQL("Access detail query failed for client %d ban_id %d: %s", iClient, iBanId, szError);
 		delete rsResult;
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
@@ -194,7 +199,7 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Access);
 		BSAccess_SQL("Access detail query returned no row for client %d ban_id %d.", iClient, iBanId);
 		delete rsResult;
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access, iAuthGeneration);
 		return;
 	}
 
@@ -203,8 +208,6 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 	{
 		BSAccess_SQL("Access detail query returned mismatched accountid for client %d ban_id %d: expected=%d actual=%d", iClient, iBanId, iExpectedAccountId, iResolvedAccountId);
 		delete rsResult;
-		BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Access);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
 		return;
 	}
 
@@ -220,6 +223,6 @@ public void BSAccess_OnAccessDetailLoaded(Database db, DBResultSet rsResult, con
 		g_eBSAccessResolvedDetail[iClient].m_iLength
 	);
 
-	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access);
+	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Access, iAuthGeneration);
 	BSAccess_ApplyResolvedBanToClient(iClient);
 }

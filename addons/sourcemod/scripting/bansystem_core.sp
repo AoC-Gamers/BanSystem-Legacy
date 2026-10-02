@@ -10,8 +10,9 @@
 #include <steamidtools>
 #define REQUIRE_PLUGIN
 
-#define BANSYSTEM_CORE_VERSION "1.1.0"
+#define BANSYSTEM_CORE_VERSION "1.2.1"
 #define BANSYSTEM_CORE_DEBUG_LOG "logs/bansystem/BanSystem_Core.log"
+#define BANSYSTEM_CORE_DB_RETRY_INTERVAL 30.0
 
 Database g_dbCorePrimary;
 Database g_dbCoreCache;
@@ -38,10 +39,22 @@ bool g_bCoreCacheReady;
 bool g_bCoreAuthReady;
 bool g_bCoreMapTransitionActive;
 bool g_bCoreHasL4D2ChangeLevel;
+bool g_bCorePrimaryConnectPending;
+bool g_bCoreCacheConnectPending;
+bool g_bCorePrimaryValidationPending;
+bool g_bCoreCacheValidationPending;
 eBSCoreModuleBit g_eCoreRegisteredModuleMask;
 
 Handle g_hCoreAuthTimer[MAXPLAYERS + 1];
+Handle g_hCoreAuthRetryTimer[MAXPLAYERS + 1];
+Handle g_hCoreDatabaseRetryTimer;
+int g_iCorePrimaryDatabaseGeneration;
 eBSCoreAuthState g_eCoreAuthState[MAXPLAYERS + 1];
+int g_iCoreAuthGeneration[MAXPLAYERS + 1];
+int g_iCoreAuthRetryAttempt[MAXPLAYERS + 1];
+int g_iCoreAuthAccountId[MAXPLAYERS + 1];
+bool g_bCoreHasResolvedSummary[MAXPLAYERS + 1];
+bool g_bCoreSummaryLoaded[MAXPLAYERS + 1];
 int g_iCoreResolvedAccountId[MAXPLAYERS + 1];
 eBSCoreModuleBit g_eCoreResolvedModuleMask[MAXPLAYERS + 1];
 eBSCoreCommType g_eCoreResolvedCommType[MAXPLAYERS + 1];
@@ -118,17 +131,21 @@ public void OnConfigsExecuted()
 {
 	g_bCorePrimaryReady = false;
 	g_bCoreCacheReady = false;
+	BSCore_UpdateAuthReadyState();
 	BSCore_ConnectDatabases();
 }
 
 public void OnMapStart()
 {
 	BSCore_BeginMapTransition();
+	BSCore_QueueConnectedClientsForMapTransition();
+	BSCore_MaybeFinalizeMapTransition();
 }
 
 public void OnMapEnd()
 {
 	BSCore_BeginMapTransition();
+	BSCore_QueueConnectedClientsForMapTransition();
 }
 
 public void OnLibraryAdded(const char[] szName)

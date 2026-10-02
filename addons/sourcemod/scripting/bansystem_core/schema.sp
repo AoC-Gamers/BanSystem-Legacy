@@ -47,7 +47,8 @@ enum eBSCoreAuthState
 {
 	kBSCoreAuthState_Idle = 0,
 	kBSCoreAuthState_Queued,
-	kBSCoreAuthState_Checking
+	kBSCoreAuthState_Checking,
+	kBSCoreAuthState_Unverified
 }
 
 enum eBSCoreDebugMask

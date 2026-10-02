@@ -7,6 +7,8 @@ stock void BSCore_RegisterApiLibrary()
 	CreateNative("BSCore_IsMapTransitionActive", Native_BSCoreIsMapTransitionActive);
 	CreateNative("BSCore_IsAuthReady", Native_BSCoreIsAuthReady);
 	CreateNative("BSCore_IsClientAuthPending", Native_BSCoreIsClientAuthPending);
+	CreateNative("BSCore_GetClientAuthGeneration", Native_BSCoreGetClientAuthGeneration);
+	CreateNative("BSCore_IsClientAuthGenerationCurrent", Native_BSCoreIsClientAuthGenerationCurrent);
 	CreateNative("BSCore_IsLocalCleanCached", Native_BSCoreIsLocalCleanCached);
 	CreateNative("BSCore_AddLocalCleanCache", Native_BSCoreAddLocalCleanCache);
 	CreateNative("BSCore_RemoveLocalCleanCache", Native_BSCoreRemoveLocalCleanCache);
@@ -41,9 +43,9 @@ stock void BSCore_RegisterApiLibrary()
 	CreateNative("BSCore_MarkModuleDetailResolved", Native_BSCoreMarkModuleDetailResolved);
 
 	g_gfBSCoreOnAuthReadyChanged = CreateGlobalForward("BSCore_OnAuthReadyChanged", ET_Ignore, Param_Cell);
-	g_gfBSCoreOnAccessDetailRequested = CreateGlobalForward("BSCore_OnAccessDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
-	g_gfBSCoreOnCommDetailRequested = CreateGlobalForward("BSCore_OnCommDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
-	g_gfBSCoreOnSprayDetailRequested = CreateGlobalForward("BSCore_OnSprayDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell);
+	g_gfBSCoreOnAccessDetailRequested = CreateGlobalForward("BSCore_OnAccessDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
+	g_gfBSCoreOnCommDetailRequested = CreateGlobalForward("BSCore_OnCommDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
+	g_gfBSCoreOnSprayDetailRequested = CreateGlobalForward("BSCore_OnSprayDetailRequested", ET_Ignore, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
 
 	RegPluginLibrary(BANSYSTEM_CORE_LIBRARY);
 	BSCore_API("Registered bansystem_core API library and natives.");
@@ -62,6 +64,16 @@ public int Native_BSCoreIsAuthReady(Handle hPlugin, int iNumParams)
 public int Native_BSCoreIsClientAuthPending(Handle hPlugin, int iNumParams)
 {
 	return BSCore_IsClientAuthorizationPending(GetNativeCell(1));
+}
+
+public int Native_BSCoreGetClientAuthGeneration(Handle hPlugin, int iNumParams)
+{
+	return BSCore_GetClientAuthGeneration(GetNativeCell(1), GetNativeCell(2));
+}
+
+public int Native_BSCoreIsClientAuthGenerationCurrent(Handle hPlugin, int iNumParams)
+{
+	return BSCore_IsClientAuthGenerationCurrent(GetNativeCell(1), GetNativeCell(2), GetNativeCell(3));
 }
 
 public int Native_BSCoreIsLocalCleanCached(Handle hPlugin, int iNumParams)
@@ -254,5 +266,11 @@ public int Native_BSCoreClearSummary(Handle hPlugin, int iNumParams)
 
 public int Native_BSCoreMarkModuleDetailResolved(Handle hPlugin, int iNumParams)
 {
-	return BSCore_MarkModuleDetailResolved(GetNativeCell(1), view_as<eBSCoreModuleBit>(GetNativeCell(2)));
+	if (iNumParams < 3)
+	{
+		ThrowNativeError(SP_ERROR_NATIVE, "BSCore_MarkModuleDetailResolved requires client, moduleBit, and auth generation (Core API v2).");
+		return false;
+	}
+
+	return BSCore_MarkModuleDetailResolved(GetNativeCell(1), view_as<eBSCoreModuleBit>(GetNativeCell(2)), GetNativeCell(3));
 }

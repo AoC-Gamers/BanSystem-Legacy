@@ -37,7 +37,7 @@ stock void BSCore_ScheduleCacheSummarySync(int iAccountId)
 	if (!BSCore_CanUsePrimaryDatabase() || !BSCore_CanUseCacheDatabase() || iAccountId <= 0)
 		return;
 
-	char szQuery[256];
+	char szQuery[512];
 	BSCore_GetSummarySelectQueryByAccountId(iAccountId, szQuery, sizeof(szQuery));
 	BSCore_SQL("Scheduling cache summary sync for accountid %d using query: %s", iAccountId, szQuery);
 
@@ -63,7 +63,7 @@ stock bool BSCore_UpsertCacheSummary(int iAccountId, eBSCoreModuleBit eModuleMas
 	g_dbCoreCache.Escape(szSprayReason, szSafeSprayReason, sizeof(szSafeSprayReason));
 	g_dbCoreCache.Escape(szSprayContext, szSafeSprayContext, sizeof(szSafeSprayContext));
 	g_dbCoreCache.Escape(szSprayBannedByName, szSafeSprayBannedByName, sizeof(szSafeSprayBannedByName));
-	char szQuery[3072];
+	char szQuery[8192];
 	szQuery[0] = '\0';
 	int iLen = 0;
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` ", BANSYSTEM_CORE_SQLITE_TABLE_SUMMARY);
@@ -88,12 +88,17 @@ stock bool BSCore_UpsertCacheSummary(int iAccountId, eBSCoreModuleBit eModuleMas
 		szSafeSprayBannedByName,
 		iSprayExpireTs
 	);
+	if (iLen <= 0 || iLen >= sizeof(szQuery) - 1)
+	{
+		BSCore_SQL("SQLite summary upsert query exceeded buffer; skipping accountid=%d length=%d capacity=%d.", iAccountId, iLen, sizeof(szQuery));
+		return false;
+	}
 
 	BSCore_SQL("SQLite summary upsert query: %s", szQuery);
 	return SQL_FastQuery(g_dbCoreCache, szQuery);
 }
 
-stock bool BSCore_UpsertPrimarySummary(int iAccountId, eBSCoreModuleBit eModuleMask, int iAccessBanId, int iCommBanId, int iSprayBanId, eBSCoreCommType eCommType, int iCommLength = 0, const char[] szCommReason = "", const char[] szCommContext = "", const char[] szCommBannedByName = "", int iCommExpireTs = 0, int iSprayLength = 0, const char[] szSprayReason = "", const char[] szSprayContext = "", const char[] szSprayBannedByName = "", int iSprayExpireTs = 0)
+stock bool BSCore_UpsertPrimarySummary(int iAccountId, eBSCoreModuleBit eModuleMask, int iAccessBanId, int iCommBanId, int iSprayBanId, eBSCoreCommType eCommType, int iCommLength = 0, const char[] szCommReason = "", const char[] szCommContext = "", const char[] szCommBannedByName = "", int iCommExpireTs = 0, int iSprayLength = 0, const char[] szSprayReason = "", const char[] szSprayContext = "", const char[] szSprayBannedByName = "", int iSprayExpireTs = 0, bool bReplaceLegacyModules = false)
 {
 	if (!BSCore_CanUsePrimaryDatabase() || iAccountId <= 0)
 		return false;
@@ -110,7 +115,15 @@ stock bool BSCore_UpsertPrimarySummary(int iAccountId, eBSCoreModuleBit eModuleM
 	g_dbCorePrimary.Escape(szSprayReason, szSafeSprayReason, sizeof(szSafeSprayReason));
 	g_dbCorePrimary.Escape(szSprayContext, szSafeSprayContext, sizeof(szSafeSprayContext));
 	g_dbCorePrimary.Escape(szSprayBannedByName, szSafeSprayBannedByName, sizeof(szSafeSprayBannedByName));
-	char szQuery[4096];
+	char szQuery[8192];
+	int iLegacyModuleMask = view_as<int>(eModuleMask) & 7;
+	if (bReplaceLegacyModules && iLegacyModuleMask == 0)
+	{
+		Format(szQuery, sizeof(szQuery), "UPDATE `%s` SET `module_mask` = (`module_mask` & ~7), `access_ban_id` = 0, `comm_ban_id` = 0, `spray_ban_id` = 0, `comm_type` = 0, `comm_length` = 0, `comm_reason` = '', `comm_context` = '', `comm_banned_by_name` = '', `comm_expire_ts` = 0, `spray_length` = 0, `spray_reason` = '', `spray_context` = '', `spray_banned_by_name` = '', `spray_expire_ts` = 0 WHERE `accountid` = %d;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY, iAccountId);
+		BSCore_SQL("Primary full-rebuild cleared legacy summary modules without inserting a row: %s", szQuery);
+		return SQL_FastQuery(g_dbCorePrimary, szQuery);
+	}
+	int iInsertModuleMask = bReplaceLegacyModules ? iLegacyModuleMask : view_as<int>(eModuleMask);
 	szQuery[0] = '\0';
 	int iLen = 0;
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "INSERT INTO `%s` ", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY);
@@ -119,7 +132,7 @@ stock bool BSCore_UpsertPrimarySummary(int iAccountId, eBSCoreModuleBit eModuleM
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_length`, `spray_reason`, `spray_context`, `spray_banned_by_name`, `spray_expire_ts`) ");
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "VALUES (%d, %d, %d, %d, %d, %d, %d, '%s', '%s', '%s', %d, %d, '%s', '%s', '%s', %d) ",
 		iAccountId,
-		view_as<int>(eModuleMask),
+		iInsertModuleMask,
 		iAccessBanId,
 		iCommBanId,
 		iSprayBanId,
@@ -136,14 +149,30 @@ stock bool BSCore_UpsertPrimarySummary(int iAccountId, eBSCoreModuleBit eModuleM
 		iSprayExpireTs
 	);
 	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "ON DUPLICATE KEY UPDATE ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`module_mask` = VALUES(`module_mask`), `access_ban_id` = VALUES(`access_ban_id`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_ban_id` = VALUES(`comm_ban_id`), `spray_ban_id` = VALUES(`spray_ban_id`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_type` = VALUES(`comm_type`), `comm_length` = VALUES(`comm_length`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_reason` = VALUES(`comm_reason`), `comm_context` = VALUES(`comm_context`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_banned_by_name` = VALUES(`comm_banned_by_name`), `comm_expire_ts` = VALUES(`comm_expire_ts`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_length` = VALUES(`spray_length`), `spray_reason` = VALUES(`spray_reason`), ");
-	iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_context` = VALUES(`spray_context`), `spray_banned_by_name` = VALUES(`spray_banned_by_name`), ");
-	Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_expire_ts` = VALUES(`spray_expire_ts`);");
+	if (bReplaceLegacyModules)
+	{
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`module_mask` = ((`module_mask` & ~7) | (VALUES(`module_mask`) & 7)), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`access_ban_id` = VALUES(`access_ban_id`), `comm_ban_id` = VALUES(`comm_ban_id`), `spray_ban_id` = VALUES(`spray_ban_id`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_type` = VALUES(`comm_type`), `comm_length` = VALUES(`comm_length`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_reason` = VALUES(`comm_reason`), `comm_context` = VALUES(`comm_context`), `comm_banned_by_name` = VALUES(`comm_banned_by_name`), `comm_expire_ts` = VALUES(`comm_expire_ts`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_length` = VALUES(`spray_length`), `spray_reason` = VALUES(`spray_reason`), `spray_context` = VALUES(`spray_context`), `spray_banned_by_name` = VALUES(`spray_banned_by_name`), `spray_expire_ts` = VALUES(`spray_expire_ts`);");
+	}
+	else
+	{
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`module_mask` = (`module_mask` | (VALUES(`module_mask`) & 7)), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`access_ban_id` = IF((VALUES(`module_mask`) & 1) != 0, VALUES(`access_ban_id`), `access_ban_id`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_ban_id` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_ban_id`), `comm_ban_id`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_ban_id` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_ban_id`), `spray_ban_id`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_type` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_type`), `comm_type`), `comm_length` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_length`), `comm_length`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`comm_reason` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_reason`), `comm_reason`), `comm_context` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_context`), `comm_context`), `comm_banned_by_name` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_banned_by_name`), `comm_banned_by_name`), `comm_expire_ts` = IF((VALUES(`module_mask`) & 2) != 0, VALUES(`comm_expire_ts`), `comm_expire_ts`), ");
+		iLen += Format(szQuery[iLen], sizeof(szQuery) - iLen, "`spray_length` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_length`), `spray_length`), `spray_reason` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_reason`), `spray_reason`), `spray_context` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_context`), `spray_context`), `spray_banned_by_name` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_banned_by_name`), `spray_banned_by_name`), `spray_expire_ts` = IF((VALUES(`module_mask`) & 4) != 0, VALUES(`spray_expire_ts`), `spray_expire_ts`);");
+	}
+
+	if (iLen <= 0 || iLen >= sizeof(szQuery) - 1)
+	{
+		BSCore_SQL("Primary summary upsert query exceeded buffer; skipping accountid=%d length=%d capacity=%d.", iAccountId, iLen, sizeof(szQuery));
+		return false;
+	}
 
 	BSCore_SQL("Primary summary upsert query: %s", szQuery);
 	return SQL_FastQuery(g_dbCorePrimary, szQuery);
@@ -355,12 +384,17 @@ stock bool BSCore_ClearSummary(int iAccountId)
 	if (!BSCore_CanUsePrimaryDatabase() || iAccountId <= 0)
 		return false;
 
-	char szQuery[256];
-	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE `accountid` = %d;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY, iAccountId);
-	BSCore_SQL("Clear full summary query: %s", szQuery);
+	char szQuery[1024];
+	Format(szQuery, sizeof(szQuery), "UPDATE `%s` SET `module_mask` = (`module_mask` & ~7), `access_ban_id` = 0, `comm_ban_id` = 0, `spray_ban_id` = 0, `comm_type` = 0, `comm_length` = 0, `comm_reason` = '', `comm_context` = '', `comm_banned_by_name` = '', `comm_expire_ts` = 0, `spray_length` = 0, `spray_reason` = '', `spray_context` = '', `spray_banned_by_name` = '', `spray_expire_ts` = 0 WHERE `accountid` = %d;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY, iAccountId);
+	BSCore_SQL("Clear legacy summary modules query: %s", szQuery);
+	if (!SQL_FastQuery(g_dbCorePrimary, szQuery))
+		return false;
+
+	Format(szQuery, sizeof(szQuery), "DELETE FROM `%s` WHERE `accountid` = %d AND `module_mask` = 0;", BANSYSTEM_CORE_MYSQL_TABLE_SUMMARY, iAccountId);
+	BSCore_SQL("Cleanup empty summary query: %s", szQuery);
 	bool bResult = SQL_FastQuery(g_dbCorePrimary, szQuery);
 	if (bResult)
-		BSCore_DeleteCacheSummary(iAccountId);
+		BSCore_ScheduleCacheSummarySync(iAccountId);
 
 	return bResult;
 }

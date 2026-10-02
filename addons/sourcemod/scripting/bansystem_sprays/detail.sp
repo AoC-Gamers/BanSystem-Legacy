@@ -82,7 +82,11 @@ stock void BSSprays_ReconcileClientSprayStateFromCore(int iClient)
 		iBanId
 	);
 
-	BSCore_OnSprayDetailRequested(iClient, iAccountId, iBanId);
+	int iAuthGeneration = BSCore_GetClientAuthGeneration(iClient, iAccountId);
+	if (iAuthGeneration <= 0)
+		return;
+
+	BSCore_OnSprayDetailRequested(iClient, iAccountId, iBanId, iAuthGeneration);
 }
 
 stock void BSSprays_ReconcileAllSprayStatesFromCore()
@@ -141,16 +145,17 @@ public Action BSSprays_OnPlayerDecal(const char[] szName, const int[] iClients, 
 	return Plugin_Continue;
 }
 
-public void BSCore_OnSprayDetailRequested(int iClient, int iAccountId, int iBanId)
+public void BSCore_OnSprayDetailRequested(int iClient, int iAccountId, int iBanId, int iAuthGeneration)
 {
 	BSSprays_Debug(
-		"Received core spray detail request: client=%d accountid=%d ban_id=%d",
+		"Received core spray detail request: client=%d accountid=%d ban_id=%d auth_generation=%d",
 		iClient,
 		iAccountId,
-		iBanId
+		iBanId,
+		iAuthGeneration
 	);
 
-	if (!BSSprays_CanUseCoreLibrary())
+	if (!BSSprays_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(iClient, iAccountId, iAuthGeneration))
 		return;
 
 	BSSprays_ResetResolvedDetail(iClient);
@@ -158,7 +163,6 @@ public void BSCore_OnSprayDetailRequested(int iClient, int iAccountId, int iBanI
 	if (!BSSprays_CanUseDatabase() || iBanId <= 0)
 	{
 		BSSprays_SQL("Spray detail request for client %d cannot be resolved because DB is not ready or ban_id is invalid.", iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
 		return;
 	}
 
@@ -173,6 +177,7 @@ public void BSCore_OnSprayDetailRequested(int iClient, int iAccountId, int iBanI
 	pContext.WriteCell(GetClientUserId(iClient));
 	pContext.WriteCell(iAccountId);
 	pContext.WriteCell(iBanId);
+	pContext.WriteCell(iAuthGeneration);
 
 	BSSprays_SQL("Spray detail query: %s", szQuery);
 	SQL_TQuery(g_dbBSSprays, BSSprays_OnSprayDetailLoaded, szQuery, pContext, DBPrio_High);
@@ -185,10 +190,11 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 	int iUserId = pContext.ReadCell();
 	int iExpectedAccountId = pContext.ReadCell();
 	int iBanId = pContext.ReadCell();
+	int iAuthGeneration = pContext.ReadCell();
 	delete pContext;
 
 	int iClient = GetClientOfUserId(iUserId);
-	if (iClient <= 0 || !BSSprays_CanUseCoreLibrary())
+	if (iClient <= 0 || !BSSprays_CanUseCoreLibrary() || !BSCore_IsClientAuthGenerationCurrent(iClient, iExpectedAccountId, iAuthGeneration))
 	{
 		delete rsResult;
 		return;
@@ -198,7 +204,6 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 	{
 		BSSprays_SQL("Spray detail query failed for client %d ban_id %d: %s", iClient, iBanId, szError);
 		delete rsResult;
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
 		return;
 	}
 
@@ -209,7 +214,7 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 		BSSprays_SQL("Spray detail query returned no row for client %d ban_id %d.", iClient, iBanId);
 		delete rsResult;
 		BSSprays_ResetResolvedDetail(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
+		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays, iAuthGeneration);
 		return;
 	}
 
@@ -226,8 +231,6 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 		if (BSSprays_CanUseCoreLibrary())
 			BSCore_ClearSummaryModule(iExpectedAccountId, kBSCoreModule_Sprays);
 		delete rsResult;
-		BSSprays_ResetResolvedDetail(iClient);
-		BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
 		return;
 	}
 
@@ -253,7 +256,7 @@ public void BSSprays_OnSprayDetailLoaded(Database db, DBResultSet rsResult, cons
 		g_eBSSpraysResolvedDetail[iClient].m_iDateExpireTs
 	);
 
-	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays);
+	BSCore_MarkModuleDetailResolved(iClient, kBSCoreModule_Sprays, iAuthGeneration);
 }
 
 public void BSSprays_OnResolvedDetailRefreshLoaded(Database db, DBResultSet rsResult, const char[] szError, any pData)

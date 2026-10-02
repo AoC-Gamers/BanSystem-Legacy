@@ -43,14 +43,17 @@ Compilacion local:
 
 BanSystem no instala automaticamente el schema MySQL principal.
 
-Importa:
+En una base nueva, importa en este orden:
 
-1. `addons/sourcemod/configs/sql-init-bansystem/mysql/core_schema.sql`
-2. los scripts modulares segun los plugins que despliegues:
-   - `access_schema.sql`
-   - `communication_schema.sql`
-   - `sprays_schema.sql`
-   - `adminsync_schema.sql`
+1. `addons/sourcemod/configs/sql-init-bansystem/mysql/access_schema.sql`
+2. `addons/sourcemod/configs/sql-init-bansystem/mysql/communication_schema.sql`
+3. `addons/sourcemod/configs/sql-init-bansystem/mysql/sprays_schema.sql`
+4. `addons/sourcemod/configs/sql-init-bansystem/mysql/core_schema.sql`
+5. `addons/sourcemod/configs/sql-init-bansystem/mysql/adminsync_schema.sql`, si despliegas Admin Sync.
+
+Core crea `view_bansystem_active_summary`, que depende de las vistas activas de acceso, comunicación y sprays. Por eso los tres schemas modulares deben crear primero sus tablas y vistas, aunque no cargues alguno de esos plugins.
+
+`core_schema.sql` elimina y vuelve a crear `bansystem_summary`. No lo ejecutes sobre una base existente: perderías el summary. Para actualizar, usa una migración versionada que preserve datos, columnas adicionales, vistas y triggers; respáldala y valídala antes de desplegarla. La migración específica para core v1 con extensión callvote está documentada en [SQL_INIT_SCRIPTS.md](SQL_INIT_SCRIPTS.md).
 
 ## Configuracion de databases.cfg
 

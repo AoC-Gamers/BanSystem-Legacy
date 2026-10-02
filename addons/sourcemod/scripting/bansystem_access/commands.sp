@@ -4,11 +4,33 @@
 
 stock void BSAccess_OnPluginStart_Commands()
 {
+	RegAdminCmd("sm_bs_access_health", Command_BSAccessHealth, ADMFLAG_ROOT, "Show Access database connection and retry state.");
 	RegAdminCmd("sm_bs_access_detail", Command_BSAccessDetail, ADMFLAG_ROOT, "Show resolved access detail for a connected client.");
 	RegAdminCmd("sm_bs_access_add", Command_BSAccessAdd, ADMFLAG_ROOT, "Add or update an access ban in the modular access table.");
 	RegAdminCmd("sm_bs_access_remove", Command_BSAccessRemove, ADMFLAG_ROOT, "Remove an access ban from the modular access table.");
 	RegAdminCmd("sm_bs_access_info", Command_BSAccessInfo, ADMFLAG_ROOT, "Show active access ban info for an identity.");
 	RegAdminCmd("sm_bs_access_list", Command_BSAccessList, ADMFLAG_ROOT, "List active modular access bans.");
+}
+
+Action Command_BSAccessHealth(int iClient, int iArgs)
+{
+	bool bCoreReady = g_bBSAccessHasCoreLibrary && BSCore_IsAuthReady();
+	ReplyToCommand(
+		iClient,
+		"[BS Access] ready=%d db_handle=%d connect_pending=%d schema_pending=%d retry_pending=%d generation=%d retry_attempts=%d connect_watchdog=%d schema_watchdog=%d core_library=%d core_ready=%d",
+		g_bBSAccessDatabaseReady ? 1 : 0,
+		g_dbBSAccess != null ? 1 : 0,
+		g_bBSAccessDatabaseConnectPending ? 1 : 0,
+		g_bBSAccessSchemaValidationPending ? 1 : 0,
+		g_hBSAccessDatabaseRetryTimer != null ? 1 : 0,
+		g_iBSAccessDatabaseGeneration,
+		g_iBSAccessDatabaseRetryAttempt,
+		g_hBSAccessDatabaseConnectWatchdog != null ? 1 : 0,
+		g_hBSAccessSchemaWatchdog != null ? 1 : 0,
+		g_bBSAccessHasCoreLibrary ? 1 : 0,
+		bCoreReady ? 1 : 0
+	);
+	return Plugin_Handled;
 }
 
 Action Command_BSAccessAdd(int iClient, int iArgs)

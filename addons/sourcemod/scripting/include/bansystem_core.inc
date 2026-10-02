@@ -3,6 +3,8 @@
 #endif
 #define _bansystem_core_included
 
+#define BANSYSTEM_CORE_API_VERSION 2
+
 enum eBSCoreModuleBit
 {
 	kBSCoreModule_None = 0,
@@ -42,6 +44,25 @@ native bool BSCore_IsAuthReady();
  * @return              True if the client still has pending auth work in the core.
  */
 native bool BSCore_IsClientAuthPending(int client);
+
+/**
+ * Returns the current authorization generation for a matching client/accountid.
+ *
+ * @param client        Client index.
+ * @param accountid     Expected internal Steam account id.
+ * @return              Current generation, or 0 when the identity is not current.
+ */
+native int BSCore_GetClientAuthGeneration(int client, int accountid);
+
+/**
+ * Returns whether a callback still belongs to the current client authorization.
+ *
+ * @param client        Client index.
+ * @param accountid     Expected internal Steam account id.
+ * @param generation    Generation captured when the async work was dispatched.
+ * @return              True only while this identity and generation are current.
+ */
+native bool BSCore_IsClientAuthGenerationCurrent(int client, int accountid, int generation);
 
 /**
  * Returns true if the given accountid exists in the local clean cache.
@@ -204,7 +225,8 @@ native bool BSCore_SetSpraySummaryDetail(int accountid, int banId, int length, c
 native bool BSCore_ClearSummaryModule(int accountid, eBSCoreModuleBit moduleBit);
 
 /**
- * Clears the full summary state for an accountid.
+ * Clears BanSystem Legacy modules (mask bits 1, 2, and 4) for an accountid.
+ * Other module bits and their columns are preserved.
  *
  * @param accountid     Internal Steam account id.
  * @return              True if the summary mutation was accepted.
@@ -216,9 +238,10 @@ native bool BSCore_ClearSummary(int accountid);
  *
  * @param client        Client index.
  * @param moduleBit     Module bit that finished resolving detail.
+ * @param generation    Generation captured by the detail request.
  * @return              True if the state was updated.
  */
-native bool BSCore_MarkModuleDetailResolved(int client, eBSCoreModuleBit moduleBit);
+native bool BSCore_MarkModuleDetailResolved(int client, eBSCoreModuleBit moduleBit, int generation);
 
 /**
  * Fired when the core needs access detail for a client with an active access summary bit.
@@ -226,8 +249,9 @@ native bool BSCore_MarkModuleDetailResolved(int client, eBSCoreModuleBit moduleB
  * @param client        Client index.
  * @param accountid     Internal Steam account id.
  * @param banId         Active access ban id from summary.
+ * @param generation    Current authorization generation.
  */
-forward void BSCore_OnAccessDetailRequested(int client, int accountid, int banId);
+forward void BSCore_OnAccessDetailRequested(int client, int accountid, int banId, int generation);
 
 /**
  * Fired when the core needs communication detail for a client with an active communication summary bit.
@@ -236,8 +260,9 @@ forward void BSCore_OnAccessDetailRequested(int client, int accountid, int banId
  * @param accountid     Internal Steam account id.
  * @param banId         Active communication ban id from summary.
  * @param commType      Communication type stored in summary.
+ * @param generation    Current authorization generation.
  */
-forward void BSCore_OnCommDetailRequested(int client, int accountid, int banId, eBSCoreCommType commType);
+forward void BSCore_OnCommDetailRequested(int client, int accountid, int banId, eBSCoreCommType commType, int generation);
 
 /**
  * Fired when the core needs spray detail for a client with an active sprays summary bit.
@@ -245,8 +270,9 @@ forward void BSCore_OnCommDetailRequested(int client, int accountid, int banId, 
  * @param client        Client index.
  * @param accountid     Internal Steam account id.
  * @param banId         Active spray ban id from summary.
+ * @param generation    Current authorization generation.
  */
-forward void BSCore_OnSprayDetailRequested(int client, int accountid, int banId);
+forward void BSCore_OnSprayDetailRequested(int client, int accountid, int banId, int generation);
 
 /**
  * Fired when the core auth-ready state changes.
@@ -272,6 +298,8 @@ public void __pl_bansystem_core_SetNTVOptional()
 	MarkNativeAsOptional("BSCore_IsMapTransitionActive");
 	MarkNativeAsOptional("BSCore_IsAuthReady");
 	MarkNativeAsOptional("BSCore_IsClientAuthPending");
+	MarkNativeAsOptional("BSCore_GetClientAuthGeneration");
+	MarkNativeAsOptional("BSCore_IsClientAuthGenerationCurrent");
 	MarkNativeAsOptional("BSCore_IsLocalCleanCached");
 	MarkNativeAsOptional("BSCore_AddLocalCleanCache");
 	MarkNativeAsOptional("BSCore_RemoveLocalCleanCache");

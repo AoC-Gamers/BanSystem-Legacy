@@ -4,7 +4,7 @@
 
 stock bool BSCore_ComputeAuthReadyState()
 {
-	return (!g_bCoreMapTransitionActive && (BSCore_CanUsePrimaryDatabase() || BSCore_CanUseCacheDatabase()));
+	return (!g_bCoreMapTransitionActive && BSCore_CanUsePrimaryDatabase());
 }
 
 stock void BSCore_UpdateAuthReadyState()
@@ -36,7 +36,7 @@ stock void BSCore_MaybeFinalizeMapTransition()
 	if (!g_bCoreMapTransitionActive)
 		return;
 
-	if (!BSCore_CanUsePrimaryDatabase() && !BSCore_CanUseCacheDatabase())
+	if (!BSCore_CanUsePrimaryDatabase())
 		return;
 
 	g_bCoreMapTransitionActive = false;

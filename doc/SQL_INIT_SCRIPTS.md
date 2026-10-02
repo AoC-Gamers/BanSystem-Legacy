@@ -25,8 +25,27 @@
 
 ## Orden recomendado
 
-1. importa `core_schema.sql`
-2. importa los scripts de los modulos que realmente vas a desplegar
+Para una instalación desde cero:
+
+1. importa `access_schema.sql`
+2. importa `communication_schema.sql`
+3. importa `sprays_schema.sql`
+4. importa `core_schema.sql`
+5. importa `adminsync_schema.sql` solo si se despliega Admin Sync
+
+`core_schema.sql` crea `view_bansystem_active_summary`, que consulta las vistas activas de acceso, comunicación y sprays. Los schemas de esos tres módulos deben importarse primero, incluso si sus plugins no se cargarán.
+
+No vuelvas a ejecutar `core_schema.sql` para actualizar una base existente: el script elimina y recrea `bansystem_summary`. Las actualizaciones requieren una migración versionada que mantenga los datos existentes y las columnas u objetos adicionales del servidor.
+
+### Core v1 a v3 con extensión callvote
+
+`mysql/migrations/core_v1_to_v3_preserve_callvotes.sql` migra el contrato observado de MariaDB 10.11: core v1, columnas de summary callvote y sus vistas activas. Añade las columnas Legacy que faltan, conserva `bansystem_summary`, los campos y la vista callvote, y actualiza core a v3 solo después de comprobar el contrato.
+
+Las vistas core quedan con `SQL SECURITY DEFINER` y `CURRENT_USER` como definer. Los triggers de summary se crean sin cláusula `DEFINER`, así MariaDB asigna el usuario ejecutor. La cuenta requiere permisos `CREATE VIEW`, `DROP`, `SELECT`, `ALTER`, `TRIGGER`, `UPDATE` y `CREATE TEMPORARY TABLES` sobre el esquema. Sin `SET USER`, MariaDB no permite asignar a la vista otro definer; no ejecutes el script con `--force`.
+
+No la despliegues con un Core cuyo `UpsertPrimarySummary` reemplace `module_mask` por solo `1`, `2` o `4`: esa ruta puede borrar el bit callvote `8` y los campos asociados. Primero valida un binario que conserve bits desconocidos y prueba escrituras sobre cuentas con máscaras `8` y `9`.
+
+Úsala solo si el prechequeo coincide con la base objetivo. Haz un backup completo y verificado, detén los plugins BanSystem y prueba primero sobre un clon sin datos personales. El DDL hace commits implícitos; si falla o necesitas volver atrás, restaura el backup completo. No reviertas solo `version_num` ni uses este script con otro esquema.
 
 ## Nota
 

@@ -217,9 +217,13 @@ public void BSAccess_OnAddBanCompleted(Database db, DBResultSet rsResult, const 
 		int iAdminAccountId;
 		BSAccess_GetAdminAuditData(iAdmin, iAdminAccountId, szAdminName, sizeof(szAdminName), szAdminSteamId64, sizeof(szAdminSteamId64));
 		int iExpireTs = (iLength > 0) ? (GetTime() + (iLength * 60)) : 0;
-		BSAccess_PrintClientBanConsoleCard(iLiveTarget, iLength, szReason, szContext, szAdminName, iExpireTs);
 		char szKickMessage[192];
-		Format(szKickMessage, sizeof(szKickMessage), "%T", "BSAccessKickMessage", iLiveTarget);
+		BSAccess_FormatKickMessage(iLiveTarget, true, szKickMessage, sizeof(szKickMessage));
+		if (!szKickMessage[0])
+			strcopy(szKickMessage, sizeof(szKickMessage), "Access denied");
+
+		BSAccess_PrintClientBanConsoleCard(iLiveTarget, iLength, szReason, szContext, szAdminName, iExpireTs);
+		BSAccess_PrintClientConsoleLine(iLiveTarget, "%s", szKickMessage);
 		KickClient(iLiveTarget, "%s", szKickMessage);
 	}
 

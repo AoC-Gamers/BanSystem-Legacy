@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.2.3
+
+- Access: agrega `sm_bs_access_health` para consultar estado de base de datos, validacion, reintentos y Core sin exponer credenciales
+
+## 1.2.2
+
+- Access: corrige la validacion de callbacks SQL usando comparacion de conexion; conserva watchdog y reintentos para fallos reales
+
+- Core 1.2.1: valida callbacks SQL por conexion subyacente, no por identidad del handle clonado
+
+## 1.2.1
+
+- Access: protege conexiones y validaciones contra callbacks tardios; reintenta con watchdog y backoff acotado sin reiniciar una conexion valida por cargas repetidas de configuracion
+
+## 1.2.0
+
+- autenticacion MySQL-only: reintentos con generación por ciclo; la caché local no autoriza jugadores
+- esquema: migración versionada para actualizar tablas existentes
+- módulos: Access, Comm y Sprays validan callbacks tardíos con la generación vigente
+
 ## 1.1.0 - 2026-03-18
 
 - runtime SQL
