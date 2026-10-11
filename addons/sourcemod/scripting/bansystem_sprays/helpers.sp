@@ -110,7 +110,7 @@ stock bool BSSprays_CanUseDatabase()
 stock SteamIDToolsProvider BSSprays_GetSteamIdLookupProvider()
 {
 	if (!SteamIDTools_IsLibraryAvailable())
-		return SteamIDToolsProvider_Unknown;
+		return BS_STEAMID_PROVIDER_UNAVAILABLE;
 
 	char szProvider[16];
 	g_cvBSSpraysSteamIdProvider.GetString(szProvider, sizeof(szProvider));
@@ -120,14 +120,14 @@ stock SteamIDToolsProvider BSSprays_GetSteamIdLookupProvider()
 	{
 		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
 			return SteamIDToolsProvider_SteamWorks;
-		return SteamIDToolsProvider_Unknown;
+		return BS_STEAMID_PROVIDER_UNAVAILABLE;
 	}
 
 	if (StrEqual(szProvider, "system2", false))
 	{
 		if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
 			return SteamIDToolsProvider_System2;
-		return SteamIDToolsProvider_Unknown;
+		return BS_STEAMID_PROVIDER_UNAVAILABLE;
 	}
 
 	if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_SteamWorks))
@@ -136,7 +136,7 @@ stock SteamIDToolsProvider BSSprays_GetSteamIdLookupProvider()
 	if (SteamIDTools_IsProviderAvailable(SteamIDToolsProvider_System2))
 		return SteamIDToolsProvider_System2;
 
-	return SteamIDToolsProvider_Unknown;
+	return BS_STEAMID_PROVIDER_UNAVAILABLE;
 }
 
 stock void BSSprays_GetSteamIdProviderName(SteamIDToolsProvider eProvider, char[] szBuffer, int iMaxLength)
@@ -154,7 +154,7 @@ stock void BSSprays_GetSteamIdProviderName(SteamIDToolsProvider eProvider, char[
 
 stock bool BSSprays_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider &eProvider)
 {
-	eProvider = SteamIDToolsProvider_Unknown;
+	eProvider = BS_STEAMID_PROVIDER_UNAVAILABLE;
 
 	if (!SteamIDTools_IsLibraryAvailable())
 	{
@@ -194,7 +194,7 @@ stock bool BSSprays_TryGetSteamIdLookupProvider(int iAdmin, SteamIDToolsProvider
 			eProvider = SteamIDToolsProvider_System2;
 	}
 
-	if (eProvider == SteamIDToolsProvider_Unknown)
+	if (eProvider == BS_STEAMID_PROVIDER_UNAVAILABLE)
 	{
 		CReplyToCommand(iAdmin, "%t", "BSSpraysSteam64Unavailable");
 		return false;

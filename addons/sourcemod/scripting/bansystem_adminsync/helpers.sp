@@ -44,7 +44,7 @@ void vAdminSyncCReplyToCommandWithSource(int iClient, ReplySource eReplySource, 
 
 bool bTryGetSteamIdLookupProvider(int iClient, SteamIDToolsProvider &eProvider)
 {
-	eProvider = SteamIDToolsProvider_Unknown;
+	eProvider = BS_STEAMID_PROVIDER_UNAVAILABLE;
 
 	if (!SteamIDTools_IsLibraryAvailable())
 	{
@@ -88,7 +88,7 @@ bool bTryGetSteamIdLookupProvider(int iClient, SteamIDToolsProvider &eProvider)
 		}
 	}
 
-	if (eProvider == SteamIDToolsProvider_Unknown)
+	if (eProvider == BS_STEAMID_PROVIDER_UNAVAILABLE)
 	{
 		CReplyToCommand(iClient, "%t", "BSAdminSyncSteam64Unavailable");
 		return false;
@@ -113,7 +113,7 @@ bool bTryGetSteamIdLookupProvider(int iClient, SteamIDToolsProvider &eProvider)
 
 bool bTryGetSteamIdLookupProviderSilent(SteamIDToolsProvider &eProvider)
 {
-	eProvider = SteamIDToolsProvider_Unknown;
+	eProvider = BS_STEAMID_PROVIDER_UNAVAILABLE;
 
 	if (!SteamIDTools_IsLibraryAvailable())
 	{

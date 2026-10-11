@@ -10,6 +10,9 @@
 #define BANSYSTEM_LOG_FOLDER_PATH BANSYSTEM_LOG_FOLDER
 #define BANSYSTEM_NORMAL_LOG_FILE "logs/bansystem.log"
 
+// Keep the local missing-provider sentinel distinct from SteamIDTools Auto (0).
+#define BS_STEAMID_PROVIDER_UNAVAILABLE view_as<SteamIDToolsProvider>(-1)
+
 enum BSLogMode
 {
 	kBSLogMode_Off = 0,

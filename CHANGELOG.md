@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Sincroniza SteamIDTools con 2.5.0 y separa el stock offline del include de API; conserva los helpers de argumentos.
+- La selección local de transporte usa un sentinel propio de proveedor ausente, separado de `SteamIDToolsProvider_Auto`.
+
 ## 1.2.3
 
 - Access: agrega `sm_bs_access_health` para consultar estado de base de datos, validacion, reintentos y Core sin exponer credenciales

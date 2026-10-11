@@ -1,7 +1,6 @@
 /*
 	steamidtools_helpers.inc
 	Copyright (C) 2026 AoC-Gamers
-	Version: 1.0.0
 */
 
 #if defined _steamidtools_helpers_included
@@ -9,9 +8,7 @@
 #endif
 #define _steamidtools_helpers_included
 
-#include <steamidtools>
-
-#define STEAMIDTOOLS_HELPERS_INCLUDE_VERSION "1.0.0"
+#include <steamidtools_stock>
 
 /**
  * Returns a command argument trimmed and without surrounding quotes.
